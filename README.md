@@ -31,14 +31,11 @@
 **Guidewire DEVTrails Hackathon 2026**  
 *Protecting gig worker income from external disruptions using AI-driven parametric insurance.*
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
+<img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png" width="100%">
 
 ## 💬 What Riders Say
 
-
 <div style="background:linear-gradient(145deg,#161b22,#1f2933); padding:25px; border-radius:12px; border:1px solid #30363d;">
-
-
 
 <table>
 <tr>
@@ -61,8 +58,7 @@
 </tr>
 </table>
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
-
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 <table>
 <tr>
@@ -85,8 +81,7 @@
 </tr>
 </table>
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
-
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 <table>
 <tr>
@@ -109,8 +104,7 @@
 </tr>
 </table>
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
-
+<img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png" width="100%">
 
 </div>
 
@@ -140,8 +134,8 @@
 | 👥 | [Team](#-team) |
 
 </div>
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
 
+<img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png" width="100%">
 
 ## 🔍 Problem Overview
 
@@ -177,7 +171,7 @@ During Disruptions
 
 </div>
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 
 ## 🧱 Barriers Gig Workers Face
@@ -215,7 +209,7 @@ A structural analysis of the compounding vulnerabilities that leave delivery par
 </tr>
 </table>
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 
 ## ⚡ Disruption Types
@@ -244,7 +238,7 @@ GigHood identifies and responds to **two primary classes of disruptions** that h
 | 🏪 &nbsp;Sudden market closures | Vendor hubs shut without notice | Fulfillment chain broken |
 | 🛑 &nbsp;Mobility restriction orders | Vehicle bans in key areas | Last-mile delivery impossible |
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 
 ### 📋 How Every Disruption Leads to the Same Outcome
@@ -264,6 +258,9 @@ GigHood identifies and responds to **two primary classes of disruptions** that h
 +------------------------------------------------------------------------+
 ```
 
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
+
+
 ## Why Q-Commerce Workers, Specifically
 
 The choice of Q-commerce over food delivery or e-commerce is a deliberate design decision, not a label. Three structural properties make this persona the strongest fit for parametric insurance:
@@ -281,7 +278,7 @@ The choice of Q-commerce over food delivery or e-commerce is a deliberate design
 
 </div>
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
+<img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png" width="100%">
 
 ## 🚀 Proposed Solution — gigHood
 
@@ -303,7 +300,7 @@ The choice of Q-commerce over food delivery or e-commerce is a deliberate design
 
 </div>
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 
 ### 01 · 🔍 AI-Powered Risk Intelligence Layer
@@ -321,7 +318,7 @@ The brain of AEGIS — continuously ingesting and analysing real-world data to p
 **Capabilities:** Next-day & weekly income prediction · Disruption probability scoring · Income loss estimation · Optimal plan recommendation
 
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 ### 02 · 🛡️ Flexible Micro-Insurance — Weekly Protection Plans
 
@@ -338,7 +335,7 @@ Affordable, short-term policies designed around the weekly earning rhythm of gig
 </div>
 
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 ### 03 · ⚡ Automated Claim Triggering & Instant Payouts
 
@@ -379,7 +376,7 @@ Automated Lifecycle
 ✅ &nbsp;Zero paperwork &nbsp;&nbsp; ✅ &nbsp;No claim filing &nbsp;&nbsp; ✅ &nbsp;Near real-time compensation
 
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 ### 04 · 📱 Worker-Centric Smart Application
 
@@ -397,7 +394,7 @@ A mobile-first app designed for simplicity, accessibility, and real impact.
 **User Flow:** `Login → Dashboard → Risk Prediction → Recommendation → Policy Activation → Auto Protection`
 
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 ### 05 · 🤖 Smart Protection Mode
 
@@ -413,7 +410,7 @@ Continuous risk monitoring (24/7)
 Workers remain protected **without any manual intervention** — eliminating missed coverage windows.
 
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 ### 06–10 · Additional Platform Pillars
 
@@ -426,7 +423,7 @@ Workers remain protected **without any manual intervention** — eliminating mis
 | 10 | 🧠 Unified Architecture | Worker App → Backend APIs → AI Engine → External Data |
 
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 
 ## 3. System Architecture
@@ -483,7 +480,7 @@ flowchart TD
 Each layer is independently deployable and testable. Signal ingestion uses free-tier APIs with mock fallbacks for demo purposes. The spatial layer runs on PostGIS with H3 extension. The claims engine is stateless and event-driven, with DCI recomputation scheduled via APScheduler running inside the FastAPI process.
 
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 ## 4. The Demand Collapse Index — Our Core Intelligence
 
@@ -528,7 +525,7 @@ The 0.85 threshold is not arbitrary. It is initialized based on the historical D
 It is important to be precise about what the ML model does and does not do. XGBoost performs two specific tasks: (1) **risk band classification** — assigning each worker to Tier A, B, or C using features including their zone's 12-week DCI history, seasonal weather patterns, proximity to flood-prone areas, and historical claim frequency; and (2) **DCI weight optimization** — updating the α, β, γ, δ coefficients weekly based on actual disruption outcomes. The DCI computation itself is a deterministic sigmoid over those weights — it is not a neural network and does not hallucinate outputs. This distinction matters for regulatory compliance and auditability.
 
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 ## 5. Parametric Triggers
 
@@ -552,7 +549,7 @@ flowchart LR
 
 Each trigger is independently monitorable and logged. This means a weather-only event (trigger 1 fires, others do not) still flows through the DCI and may or may not cross the 0.85 threshold depending on contextual signals — preventing single-signal false positives while maintaining independent auditability.
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 ## 6. Weekly Pricing Model
 
@@ -610,7 +607,7 @@ When the DCI forecast for the *next* week exceeds 0.75 (indicating elevated disr
 This is strictly a weekly pricing decision — the worker is choosing their tier for the next billing week, not purchasing a one-off daily add-on. This preserves the weekly pricing constraint while giving workers financial agency before a foreseeable disruption. The upgrade is voluntary, irreversible for that week once confirmed, and processed as a standard weekly premium payment through the same UPI auto-debit channel.
 
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 ## 7. Zero-Touch Claims Automation
 
@@ -657,7 +654,7 @@ Workers declare their average daily earnings at onboarding. This is cross-refere
 If fewer than 3 of 5 signal sources are available at computation time (e.g., a traffic API outage or a government feed delay), the DCI computation is paused for that hex and the system enters **degraded monitoring mode**. Workers in the affected hex receive a push notification: *"Equix is monitoring your zone with reduced signal coverage. Coverage remains active. We will notify you when full monitoring resumes."* Claims are not auto-denied during degraded mode — they are queued for manual review with a 2-hour SLA. This prevents false denials caused by infrastructure failures rather than genuine absence of disruption.
 
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 ## 8. Fraud Detection — Time-Decay Proof of Presence
 
@@ -701,7 +698,7 @@ Beyond zone-hopping, Equix applies three secondary checks at the claim processin
 **Coordinated claim clustering.** If 100% of policyholders in a hex claim on the same event, this is expected and correct. If only a suspiciously small subset claims (e.g., 3 out of 80 active workers), the 3 outliers are flagged — real disruptions affect all workers in a zone, not a precise subset.
 
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 ## 9. Proactive Coverage Alerts
 
@@ -731,7 +728,7 @@ This serves three purposes simultaneously:
 3. **Financial agency.** Gig workers currently have no tools to manage income risk proactively. Equix gives them a weekly decision they can make with full information — the risk score, the cost, and the upside — before a disruption hits.
 
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
+<img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png" width="100%">
 
 ## 👤 Persona & Scenario
 
@@ -783,7 +780,7 @@ Wednesday Evening
 GigHood automatically recommends **Rain + Cyclone coverage** for Priya based on her city's regional risk profile — without requiring her to understand policy terms.
 
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 ## 📐 Parametric Insurance Model
 
@@ -824,7 +821,7 @@ Worker notified via WhatsApp + push notification
 
 **No claim. No form. No delay.**
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 ## 💰 Weekly Premium Model
 
@@ -855,7 +852,7 @@ Premiums recalculate every week based on live signals:
 **Example:** Ravi in Bengaluru during peak monsoon (July) — Pro plan: ₹149 vs. dry season: ₹109.
 
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 ## 🎯 Parametric Triggers
 
@@ -875,7 +872,7 @@ GigHood monitors multiple real-world signals continuously. Payouts activate auto
 > When multiple triggers activate simultaneously, payouts are **additive up to the weekly maximum**, scaled by a disruption severity multiplier.
 
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 ## 🤖 AI/ML Integration
 
@@ -976,7 +973,7 @@ Worker speaks  →  "What happens if it rains tomorrow?"
 **Supported languages:** Hindi · Kannada · Tamil · Telugu · English
 
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
+<img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png" width="100%">
 
 ## 📱 Application Workflow
 
@@ -1019,7 +1016,8 @@ Trigger event detected
   └── Total time: < 90 seconds
 ```
 
----
+<img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png" width="100%">
+
 
 ## 🏗️ Tech Stack & Architecture
 
@@ -1086,7 +1084,7 @@ Trigger event detected
 | Auth Service | Aadhaar OTP, JWT, device fingerprinting |
 
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
+<img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png" width="100%">
 
 ## 🗓️ Development Plan
 
@@ -1134,7 +1132,7 @@ Trigger event detected
 - [ ] Final submission preparation
 
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
+<img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png" width="100%">
 
 ## 📈 Business Viability
 
@@ -1169,7 +1167,7 @@ At 100,000 active workers  →  Rs.3 crore+ gross margin per week
 
 
 
-<hr style="border: none; height: 2px; background: linear-gradient(to right, transparent, #db8947, transparent);">
+<img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png" width="100%">
 
 ## 👥 Team
 
@@ -1190,30 +1188,36 @@ At 100,000 active workers  →  Rs.3 crore+ gross margin per week
 <br/><b>Vishnu Gupta</b>
 <br/><sub>Team Leader</sub>
 </td>
+  
 <td align="center" width="160">
-<img src="https://api.dicebear.com/7.x/initials/svg?seed=AK&backgroundColor=0f6e56&textColor=ffffff" width="64" height="64" style="border-radius:50%"/>
+<img width="1760" height="2432" alt="Gemini_Generated_Image_gyblrgyblrgyblrg" src="https://github.com/user-attachments/assets/92e6b236-f03c-4b02-bf6d-8983565c5914" />
 <br/><b>Abhay Kumar</b>
 <br/><sub>Team Member</sub>
 </td>
+
 <td align="center" width="160">
 <img src="https://api.dicebear.com/7.x/initials/svg?seed=AA&backgroundColor=534ab7&textColor=ffffff" width="64" height="64" style="border-radius:50%"/>
 <br/><b>Ananya Agarwal</b>
 <br/><sub>Team Member</sub>
 </td>
+
 <td align="center" width="160">
-<img src="https://api.dicebear.com/7.x/initials/svg?seed=KS&backgroundColor=993c1d&textColor=ffffff" width="64" height="64" style="border-radius:50%"/>
+
 <br/><b>Krishna Somani</b>
 <br/><sub>Team Member</sub>
 </td>
+
 <td align="center" width="160">
-<img src="https://api.dicebear.com/7.x/initials/svg?seed=PK&backgroundColor=854f0b&textColor=ffffff" width="64" height="64" style="border-radius:50%"/>
-<br/><b>Praveen Kumar</b>
+
+  <br/><b>Praveen Kumar</b>
 <br/><sub>Team Member</sub>
 </td>
+
 </tr>
 </table>
 
----
+<img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png" width="100%">
+
 
 <div align="center">
 
@@ -1226,3 +1230,6 @@ At 100,000 active workers  →  Rs.3 crore+ gross margin per week
 ![MIT License](https://img.shields.io/badge/License-MIT-a855f7?style=for-the-badge)
 
 </div>
+
+<img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png" width="100%">
+
