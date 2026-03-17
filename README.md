@@ -109,39 +109,117 @@
 
 ---
 
-## 1. Problem Statement
 
-India's gig economy employs **15+ million delivery workers**, powering platforms like Swiggy, Zomato, Zepto, Blinkit, and Amazon Flex. Despite being the backbone of India's on-demand economy, these workers have virtually no income protection.
+## 🔍 Problem Overview
 
-### The Disruption Reality
+<div align="center">
 
-| Disruption Event | Income Impact |
-|---|---|
-| Heavy Rain (>35mm/hr) | 50–80% drop in orders |
-| Flood or Disaster Alert | Work stops completely |
-| Heatwave (>44°C) | Unsafe working conditions |
-| Hazardous AQI (>400) | Outdoor work impossible |
-| Curfew / Bandh | Zero mobility, zero income |
-| Platform Outage | No orders receivable |
+<img src="https://readme-typing-svg.demolab.com?font=Syne&weight=700&size=22&pause=1000&color=38BDF8&center=true&vCenter=true&width=700&lines=India's+gig+workers+deliver+everything...;...except+financial+safety.;Millions+work+without+a+safety+net.;One+disruption.+Zero+income." alt="Typing SVG"/>
 
-A single disruption day causes a **₹600–₹1,200 income loss** for an average gig worker.
+</div>
 
-### Why Traditional Insurance Fails
+<br/>
 
-- **Monthly premiums** do not match gig workers' weekly cash flow
-- **Proof of income required** — gig workers lack formal employment records
-- **Long claim settlement times** — workers cannot wait weeks for reimbursement
-- **Manual claim filing** — workers lack time, documentation, and digital literacy for claim processes
+India's gig economy is the invisible engine behind on-demand urban life. Millions of delivery partners working with **Zomato**, **Swiggy**, **Amazon**, **Flipkart**, **Zepto**, and **Dunzo** ensure fast, reliable fulfillment — yet they operate entirely **without a stable financial safety net**.
 
-### The Gap
+Unlike salaried employees, gig workers are compensated **strictly per delivery or per hour worked.** When the environment turns hostile — weather, pollution, civil unrest — they simply **stop earning.**
+
+<div align="center">
+
+> ### 📉 External disruptions reduce a delivery partner's earnings by **20–30% of monthly income**
+> *Studies and platform reports consistently confirm this figure across Indian metros.*
+
+</div>
+
+---
+
+## 🧱 Barriers Gig Workers Face
+
+A structural analysis of the compounding vulnerabilities that leave delivery partners financially exposed during operational disruptions.
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### 👷 Worker-Level Barriers
+
+| # | Issue |
+|:--|:------|
+| 01 | No compensation during forced work stoppages |
+| 02 | Daily-earning dependency — **zero financial buffer** |
+| 03 | Forced to choose between **safety** and **survival** |
+| 04 | No short-term income loss insurance product exists |
+| 05 | Even a few-hour disruption causes immediate strain |
+
+</td>
+<td width="50%" valign="top">
+
+### 🏗️ Systemic Barriers
+
+| # | Issue |
+|:--|:------|
+| 01 | Traditional insurance is **slow, complex, dispute-prone** |
+| 02 | No product aligned to **weekly earning cycles** |
+| 03 | Fraudulent claims risk without smart verification |
+| 04 | No dynamic pricing based on real-time risk |
+| 05 | No automated disruption detection pipeline |
+
+</td>
+</tr>
+</table>
+
+---
+
+## ⚡ Disruption Types
+
+GigShield identifies and responds to **two primary classes of disruptions** that halt delivery operations and eliminate gig worker income:
+
+### 🌧️ Environmental Disruptions
+
+| Disruption | Mechanism | Impact |
+|:-----------|:----------|:-------|
+| 🌧️ &nbsp;Extreme rainfall & flooding | Roads become impassable | Delivery routes blocked entirely |
+| 🌡️ &nbsp;Severe heatwaves | Outdoor temps exceed safety thresholds | Platform suspends operations |
+| 🌫️ &nbsp;Hazardous AQI spikes | Air quality crosses danger limits | Workers stop to avoid health risk |
+| 🌀 &nbsp;Cyclones & storms | High-wind unsafe for two-wheelers | All outdoor operations halted |
+| 🚧 &nbsp;Waterlogged routes | Key corridors flooded | GPS routes unusable |
+
+<br/>
+
+### 🚦 Social & Administrative Disruptions
+
+| Disruption | Mechanism | Impact |
+|:-----------|:----------|:-------|
+| 🚫 &nbsp;Government-imposed curfews | Movement legally restricted | Zero pickups or drop-offs possible |
+| ✊ &nbsp;Local strikes & bandhs | Coordinated shutdowns | Vendor hubs and drop points closed |
+| 📣 &nbsp;Political protests | Blocked roads, unsafe conditions | Routing impossible in affected zones |
+| 🏪 &nbsp;Sudden market closures | Vendor hubs shut without notice | Fulfillment chain broken |
+| 🛑 &nbsp;Mobility restriction orders | Vehicle bans in key areas | Last-mile delivery impossible |
+
+---
+
+### 📋 How Every Disruption Leads to the Same Outcome
 
 ```
-< 3%   gig workers have any income protection
-< 2    weeks of savings held by most workers
-  0    insurance products designed specifically for gig workers
++------------------------------------------------------------------------+
+|                                                                        |
+|  Heavy Rain  ->  Roads unsafe        ->  Deliveries halted   ->  Rs.0  |
+|  High AQI    ->  Outdoor work risky  ->  Platform suspends   ->  Rs.0  |
+|  Heatwave    ->  Safety hazard       ->  Operations paused   ->  Rs.0  |
+|  Curfew      ->  Movement blocked    ->  No pickups/drops    ->  Rs.0  |
+|  Bandh       ->  Hubs closed         ->  No fulfillment      ->  Rs.0  |
+|                                                                        |
+|    Every disruption type  ->  Same outcome for gig workers             |
+|               ZERO earnings.    ZERO protection.                       |
+|                                                                        |
++------------------------------------------------------------------------+
 ```
 
-**Gig workers need instant income protection — not traditional insurance.**
+<div align="center">
+
+<img src="https://readme-typing-svg.demolab.com?font=Syne&weight=700&size=16&pause=2000&color=EF4444&center=true&vCenter=true&width=600&lines=This+is+the+problem+GigShield+solves.;Automated.+Instant.+AI-powered+protection." alt="CTA Typing SVG"/>
+
+</div>
 
 ---
 
@@ -695,11 +773,3 @@ Building the future of financial protection for gig workers in India through AI-
 | Praveen Kumar | Team Member |
 
 ---
-
-<div align="center">
-
-**GigHood — Protecting Gig Worker Income with AI**
-
-*No claims. No forms. No delays. Just protection.*
-
-</div>
