@@ -1136,6 +1136,8 @@ Trigger event detected
 
 ## 📈 Business Viability
 
+<img width="1340" height="467" alt="Image" src="https://github.com/user-attachments/assets/5c39641b-950e-436b-81b3-50eb8fbadb25" />
+
 ### Market Opportunity
 
 | Metric | Value |
