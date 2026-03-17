@@ -261,6 +261,11 @@ GigHood identifies and responds to **two primary classes of disruptions** that h
 <img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 
+<table>
+<tr>
+
+<td width="65%" valign="top">
+
 ## Why Q-Commerce Workers, Specifically
 
 The choice of Q-commerce over food delivery or e-commerce is a deliberate design decision, not a label. Three structural properties make this persona the strongest fit for parametric insurance:
@@ -270,6 +275,17 @@ The choice of Q-commerce over food delivery or e-commerce is a deliberate design
 **Predictable disruption correlation.** Q-commerce orders are highly weather-elastic. A 35mm/hr rainfall event does not slow deliveries — it stops them entirely, because two-wheelers cannot safely navigate flooded lanes at speed within a 10-minute SLA. The income-disruption relationship is measurable and consistent, which makes parametric triggers reliable rather than approximate.
 
 **High disruption frequency, low per-event loss.** Unlike a hurricane (catastrophic, rare), Q-commerce workers face moderate disruptions 3–6 times per month in monsoon-affected cities. This frequency makes weekly micro-insurance financially natural and actuarially manageable.
+
+</td>
+
+<td width="35%" align="center">
+
+<img src="https://github.com/user-attachments/assets/e68548fe-a13f-461a-8efb-ace894a2c922" width="320"/>
+
+</td>
+
+</tr>
+</table>
 
 
 <div align="center">
@@ -1136,7 +1152,7 @@ Trigger event detected
 
 ## 📈 Business Viability
 
-<img width="1340" height="467" alt="Image" src="https://github.com/user-attachments/assets/5c39641b-950e-436b-81b3-50eb8fbadb25" />
+<img width="1000" height="467" alt="Image" src="https://github.com/user-attachments/assets/5c39641b-950e-436b-81b3-50eb8fbadb25" />
 
 ### Market Opportunity
 
@@ -1185,33 +1201,44 @@ At 100,000 active workers  →  Rs.3 crore+ gross margin per week
 
 <table align="center">
 <tr>
+
 <td align="center" width="160">
-<img src="https://api.dicebear.com/7.x/initials/svg?seed=VG&backgroundColor=0f4c81&textColor=ffffff" width="64" height="64" style="border-radius:50%"/>
+<img src="https://github.com/user-attachments/assets/b6cb8da1-287a-422b-8e34-467d9a32b2af"
+width="120" height="120"
+style="border-radius:50%; object-fit:cover;" />
 <br/><b>Vishnu Gupta</b>
 <br/><sub>Team Leader</sub>
 </td>
-  
+
 <td align="center" width="160">
-<img width="1760" height="2432" alt="Gemini_Generated_Image_gyblrgyblrgyblrg" src="https://github.com/user-attachments/assets/92e6b236-f03c-4b02-bf6d-8983565c5914" />
+<img src="https://github.com/user-attachments/assets/92e6b236-f03c-4b02-bf6d-8983565c5914"
+width="120" height="120"
+style="border-radius:50%; object-fit:cover;" />
 <br/><b>Abhay Kumar</b>
 <br/><sub>Team Member</sub>
 </td>
 
 <td align="center" width="160">
-<img src="https://api.dicebear.com/7.x/initials/svg?seed=AA&backgroundColor=534ab7&textColor=ffffff" width="64" height="64" style="border-radius:50%"/>
+<img src="https://github.com/user-attachments/assets/1c6e82f5-3f00-40f4-b316-f34b305076d4"
+width="120" height="120"
+style="border-radius:50%; object-fit:cover;" />
 <br/><b>Ananya Agarwal</b>
 <br/><sub>Team Member</sub>
 </td>
 
 <td align="center" width="160">
-
+<img src="https://github.com/user-attachments/assets/2f22ccfc-d1d9-4879-8a11-d738ba8f6e65"
+width="120" height="120"
+style="border-radius:50%; object-fit:cover;" />
 <br/><b>Krishna Somani</b>
 <br/><sub>Team Member</sub>
 </td>
 
 <td align="center" width="160">
-
-  <br/><b>Praveen Kumar</b>
+<img src="https://github.com/user-attachments/assets/58ec2843-bdb7-4edf-9f10-be321bac6b63"
+width="120" height="120"
+style="border-radius:50%; object-fit:cover;" />
+<br/><b>Praveen Kumar</b>
 <br/><sub>Team Member</sub>
 </td>
 
@@ -1219,7 +1246,6 @@ At 100,000 active workers  →  Rs.3 crore+ gross margin per week
 </table>
 
 <img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png" width="100%">
-
 
 <div align="center">
 
