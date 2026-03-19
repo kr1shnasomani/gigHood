@@ -18,14 +18,16 @@
 
 ![Zepto](https://img.shields.io/badge/Zepto-9B59B6?style=flat-square&logoColor=white)
 ![Blinkit](https://img.shields.io/badge/Blinkit-F7D000?style=flat-square&logoColor=black)
-![Dunzo](https://img.shields.io/badge/Dunzo-00B386?style=flat-square&logoColor=white)
 
 </div>
 
 <img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png" width="100%">
 
-
 <div align="center">
+
+# gigHood
+
+### AI-Powered Parametric Income Insurance for Gig Workers
 
 🎥 **[Phase 1 Pitch Video — Watch Here](YOUR_LINK_HERE)**
 
@@ -42,7 +44,6 @@
 
 - [📌 TL;DR](#-tldr)
 - [📊 The Reality in Numbers](#-the-reality-in-numbers)
-- [💬 What Riders Say](#-what-riders-say)
 
 </details>
 
@@ -67,7 +68,6 @@
 - [04 · Worker-Centric Smart Application](#04--worker-centric-smart-application)
 - [05 · Smart Protection Mode](#05--smart-protection-mode)
 - [06 · AI Chatbot Assistant](#06--ai-chatbot-assistant)
-- [07–10 · Additional Platform Pillars](#0710--additional-platform-pillars)
 - [System Architecture](#system-architecture)
 
 </details>
@@ -109,6 +109,9 @@
 
 - [📊 Analytics Dashboard](#-analytics-dashboard)
 - [📈 Business Viability](#-business-viability)
+- [✅ Compliance with Problem Statement Constraints](#-compliance-with-problem-statement-constraints)
+- [🎯 MVP Demo Scope — Built vs Mocked](#-mvp-demo-scope--built-vs-mocked)
+- [📏 Target Success Metrics](#-target-success-metrics)
 - [👥 Team](#-team)
 
 </details>
@@ -151,93 +154,6 @@
 </div>
 
 <img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png" width="100%">
-
-## 💬 What Riders Say
-
-<div style="background:linear-gradient(145deg,#161b22,#1f2933); padding:25px; border-radius:12px; border:1px solid #30363d;">
-
-<table>
-<tr>
-<td width="100" align="center" valign="top">
-<br>
-<img src="https://api.dicebear.com/7.x/personas/svg?seed=rider1" width="68" height="68" />
-<br><br>
-<b>⭐⭐</b>
-</td>
-<td valign="top">
-<br>
-
-*❝ When heavy rain hits the city, deliveries slow down or stop completely. That means losing an entire day's earnings. A safety net for days like this would make a huge difference for workers like us. ❞*
-
-**Ravi Kumar**
-<br>
-🛵 Food Delivery Partner
-
-</td>
-</tr>
-</table>
-
-<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
-
-<table>
-<tr>
-<td width="100" align="center" valign="top">
-<br>
-<img src="https://api.dicebear.com/7.x/personas/svg?seed=rider2" width="68" height="68" />
-<br><br>
-<b>⭐⭐</b>
-</td>
-<td valign="top">
-<br>
-
-*❝ Some days the heat or pollution becomes unbearable. We cannot ride for long hours, but the bills don't stop. Income protection during such days would change everything. ❞*
-
-**Arjun Singh**
-<br>
-🛒 Grocery Delivery Rider
-
-</td>
-</tr>
-</table>
-
-<div align="right">
-
-
-
-</div>
-
-<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
-
-<table>
-<tr>
-<td width="100" align="center" valign="top">
-<br>
-<img src="https://api.dicebear.com/7.x/personas/svg?seed=rider3" width="68" height="68" />
-<br><br>
-<b>⭐⭐⭐</b>
-</td>
-<td valign="top">
-<br>
-
-*❝ When sudden curfews or local shutdowns happen, deliveries stop and we lose the entire day's income. Having an automated insurance system for these disruptions would provide real peace of mind. ❞*
-
-**Imran Shaikh**
-<br>
-📦 E-commerce Delivery Partner
-
-</td>
-</tr>
-</table>
-
-<div align="right">
-
-[⬆ Back to Top](#table-of-contents)
-
-</div>
-
-<img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png" width="100%">
-
-</div>
 
 ## 🔍 Problem Overview
 
@@ -287,10 +203,6 @@ During Disruptions
 
 A structural analysis of the compounding vulnerabilities that leave delivery partners financially exposed during operational disruptions.
 
-<table>
-<tr>
-<td width="50%" valign="top">
-
 ### 👷 Worker-Level Barriers
 
 | # | Issue |
@@ -301,9 +213,6 @@ A structural analysis of the compounding vulnerabilities that leave delivery par
 | 04 | No short-term income loss insurance product exists |
 | 05 | Even a few-hour disruption causes immediate strain |
 
-</td>
-<td width="50%" valign="top">
-
 ### 🏗️ Systemic Barriers
 
 | # | Issue |
@@ -313,10 +222,6 @@ A structural analysis of the compounding vulnerabilities that leave delivery par
 | 03 | Fraudulent claims risk without smart verification |
 | 04 | No dynamic pricing based on real-time risk |
 | 05 | No automated disruption detection pipeline |
-
-</td>
-</tr>
-</table>
 
 <div align="right">
 
@@ -382,8 +287,6 @@ gigHood identifies and responds to **two primary classes of disruptions** that h
   
 <div align="right">
 
-[⬆ Back to Top](#table-of-contents)
-
 </div>
 
 ## 🧠 Why Q-Commerce Workers, Specifically
@@ -411,7 +314,7 @@ The choice of Q-commerce over food delivery or e-commerce is a deliberate design
 
 <div align="center">
 
-<img src="https://readme-typing-svg.demolab.com?font=Syne&weight=700&size=15&pause=2000&color=EF4444&center=true&vCenter=true&width=600&lines=This+is+the+problem+GigHood+solves.;Automated.+Instant.+AI-powered+protection." alt="CTA Typing SVG"/>
+<img src="https://readme-typing-svg.demolab.com?font=Syne&weight=700&size=15&pause=2000&color=EF4444&center=true&vCenter=true&width=600&lines=This+is+the+problem+gigHood+solves.;Automated.+Instant.+AI-powered+protection." alt="CTA Typing SVG"/>
 
 </div>
 
@@ -617,18 +520,6 @@ The chatbot is powered by the Claude API with the worker's policy context, curre
 
 **Supported languages:** Hindi · Kannada · Tamil · Telugu · English
 
-<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
-
-### 07–10 · Additional Platform Pillars
-
-| Pillar | Feature | Description |
-|:------:|:--------|:------------|
-| 07 | 📊 Financial Health | Stability insights |
-| 08 | 🗺️ Safety Radar | Zone-level mapping |
-| 09 | 🏛️ Govt Schemes | Welfare integration |
-| 10 | 🔐 Fraud Detection | Proof-of-Presence model |
-
-
 <div align="right">
 
 [⬆ Back to Top](#table-of-contents)
@@ -640,7 +531,7 @@ The chatbot is powered by the Claude API with the worker's policy context, curre
 
 ## System Architecture
 
-The platform is composed of five layers: signal ingestion, spatial intelligence, policy and pricing, claims automation, and the payout and dashboard layer.
+The platform is composed of five primary layers — signal ingestion, spatial intelligence, policy and pricing, claims automation, and payout and dashboard — with an integrated fraud intelligence layer embedded within the claims engine.
 
 ```mermaid
 flowchart TD
@@ -968,7 +859,7 @@ flowchart TD
 
 ### Additional Fraud Gates
 
-Beyond zone-hopping, Equix applies three secondary checks at the claim processing stage:
+Beyond zone-hopping, gigHood applies three secondary checks at the claim processing stage:
 
 **Earnings inflation detection.** Declared daily earnings are compared against the zone's 90th percentile. Declarations above the 90th percentile trigger a soft flag and require secondary validation before payout (not auto-denial — gig workers at peak performance genuinely earn more).
 
@@ -1526,7 +1417,7 @@ This serves three purposes simultaneously:
   > *"₹480 credited — income protected"*  
 - No claim filed  
 - No manual action required  
-- ✅ Fully automated protect
+- ✅ Fully automated protection
 <img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 ### Priya Sharma — Secondary Persona
@@ -1636,7 +1527,7 @@ gigHood’s **H3 spatial model + DCI engine** aligns directly with this operatio
     UPI transfer executed via Razorpay
             |
             v
-    Worker notified via app + WhatsApp
+    Worker notified via app + FCM push notification
 
 **No claim. No paperwork. No delay.**
 <img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
@@ -1654,7 +1545,11 @@ gigHood uses controlled and explainable machine learning.
 | Disruption Forecasting | Rolling average + seasonal index | Predicts next-week zone risk for proactive tier upgrade alerts — no LSTM required at MVP stage |
 | Fraud Anomaly Detection | Rule-based + statistical thresholds | Claim frequency anomaly, earnings inflation, coordinated cluster detection |
 
-> The DCI computation itself is a **deterministic sigmoid** over ML-optimized weights — not a black-box neural network. This makes it auditable, explainable, and IRDAI-compliant.
+> The DCI computation itself is a **deterministic sigmoid** over ML-optimized weights — not a black-box neural network. This makes it auditable and explainable — a deliberate design choice for regulatory review.
+
+### Regulatory Pathway
+
+Parametric income insurance for gig workers sits in a grey area under current IRDAI regulations — we do not claim blanket compliance. gigHood's production pathway would operate under **IRDAI's Regulatory Sandbox framework** (Insurance Regulatory and Development Authority of India, Regulatory Sandbox Guidelines 2019, updated 2023), which permits innovative insurance products to operate under a supervised pilot licence for up to three years. The income-loss parametric structure would be co-underwritten with a licensed non-life insurer holding the risk, with gigHood acting as the technology and distribution layer. This is the same structure used by weather index crop insurance products currently operating in India under IRDAI oversight. Weekly premium collection via UPI is compliant with IRDAI's digital payment norms under the Insurance Amendment Act 2021.
 
 ### Cold-Start Strategy
 
@@ -1825,18 +1720,11 @@ Worker speaks  →  "What happens if it rains tomorrow?"
 
 
 ![React Native](https://img.shields.io/badge/React%20Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
-![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
 ![TailwindCSS](https://img.shields.io/badge/TailwindCSS-0F172A?style=for-the-badge&logo=tailwindcss)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
-![NodeJS](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
 ![XGBoost](https://img.shields.io/badge/XGBoost-F7931E?style=for-the-badge)
-![PyTorch](https://img.shields.io/badge/PyTorch-EF4B28?style=for-the-badge&logo=pytorch)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql)
-![TimescaleDB](https://img.shields.io/badge/TimescaleDB-FDB515?style=for-the-badge)
-![Redis](https://img.shields.io/badge/Redis-D82C20?style=for-the-badge&logo=redis)
-![AWS](https://img.shields.io/badge/AWS-232F3E?style=for-the-badge&logo=amazonaws)
 ![Razorpay](https://img.shields.io/badge/Razorpay-0C2451?style=for-the-badge)
-![WhatsApp](https://img.shields.io/badge/WhatsApp-25D366?style=for-the-badge&logo=whatsapp)
 ![Firebase](https://img.shields.io/badge/Firebase%20FCM-FFCA28?style=for-the-badge&logo=firebase)
 ![Docker](https://img.shields.io/badge/Docker-0db7ed?style=for-the-badge&logo=docker)
 ![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-2088FF?style=for-the-badge&logo=githubactions)
@@ -1850,9 +1738,9 @@ Worker speaks  →  "What happens if it rains tomorrow?"
 | Risk Engine | DCI computation, zone risk scoring |
 | Trigger Monitor | Real-time signal ingestion + threshold detection |
 | Claim Engine | Payout calculation + orchestration |
-| Fraud Detection | Proof-of-Presence validation |
+| Fraud Detection | Proof-of-Presence + compound fraud score validation |
 | Payment Service | Razorpay UPI payouts |
-| Notification Service | WhatsApp + push alerts |
+| Notification Service | FCM push alerts |
 | Auth Service | OTP login, JWT |
 
 
@@ -2002,6 +1890,53 @@ The path to viability is pooling across geographies and seasons — the same pri
 
 <img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png" width="100%">
 
+## ✅ Compliance with Problem Statement Constraints
+
+| PS Constraint | gigHood Implementation |
+|:---|:---|
+| **Income loss only** — no health, vehicle, or accident coverage | DCI triggers income loss payouts exclusively. No health, vehicle repair, accident, or life cover exists anywhere in the system. |
+| **Weekly pricing model strictly** | 4-week rolling DCI average sets tier. Weekly UPI auto-debit. No daily or per-event pricing. Tier upgrades apply to next full billing week. |
+| **Chosen delivery persona — one sub-category** | Q-Commerce only — Zepto and Blinkit dark store partners. Food delivery and e-commerce explicitly excluded. |
+| **3–5 automated parametric triggers** | Five independent triggers: rainfall ≥35mm/hr, AQI >300, traffic gridlock, platform outage, verified curfew/bandh. All feed the DCI composite. |
+| **Automated coverage and payouts** | Zero-touch claims engine. Worker never files a claim. DCI threshold crossing initiates full payout pipeline automatically. |
+| **Intelligent fraud detection** | Compound fraud probability score combining GPS coordinate variance, platform order activity validation, OS-level mock location detection, cross-hex device fingerprint graph, uniform participation anomaly, earnings declaration distribution check, and trust-tiered four-path response framework. |
+
+<img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png" width="100%">
+
+## 🎯 MVP Demo Scope — Built vs Mocked
+
+| Component | Demo Status |
+|:---|:---|
+| DCI computation engine | **Built** — real signal ingestion + sigmoid formula via APScheduler |
+| Weather and AQI signals | **Real** — OpenWeatherMap free tier + CPCB AQI API |
+| Traffic and platform signals | **Mocked** — simulated API responses |
+| H3 spatial grid | **Built** — h3 Python library on Supabase PostGIS |
+| Basic PoP (Phase 2) | **Built** — ping count + zone assignment check |
+| Full adversarial fraud engine (Phase 3) | **Built** — GPS coordinate variance, platform order activity validation, OS-level mock location flag, cross-hex fingerprint graph, compound fraud score |
+| Platform order activity API | **Mocked** — simulated Zepto/Blinkit order history API |
+| Razorpay UPI payouts | **Sandbox** — test mode, not live transactions |
+| XGBoost risk classification | **Built** — trained on synthetic + IMD historical data |
+| Proactive tier upgrade alerts | **Built** — Sunday DCI forecast + weekly tier upgrade prompt |
+| AI Chat Assistant | **Built** — Claude API with worker policy context injection |
+| Admin dashboard | **Built** — Next.js on Vercel free tier |
+| Payout maturation cap | **Built** — enforced at claim calculation stage |
+| Seasonal forecasting model | **Mocked** — rolling average used at MVP; full retrain in production |
+
+<img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png" width="100%">
+
+## 📏 Target Success Metrics
+
+| Metric | Target | How Measured |
+|:---|:---:|:---|
+| Claim trigger accuracy | >90% | DCI threshold correctly identifies halted zones vs ground truth |
+| Fraud false-positive rate | <5% | Legitimate workers wrongly denied by compound fraud engine |
+| Payout latency | <90 seconds | DCI threshold crossing to UPI credit confirmation (Path 1) |
+| PoP validation accuracy | >95% | Zone-hop attempts correctly flagged before payout |
+| Coordinated ring detection rate | >80% | Distributed Telegram-style attacks flagged before payout release via cross-hex fingerprint graph |
+| Target loss ratio at scale | 60–65% | At 3,000+ workers across 20+ hexes, diversified pool (minimum viable threshold) |
+| Worker onboarding time | <3 minutes | Registration to active policy |
+
+<img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png" width="100%">
 
 ## 👥 Team
 
@@ -2065,15 +2000,8 @@ style="border-radius:50%; object-fit:cover;" />
 
 <div align="center">
 
-<img src="https://readme-typing-svg.demolab.com?font=Syne&weight=700&size=15&pause=2000&color=38BDF8&center=true&vCenter=true&width=700&lines=Predict.+Protect.+Pay.+Instantly.;Built+for+the+backbone+of+India's+economy.;GigHood+%E2%80%94+Because+every+delivery+matters." alt="Footer Typing SVG"/>
+<img src="https://readme-typing-svg.demolab.com?font=Syne&weight=700&size=15&pause=2000&color=38BDF8&center=true&vCenter=true&width=700&lines=Predict.+Protect.+Pay.+Instantly.;Built+for+the+backbone+of+India's+economy.;gigHood+%E2%80%94+Because+every+delivery+matters." alt="Footer Typing SVG"/>
 
 <br/>
 
 </div>
-<div align="right">
-
-
-</div>
-
-<img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png" width="100%">
-
