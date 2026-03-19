@@ -478,7 +478,7 @@ gigHood integrates a real-time AI Chat Assistant in Phase 3, making the platform
 
 > *"Workers don't navigate the system — they talk to it."*
 
-The chatbot is powered by the Claude API with the worker's policy context, current DCI score, and last payout injected into each session. It is **read-only and explanatory** — it never files claims or modifies policies.
+The chatbot is powered by the OpenRouter/Groq API with the worker's policy context, current DCI score, and last payout injected into each session. It is **read-only and explanatory** — it never files claims or modifies policies.
 
 | Capability | Description |
 |:-----------|:------------|
@@ -1578,7 +1578,7 @@ Worker speaks  →  "What happens if it rains tomorrow?"
                          |
                          v
           LLM generates plain-language response
-          (Claude / GPT-4 + worker profile context)
+          (OpenRouter/Groq + worker profile context)
                          |
                          v
        Text-to-speech in worker's preferred language
@@ -1675,7 +1675,7 @@ Worker speaks  →  "What happens if it rains tomorrow?"
 - [ ] Adversarial defense layer (GPS spoof detection, coordinated cluster flagging)
 - [ ] Admin dashboard (Next.js on Vercel — live hex map, pool health, claim log)
 - [ ] Proactive tier upgrade alert system (Sunday evening DCI forecast)
-- [ ] AI Chat Assistant (Claude API — policy, payout, and risk explanations in Hindi/English)
+- [ ] AI Chat Assistant (OpenRouter/Groq API — policy, payout, and risk explanations in Hindi/English)
 - [ ] XGBoost weekly retrain pipeline (DCI weight optimization)
 - [ ] Degraded-mode fallback (< 3 signals available)
 - [ ] End-to-end disruption simulation demo
@@ -1798,7 +1798,7 @@ The path to viability is pooling across geographies and seasons — the same pri
 | Razorpay UPI payouts | **Sandbox** — test mode, not live transactions |
 | XGBoost risk classification | **Built** — trained on synthetic + IMD historical data |
 | Proactive tier upgrade alerts | **Built** — Sunday DCI forecast + weekly tier upgrade prompt |
-| AI Chat Assistant | **Built** — Claude API with worker policy context injection |
+| AI Chat Assistant | **Built** — OpenRouter/Groq API with worker policy context injection |
 | Admin dashboard | **Built** — Next.js on Vercel free tier |
 | Payout maturation cap | **Built** — enforced at claim calculation stage |
 | Seasonal forecasting model | **Mocked** — rolling average used at MVP; full retrain in production |
