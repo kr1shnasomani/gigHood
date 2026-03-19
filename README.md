@@ -35,6 +35,86 @@
 <img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png" width="100%">
 
 
+## 📚 Table of Contents
+
+<details open>
+<summary><b>📌 Overview</b></summary>
+
+- [📌 TL;DR](#-tldr)
+- [📊 The Reality in Numbers](#-the-reality-in-numbers)
+- [💬 What Riders Say](#-what-riders-say)
+
+</details>
+
+<details open>
+<summary><b>🔍 Problem</b></summary>
+
+- [🔍 Problem Overview](#-problem-overview)
+- [🧱 Barriers Gig Workers Face](#-barriers-gig-workers-face)
+- [⚡ Disruption Types](#-disruption-types)
+- [Why Q-Commerce Workers, Specifically](#why-q-commerce-workers-specifically)
+
+</details>
+
+<details>
+<summary><b>🛡️ Solution & Architecture</b></summary>
+
+- [🚀 Proposed Solution — gigHood](#-proposed-solution--gighood)
+- [🆚 Why gigHood is Different](#-why-gighood-is-different)
+- [01 · Spatial Risk Intelligence (DCI Engine)](#01--spatial-risk-intelligence-dci-engine)
+- [02 · Weekly Micro-Insurance (Stable Pricing)](#02--weekly-micro-insurance-stable-pricing)
+- [03 · Automated Claim Triggering & Instant Payouts](#03--automated-claim-triggering--instant-payouts)
+- [04 · Worker-Centric Smart Application](#04--worker-centric-smart-application)
+- [05 · Smart Protection Mode](#05--smart-protection-mode)
+- [06 · AI Chatbot Assistant](#06--ai-chatbot-assistant)
+- [07–10 · Additional Platform Pillars](#0710--additional-platform-pillars)
+- [System Architecture](#system-architecture)
+
+</details>
+
+<details>
+<summary><b>⚙️ Core System Design</b></summary>
+
+- [The Demand Collapse Index — Core Intelligence](#the-demand-collapse-index--our-core-intelligence)
+- [Parametric Triggers](#parametric-triggers)
+- [Weekly Pricing Model](#weekly-pricing-model)
+- [Zero-Touch Claims Automation](#zero-touch-claims-automation)
+- [Fraud Detection — Time-Decay Proof of Presence](#fraud-detection--time-decay-proof-of-presence)
+- [Adversarial Defense & Anti-Spoofing Strategy](#adversarial-defense--anti-spoofing-strategy)
+- [🔔 Proactive Coverage Alerts](#-proactive-coverage-alerts)
+
+</details>
+
+<details>
+<summary><b>👤 Persona & Use Case</b></summary>
+
+- [👤 Persona & Scenario](#-persona--scenario)
+- [📐 Parametric Insurance Model](#-parametric-insurance-model)
+- [💰 Weekly Premium Model](#-weekly-premium-model)
+- [🎯 Parametric Triggers](#-parametric-triggers)
+- [🤖 AI / ML Integration](#-ai--ml-integration)
+
+</details>
+
+<details>
+<summary><b>📱 Product & Execution</b></summary>
+
+- [📱 Application Workflow](#-application-workflow)
+- [Tech Stack & Architecture](#tech-stack--architecture)
+- [Development Plan](#development-plan)
+
+</details>
+
+<details>
+<summary><b>📊 Business & Team</b></summary>
+
+- [📈 Business Viability](#-business-viability)
+- [👥 Team](#-team)
+
+</details>
+
+
+
 ### 📌 TL;DR
 
 **Problem:** India's Q-commerce delivery partners (Zepto, Blinkit) lose 20–30% of weekly income to external disruptions — with zero financial protection.
@@ -141,87 +221,6 @@
 <img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png" width="100%">
 
 </div>
-
-## 📚 Table of Contents
-
-<details open>
-<summary><b>📌 Overview</b></summary>
-
-- [📌 TL;DR](#-tldr)
-- [📊 The Reality in Numbers](#-the-reality-in-numbers)
-- [💬 What Riders Say](#-what-riders-say)
-
-</details>
-
-<details open>
-<summary><b>🔍 Problem</b></summary>
-
-- [🔍 Problem Overview](#-problem-overview)
-- [🧱 Barriers Gig Workers Face](#-barriers-gig-workers-face)
-- [⚡ Disruption Types](#-disruption-types)
-- [Why Q-Commerce Workers, Specifically](#why-q-commerce-workers-specifically)
-
-</details>
-
-<details>
-<summary><b>🛡️ Solution & Architecture</b></summary>
-
-- [🚀 Proposed Solution — gigHood](#-proposed-solution--gighood)
-- [🆚 Why gigHood is Different](#-why-gighood-is-different)
-- [01 · Spatial Risk Intelligence (DCI Engine)](#01--spatial-risk-intelligence-dci-engine)
-- [02 · Weekly Micro-Insurance (Stable Pricing)](#02--weekly-micro-insurance-stable-pricing)
-- [03 · Automated Claim Triggering & Instant Payouts](#03--automated-claim-triggering--instant-payouts)
-- [04 · Worker-Centric Smart Application](#04--worker-centric-smart-application)
-- [05 · Smart Protection Mode](#05--smart-protection-mode)
-- [06 · AI Chatbot Assistant](#06--ai-chatbot-assistant)
-- [07–10 · Additional Platform Pillars](#0710--additional-platform-pillars)
-- [System Architecture](#system-architecture)
-
-</details>
-
-<details>
-<summary><b>⚙️ Core System Design</b></summary>
-
-- [The Demand Collapse Index — Core Intelligence](#the-demand-collapse-index--our-core-intelligence)
-- [Parametric Triggers](#parametric-triggers)
-- [Weekly Pricing Model](#weekly-pricing-model)
-- [Zero-Touch Claims Automation](#zero-touch-claims-automation)
-- [Fraud Detection — Time-Decay Proof of Presence](#fraud-detection--time-decay-proof-of-presence)
-- [Adversarial Defense & Anti-Spoofing Strategy](#adversarial-defense--anti-spoofing-strategy)
-- [🔔 Proactive Coverage Alerts](#-proactive-coverage-alerts)
-
-</details>
-
-<details>
-<summary><b>👤 Persona & Use Case</b></summary>
-
-- [👤 Persona & Scenario](#-persona--scenario)
-- [📐 Parametric Insurance Model](#-parametric-insurance-model)
-- [💰 Weekly Premium Model](#-weekly-premium-model)
-- [🎯 Parametric Triggers](#-parametric-triggers)
-- [🤖 AI / ML Integration](#-ai--ml-integration)
-
-</details>
-
-<details>
-<summary><b>📱 Product & Execution</b></summary>
-
-- [📱 Application Workflow](#-application-workflow)
-- [Tech Stack & Architecture](#tech-stack--architecture)
-- [Development Plan](#development-plan)
-
-</details>
-
-<details>
-<summary><b>📊 Business & Team</b></summary>
-
-- [📈 Business Viability](#-business-viability)
-- [👥 Team](#-team)
-
-</details>
-
-
-<img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png" width="100%">
 
 ## 🔍 Problem Overview
 
@@ -892,7 +891,8 @@ A GPS spoof into a hex where `DCI = 0.30` triggers nothing. The pool cannot be d
 
 Three gates must all pass before any payout releases. Failing any one routes the claim to manual review regardless of Trust Score.
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
+
 
 #### Gate 1 — GPS Coordinate Variance Analysis (Defeats the Plugged-In Sleeper Device)
 
@@ -919,7 +919,8 @@ If Coordinate_Variance < threshold  →  STATIC_DEVICE_FLAG
   Claim routed to Gate 2 verification
 ```
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
+
 
 #### Gate 2 — Platform Order Activity Validation (The Hard Gate)
 
@@ -956,7 +957,8 @@ Why this matters:
 
 **Payout maturation rule:** A worker cannot claim a Tier C payout (₹800/day cap) in a week where their 4-week average premium was Tier A (₹20/week). Maximum payout is capped at 2.5× the worker's 4-week average daily payout history.
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
+
 
 #### Gate 3 — Velocity Detection (Last-Minute Hopper Filter)
 
@@ -971,7 +973,8 @@ Limitation: This check detects last-minute zone hoppers only.
 Against pre-positioned sleeper cells, Gates 1 and 2 handle that case.
 ```
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
+
 
 #### Environmental Signals (Supporting Layer — Not a Gate)
 
@@ -983,7 +986,8 @@ Environmental signals (WiFi vs 4G, GPS jitter patterns, battery drain) contribut
 
 Data points beyond GPS that detect a 500-person ring spread across 25 hexes. The defense operates at the network level across all hexes simultaneously.
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
+
 
 #### A. Cross-Hex Device Fingerprint Graph (Defeats Sybil Scatter)
 
@@ -1013,7 +1017,8 @@ Cross-hex graph query at every disruption event:
 
 **Note on device model detection:** All device model flags use **relative frequency vs historical hex baseline**, not absolute counts. This prevents false positives in Tier-1 Indian cities where a small number of budget models dominate the gig worker market.
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
+
 
 #### B. Uniform Partial Participation Anomaly (Probabilistic Signal)
 
@@ -1025,7 +1030,8 @@ Contribution:  +15 to fraud score if variance is statistically low
                Does NOT independently freeze claims
 ```
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
+
 
 #### C. Coordinated Entry Window (Probabilistic Signal)
 
@@ -1037,7 +1043,8 @@ Fraud signal:         Multiple hexes showing entry clusters in the same
 Contribution:  +10 to fraud score if cross-hex entry correlation is high
 ```
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
+
 
 #### D. Earnings Declaration Distribution Check
 
@@ -1048,7 +1055,8 @@ Fraud signal:  Spike of declarations clustering just below the 90th percentile
                →  Affected accounts routed to soft queue for re-verification
 ```
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
+
 
 #### E. H3 Hex Density Cap
 
@@ -1057,7 +1065,8 @@ Per-hex capacity:  ~50–80 active Q-commerce riders (operational estimate)
 Flag threshold:    > 90 claims from one hex  →  CAPACITY_VIOLATION
 ```
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
+
 
 #### F. Compound Fraud Probability Score
 
@@ -1113,7 +1122,8 @@ Path 4 — DENIED + APPEAL
                  If you were working, tap here to raise a support ticket."
 ```
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
+
 
 #### Human Review Scalability Framework
 
@@ -1128,7 +1138,7 @@ Auto-scaling: If Priority 1 queue exceeds 100 workers,
   If consistent → auto-approve. If inconsistent → escalate to Priority 3.
 ```
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 #### Trust Score Dampening During High-Risk Events
 
@@ -1141,7 +1151,8 @@ Trust Score CANNOT:
   →  Bypass the payout maturation cap
 ```
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
+
 
 #### The Cluster Suppression Protocol
 
@@ -1158,7 +1169,8 @@ Step 5:  Log full cluster event for insurer admin dashboard
 
 Honest workers in the same hexes as an attack are never penalized as long as they have confirmed order activity. The suppression is surgical: score-based, not geography-based.
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
+
 
 #### Final Defense Architecture
 
@@ -1300,7 +1312,8 @@ gigHood’s **H3 spatial model + DCI engine** aligns directly with this operatio
 | Fraud surface | High (self-reported) | **Low (objective signals + PoP)** |
 | Suitable for gig workers | ❌ | ✅ |
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
+
 
 ### End-to-End Parametric Flow
 
@@ -1328,8 +1341,7 @@ gigHood’s **H3 spatial model + DCI engine** aligns directly with this operatio
     Worker notified via app + WhatsApp
 
 **No claim. No paperwork. No delay.**
-
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 ## 💰 Weekly Premium Model
 
@@ -1358,7 +1370,8 @@ This ensures:
 - No sudden spikes  
 - Predictable cost for workers  
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
+
 
 ## 🎯 Parametric Triggers
 
@@ -1379,7 +1392,7 @@ All triggers feed into:
 
 Final payout is based on combined signals, not a single trigger.
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 ## 🤖 AI / ML Integration
 
@@ -1393,7 +1406,8 @@ gigHood uses controlled and explainable machine learning.
 | Forecasting | LSTM | Weather & AQI prediction |
 | Fraud Detection | Rule-based checks | Claim validation |
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
+
 
 ### ML Pipeline
 
@@ -1417,7 +1431,8 @@ gigHood uses controlled and explainable machine learning.
             v
     Automated Payout Execution
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
+
 
 ### Fraud Prevention — Proof of Presence (PoP)
 
@@ -1434,7 +1449,8 @@ Rule:
 | Earnings validation | Prevent inflation |
 | Claim frequency | Detect abnormal patterns |
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
+
 
 ## 📱 Application Workflow
 
@@ -1448,7 +1464,8 @@ Rule:
     6. Weekly premium activated via UPI
     7. Protection starts instantly
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
+
 
 ### Weekly Policy Cycle
 
@@ -1460,8 +1477,8 @@ Rule:
 
     Sunday     → Weekly summary sent
                   (coverage, payouts, next week risk)
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
----
 
 ### End-to-End Payout Flow (< 90 seconds)
 
@@ -1576,7 +1593,8 @@ Worker speaks  →  "What happens if it rains tomorrow?"
 - [x] System architecture planning
 - [x] README setup
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
+
 
 ### Phase 2 — Core Development (Weeks 3–5)
 
@@ -1587,7 +1605,8 @@ Worker speaks  →  "What happens if it rains tomorrow?"
 - [ ] Trigger detection engine
 - [ ] Mobile app UI (onboarding + dashboard)
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
+
 
 ### Phase 3 — Intelligence Layer (Weeks 6–8)
 
@@ -1597,7 +1616,8 @@ Worker speaks  →  "What happens if it rains tomorrow?"
 - [ ] Zone-level disruption detection
 - [ ] Proof-of-Presence validation system
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
+
 
 ### Phase 4 — Automation & Payments (Weeks 9–10)
 
@@ -1606,7 +1626,8 @@ Worker speaks  →  "What happens if it rains tomorrow?"
 - [ ] Notification system (WhatsApp + FCM)
 - [ ] Admin dashboard (zone monitoring)
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
+
 
 ### Phase 5 — Testing & Demo (Weeks 11–12)
 
@@ -1631,7 +1652,8 @@ Worker speaks  →  "What happens if it rains tomorrow?"
 | Target (hyperlocal workers) | 8M |
 | Market size | ₹6,000+ crore |
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
+
 
 ### Revenue Streams
 
@@ -1642,7 +1664,8 @@ Worker speaks  →  "What happens if it rains tomorrow?"
 | Insurance APIs | B2B | License DCI engine |
 | Data insights | SaaS | Urban disruption analytics |
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
+
 
 ### Unit Economics (Tier B Example)
 
