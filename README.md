@@ -50,8 +50,8 @@
 
 - [🔍 Problem Overview](#-problem-overview)
 - [🧱 Barriers Gig Workers Face](#-barriers-gig-workers-face)
-- [🌩️ Disruption Types](#-disruption-types)
-- [🧠 Why Q-Commerce Workers, Specifically](#why-q-commerce-workers-specifically)
+- [⚡ Disruption Types](#disruption-types)
+- [🧠 Why Q-Commerce Workers, Specifically](#-why-q-commerce-workers-specifically)
 
 </details>
 
@@ -67,19 +67,19 @@
 - [05 · Smart Protection Mode](#05--smart-protection-mode)
 - [06 · AI Chatbot Assistant](#06--ai-chatbot-assistant)
 - [07–10 · Additional Platform Pillars](#0710--additional-platform-pillars)
-- [🏗️ System Architecture](#-system-architecture)
+- [System Architecture](#system-architecture)
 
 </details>
 
 <details>
 <summary><b>⚙️ Core System Design</b></summary>
 
-- [The Demand Collapse Index — Core Intelligence](#the-demand-collapse-index--our-core-intelligence)
+- [The Demand Collapse Index — Our Core Intelligence](#the-demand-collapse-index--our-core-intelligence)
 - [Parametric Triggers](#parametric-triggers)
 - [Weekly Pricing Model](#weekly-pricing-model)
 - [Zero-Touch Claims Automation](#zero-touch-claims-automation)
 - [Fraud Detection — Time-Decay Proof of Presence](#fraud-detection--time-decay-proof-of-presence)
-- [🛡️ Adversarial Defense & Anti-Spoofing Strategy](#-adversarial-defense--anti-spoofing-strategy)
+- [Adversarial Defense & Anti-Spoofing Strategy](#adversarial-defense--anti-spoofing-strategy)
 - [🔔 Proactive Coverage Alerts](#-proactive-coverage-alerts)
 
 </details>
@@ -88,9 +88,8 @@
 <summary><b>👤 Persona & Use Case</b></summary>
 
 - [👤 Persona & Scenario](#-persona--scenario)
+- [🎯 Why This Persona Matters](#-why-this-persona-matters)
 - [📐 Parametric Insurance Model](#-parametric-insurance-model)
-- [💰 Weekly Premium Model](#-weekly-premium-model)
-- [🎯 Parametric Triggers](#-parametric-triggers)
 - [🤖 AI / ML Integration](#-ai--ml-integration)
 
 </details>
@@ -107,11 +106,11 @@
 <details>
 <summary><b>📊 Business & Team</b></summary>
 
+- [📊 Analytics Dashboard](#-analytics-dashboard)
 - [📈 Business Viability](#-business-viability)
 - [👥 Team](#-team)
 
 </details>
-
 
 
 ### 📌 TL;DR
@@ -297,7 +296,7 @@ A structural analysis of the compounding vulnerabilities that leave delivery par
 <img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 
-## 🌩️ Disruption Types
+## Disruption Types
 gigHood identifies and responds to **two primary classes of disruptions** that halt delivery operations and eliminate gig worker income:
 
 ### 🌧️ Environmental Disruptions
@@ -584,7 +583,7 @@ The chatbot is powered by the Claude API with the worker's policy context, curre
 <img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 
-## 🏗️ System Architecture
+## System Architecture
 
 The platform is composed of five layers: signal ingestion, spatial intelligence, policy and pricing, claims automation, and the payout and dashboard layer.
 
@@ -901,7 +900,7 @@ Beyond zone-hopping, Equix applies three secondary checks at the claim processin
 
 <img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png" width="100%">
 
-## 🛡️ Adversarial Defense & Anti-Spoofing Strategy
+## Adversarial Defense & Anti-Spoofing Strategy
 
 <div align="center">
 
@@ -1534,9 +1533,6 @@ gigHood’s **H3 spatial model + DCI engine** aligns directly with this operatio
 **No claim. No paperwork. No delay.**
 <img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
-
-<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
-
 ## 🤖 AI / ML Integration
 
 gigHood uses controlled and explainable machine learning.
@@ -1747,7 +1743,7 @@ Worker speaks  →  "What happens if it rains tomorrow?"
 
 <img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png" width="100%">
 
-## 🗓️ Development Plan
+## Development Plan
 
 ### Phase 1 — Ideation & Foundation [March 4–20] ✅ Complete
 
