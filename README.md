@@ -185,9 +185,9 @@
 - [The Demand Collapse Index — Core Intelligence](#the-demand-collapse-index--our-core-intelligence)
 - [Parametric Triggers](#parametric-triggers)
 - [Weekly Pricing Model](#weekly-pricing-model)
-- [Zero-Touch Claims Automation](#7-zero-touch-claims-automation)
+- [Zero-Touch Claims Automation](#zero-touch-claims-automation)
 - [Fraud Detection — Time-Decay Proof of Presence](#fraud-detection--time-decay-proof-of-presence)
-- [Adversarial Defense & Anti-Spoofing Strategy](#-adversarial-defense--anti-spoofing-strategy)
+- [Adversarial Defense & Anti-Spoofing Strategy](#adversarial-defense--anti-spoofing-strategy)
 - [🔔 Proactive Coverage Alerts](#-proactive-coverage-alerts)
 
 </details>
@@ -207,8 +207,8 @@
 <summary><b>📱 Product & Execution</b></summary>
 
 - [📱 Application Workflow](#-application-workflow)
-- [🏗️ Tech Stack & Architecture](#-tech-stack--architecture)
-- [🗓️ Development Plan](#-development-plan)
+- [Tech Stack & Architecture](#tech-stack--architecture)
+- [Development Plan](#development-plan)
 
 </details>
 
