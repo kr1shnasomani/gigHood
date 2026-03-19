@@ -12,7 +12,6 @@
 <img src="https://readme-typing-svg.demolab.com?font=Syne&weight=700&size=18&pause=1200&color=38BDF8&center=true&vCenter=true&width=700&lines=Predict+disruptions+before+they+strike.;Automate+insurance.+Eliminate+paperwork.;Instant+payouts+when+gig+workers+need+it+most.;Built+for+India's+15M%2B+delivery+partners." alt="Typing SVG"/>
 <br/>
 
-![Hackathon](https://img.shields.io/badge/Guidewire-DEVTrails%20Hackathon%202026-0f4c81?style=for-the-badge&logoColor=white)
 ![Status](https://img.shields.io/badge/Status-Active%20Development-22c55e?style=for-the-badge)
 
 <br/>
