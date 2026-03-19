@@ -491,7 +491,6 @@ The chatbot is powered by the Claude API with the worker's policy context, curre
 **Supported languages:** Hindi · Kannada · Tamil · Telugu · English
 
 <img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
-<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=db8947&section=footer" width="100%"/>
 
 
 ## 🏗️ System Architecture
