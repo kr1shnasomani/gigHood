@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "skills": {
+    "api-testing": {
+      "source": "secondsky/claude-skills",
+      "sourceType": "github",
+      "computedHash": "cf2261d249a0d5a1ee44395d7714007420f379dc9378ced87fec3a84f1b5c5d2"
+    },
+    "nextjs-development": {
+      "source": "manutej/luxor-claude-marketplace",
+      "sourceType": "github",
+      "computedHash": "e0422c0dda9608731d2025af73d0ff32511e62a752f3a32c4d6ae30b6eab2a8e"
+    },
+    "payment-integration": {
+      "source": "mrgoonie/claudekit-skills",
+      "sourceType": "github",
+      "computedHash": "4fef84bd15b15ac3a5182f85273d7ab4ea43edafee9fdb282916ff79dadca12d"
+    },
+    "postgres-patterns": {
+      "source": "affaan-m/everything-claude-code",
+      "sourceType": "github",
+      "computedHash": "ce3084b8f555d1c560d849332483428301f30ec78f315e1d60ca1ddd8bc69a51"
+    },
+    "python-backend": {
+      "source": "jiatastic/open-python-skills",
+      "sourceType": "github",
+      "computedHash": "3e05cfe0d22005cd76126b0a7d67e1b33da8a08da99d863133a37abfd47365a0"
+    },
+    "python-testing": {
+      "source": "autumnsgrove/groveengine",
+      "sourceType": "github",
+      "computedHash": "f37e7906d5219ae80edab06a25ea610e47f753dd65d6207f2ec1c54739e68e49"
+    },
+    "supabase-database": {
+      "source": "santiagoxor/pintureria-digital",
+      "sourceType": "github",
+      "computedHash": "9bd423acf98bc4d6b540e9ce5cc4b97d71e6e8468757a3558240be62e9ecfba3"
+    },
+    "supabase-postgres-best-practices": {
+      "source": "supabase/agent-skills",
+      "sourceType": "github",
+      "computedHash": "9c87c315aed143ee3b34bec8117100f5035e0df09e6b23e1ecc772cff434c9ad"
+    },
+    "ui-mobile": {
+      "source": "alinaqi/claude-bootstrap",
+      "sourceType": "github",
+      "computedHash": "a8065669df81df37d9bdcfeea093f6c9fe4657a7af9a3d7730893d16f2069327"
+    },
+    "xgboost-lightgbm": {
+      "source": "tondevrel/scientific-agent-skills",
+      "sourceType": "github",
+      "computedHash": "96070562a968899b8fbd4756bb7348647247c9f6834b05737120933e5e9112a8"
+    }
+  }
+}
