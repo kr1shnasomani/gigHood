@@ -16,9 +16,9 @@ Full product scope: `README.md` | Full technical spec: `IMPLEMENTATION.md`
 
 ## Current Development Phase
 
-> **Phase 0 — Pre-Implementation (Documentation Complete)**
+> **Phase 3 — Signal Ingestion (5 Fetchers)**
 
-No application code has been written yet. The repository currently contains only planning and documentation artifacts.
+Phase 2 (Spatial Grid Module) has been completed. The `spatial.py` module handling H3 geometries, WKT polygons, and k-ring clustering is built and tested. 7,651 hex zones for Bengaluru were successfully seeded into the live database.
 
 ---
 
@@ -33,11 +33,16 @@ No application code has been written yet. The repository currently contains only
 | `RULES.md` | ✅ Complete | Hard operational guardrails and prohibited actions for all agent sessions |
 | `MEMORY.md` | ✅ This file | Persistent project state for future agents |
 | `.agents/skills/` | ✅ Complete | 20 installed agent skills (see below) |
-| `backend/` | ❌ Not started | FastAPI backend |
+| `backend/` | ✅ Complete | FastAPI backend scaffold with empty API/service modules |
 | `mobile/` | ❌ Not started | React Native (Expo) worker app |
 | `admin/` | ❌ Not started | Next.js admin dashboard |
 | `supabase/migrations/` | ❌ Not started | SQL schema migrations |
 | `ml/` | ❌ Not started | XGBoost model artefacts |
+| `venv/` | ✅ Complete | Python 3.11 virtual environment |
+| `backend/requirements.txt` | ✅ Complete | FastAPI and data science dependencies |
+| `backend/.env.example` | ✅ Complete | Required environment variables template |
+| `backend/main.py` | ✅ Complete | FastAPI entry point with router registration |
+| `backend/config.py` | ✅ Complete | Pydantic Settings implementation |
 
 ---
 
@@ -139,9 +144,9 @@ Full schema (all columns, types, FKs): `IMPLEMENTATION.md` Section 5.
 
 | Phase | Description | Status |
 |:---|:---|:---|
-| **Phase 0** | Repo & environment setup | ⬜ Not started |
-| **Phase 1** | Database schema & Supabase migrations | ⬜ Not started |
-| **Phase 2** | H3 Spatial grid module | ⬜ Not started |
+| **Phase 0** | Repo & environment setup | ✅ Complete |
+| **Phase 1** | Database schema & Supabase migrations | ✅ Complete |
+| **Phase 2** | H3 Spatial grid module | ✅ Complete |
 | **Phase 3** | Signal ingestion (5 fetchers) | ⬜ Not started |
 | **Phase 4** | DCI computation engine | ⬜ Not started |
 | **Phase 5** | APScheduler integration | ⬜ Not started |
@@ -162,11 +167,11 @@ Full schema (all columns, types, FKs): `IMPLEMENTATION.md` Section 5.
 
 ## Next Task for a New Agent
 
-**Start at Phase 0, Task 1 in `TODO.md`:**
+**Start at Phase 3, Task 1 in `TODO.md`:**
 
-1. Create root directory structure: `backend/`, `mobile/`, `admin/`, `supabase/migrations/`, `ml/`
-2. Create `backend/requirements.txt` with all dependencies from `IMPLEMENTATION.md` Section 4.2
-3. Create `backend/.env.example` with all required environment variable names
-4. Create `backend/main.py` — FastAPI entry point skeleton
+Please execute the `Phase 3` sequence in `TODO.md` regarding Signal Ingestion.
+1. Implement the API fetchers for Weather, AQI, Traffic, Platform, and Social signals in `backend/services/signal_fetchers.py`.
+2. Map H3 hex zones to API coordinates internally.
+3. Save raw payload and normalized score to `signal_cache` table.
 
 > Before writing any code, read `MEMORY.md` → `TODO.md` → `IMPLEMENTATION.md` Section 3 → `RULES.md` in that order.

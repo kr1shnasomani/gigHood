@@ -153,10 +153,10 @@ The system is composed of **5 primary layers** plus an integrated **fraud intell
 
 | Sub-module | Input | Output |
 |:---|:---|:---|
-| Trigger Monitor | Real-time DCI scores | Disruption events (hex ID, timestamp, duration) |
-| PoP Validator | Worker location pings (15-min intervals) | Presence confirmation or zone-hop flag |
+| Trigger Monitor | Real-time DCI scores | Disruption events (hex ID, timestamp, duration); **closed only after DCI <0.65 for 2 consecutive cycles (hysteresis)** |
+| PoP Validator | Worker location pings (15-min intervals) | Presence confirmation or zone-hop flag; **requires ≥3 pings in 90min window** |
 | Payout Calculator | Avg daily earnings, disrupted hours, tier cap | Payout amount in ₹ |
-| Claim Approver | Fraud score + PoP result | Routing to Path 1/2/3/4 |
+| Claim Approver | Fraud score + PoP result | Routing to Path 1/2/3/4; **idempotent on UNIQUE(worker_id, event_id)** |
 
 **Payout Formula:**
 ```
@@ -165,6 +165,7 @@ Payout = (Worker Avg Daily Earnings ÷ 8) × Verified Disrupted Hours
 - Disrupted hours = duration DCI remained > 0.85
 - Caps: ₹600/day (Tier A), ₹700/day (Tier B), ₹800/day (Tier C)
 - Payout maturation: max payout ≤ 2.5× worker's 4-week average daily payout history
+- **[Fix 8 — Cold Start]** `get_4w_avg_payout(worker_id)` queries last 28 days of paid claims; if no history exists (new worker), defaults to **₹500** (zone 50th percentile proxy)
 
 ### 3.5 Fraud Detection Module
 
@@ -175,11 +176,11 @@ Payout = (Worker Avg Daily Earnings ÷ 8) × Verified Disrupted Hours
 | Layer | Mechanism | Weight in Fraud Score |
 |:---|:---|:---|
 | L0 — DCI Anchor | DCI computed from external-only signals — unfakeable | Structural (no score) |
-| L1 — GPS Coordinate Variance | std_dev of lat/lng + accuracy radius in 90min window | 30 points |
-| L2 — Platform Order Activity | Completed/accepted orders in 90min pre-disruption | 40 points |
-| L3 — Payout Maturation Cap | Max 2.5× 4-week avg payout — kills trust-farm exploit | Structural (no score) |
-| L4 — OS Mock Location Flag | Android/iOS mock location provider detection | 20 points |
-| L5 — Cross-Hex Fingerprint Graph | Registration cohort, device model concentration, mock location network | 15 + 10 points |
+| L1 — GPS Coordinate Variance | std_dev of lat/lng + accuracy radius in 90min window (≥3 pings required) | **30 points** |
+| L2 — Platform Order Activity | Completed/accepted orders in 90min pre-disruption; **orders with pickup-to-dropoff distance <100m are excluded** | **40 points** (Gate2=NONE) |
+| L3 — Payout Maturation Cap | Max 2.5× 4-week avg payout — kills trust-farm exploit; defaults to ₹500 for new workers | Structural (no score) |
+| L4 — OS Mock Location Flag | Android/iOS mock location provider detection | **20 points** |
+| L5 — Cross-Hex Fingerprint Graph | Registration cohort, **baseline-relative** device model concentration (>3× historical baseline), mock location network | **25 + 10 points** |
 | L6 — Compound Fraud Score | All signals combined → Path 1/2/3/4 routing | Decision layer |
 | L7 — Human Review Triage | Priority queue for flagged claims at scale | Escalation |
 
@@ -189,8 +190,23 @@ Payout = (Worker Avg Daily Earnings ÷ 8) × Verified Disrupted Hours
 |:---|:---|:---|:---|
 | Path 1 — Fast Track | Gate 2 STRONG + Score < 30 | Auto-payout | < 90 seconds |
 | Path 2 — Soft Queue | Gate 2 WEAK or Score 30–59 | Passive verification | 2 hours |
-| Path 3 — Active Verify | Gate 2 STRONG + Score 60–79 | 1-tap FCM confirmation | 30min–2hrs |
-| Path 4 — Denied + Appeal | Gate 2 OFFLINE or Score ≥ 80 | Denied with appeal link | 1–8 hours |
+| Path 3 — Active Verify | Gate 2 STRONG + Score 60–89 | 1-tap FCM confirmation | 30min–2hrs |
+| Path 4 — Denied + Appeal | Gate 2 NONE or Score ≥90 | Denied with appeal link | 1–8 hours |
+
+**[Fix 5 — Explicit Fraud Score Formula]:**
+```
+Score = (STATIC_DEVICE_FLAG × 30)
+      + (MOCK_LOCATION_FLAG × 20)
+      + (MODEL_CONCENTRATION × 25)
+      + (VELOCITY_VIOLATION × 15)
+      + (REGISTRATION_COHORT × 10)
+      + (MOCK_LOCATION_NETWORK × 10)
+```
+Each flag is a boolean (0 or 1). Gate 2 = NONE is an unconditional Path 4 override regardless of score.
+
+**[Fix 2 — Idempotency]:** The `claims` table must have a `UNIQUE(worker_id, event_id)` database constraint. The `claim_id` (UUID) must be used as the Razorpay idempotency key on every payout initiation call.
+
+**[Fix 1 — DCI Hysteresis]:** Once a hex enters `DISRUPTED` state (DCI > 0.85), the disruption event must NOT be closed until DCI drops **below 0.65 for two consecutive 5-minute cycles**. This prevents event flapping during weather events that hover near the trigger threshold.
 
 ### 3.6 Notification & Alerts Module
 
@@ -386,6 +402,8 @@ Payout = (Worker Avg Daily Earnings ÷ 8) × Verified Disrupted Hours
 | created_at | TIMESTAMPTZ | Claim creation |
 | resolved_at | TIMESTAMPTZ NULL | Resolution time |
 
+> **[Fix 2 — Idempotency]** This table must include: `UNIQUE(worker_id, event_id)` constraint to prevent duplicate claims for the same worker + disruption event. The `id` (UUID) is used as the Razorpay payout idempotency key.
+
 #### `fraud_flags` — Fraud detection flags per claim
 | Column | Type | Description |
 |:---|:---|:---|
@@ -536,10 +554,11 @@ claims 1───N fraud_flags
     - Low variance → STATIC_DEVICE_FLAG → +30 fraud score
 
 20. **Platform order activity validation (Gate 2)**
-    - Mock platform API for order history
-    - STRONG: ≥ 1 order in 90min → auto-approved
-    - WEAK: online but no orders → soft queue with passive checks
-    - NONE: offline → denied
+    - **[Fix 4]** Mock Zepto API must return `pickup_coords` and `dropoff_coords` per order
+    - Filter out and ignore orders where pickup-to-dropoff Haversine distance < 100 meters (micro-delivery fraud)
+    - STRONG: ≥1 **valid** order (post-filter) in 90min → auto-approved
+    - WEAK: online but no valid orders → soft queue with passive checks
+    - NONE: offline → denied (unconditional Path 4)
 
 21. **Velocity detection (Gate 3)**
     - Distance ÷ time between last out-of-hex ping and first in-hex ping
@@ -547,12 +566,14 @@ claims 1───N fraud_flags
 
 22. **Cross-hex fingerprint graph**
     - Build device fingerprint graph across all claiming workers per event
-    - Detect: mock location networks, registration cohort anomalies, device model concentration
-    - Flag: MOCK_LOCATION_NETWORK, REGISTRATION_COHORT, MODEL_CONCENTRATION
+    - **[Fix 6]** Flag `MODEL_CONCENTRATION` if a device model's event frequency exceeds **3× its historical baseline** for that hex (last 90 days) — do NOT use flat percentages
+    - Detect: mock location networks, registration cohort anomalies, baseline-relative model concentration
+    - Flag: MOCK_LOCATION_NETWORK (+10), REGISTRATION_COHORT (+10), MODEL_CONCENTRATION (+25)
 
 23. **Compound fraud score computation**
-    - Aggregate all flag scores → route to Path 1/2/3/4
-    - Implement trust score dampening during high-risk events
+    - **[Fix 5]** Exact formula: `Score = (STATIC_DEVICE_FLAG×30) + (MOCK_LOCATION_FLAG×20) + (MODEL_CONCENTRATION×25) + (VELOCITY_VIOLATION×15) + (REGISTRATION_COHORT×10) + (MOCK_LOCATION_NETWORK×10)`
+    - Route: Score<30 → Path 1; 30–59 → Path 2; 60–89 → Path 3; ≥90 or Gate2=NONE → Path 4
+    - **[Fix 7 — Phase 10/11 Bridge]** During Phase 10 implementation, use stubs `fraud_score=0, gate2_result='STRONG'` inside `claim_approver.process_claim`; the real `FraudEvaluator` replaces these stubs in Phase 11
 
 ### Phase 6 — Worker App & Admin Dashboard (Days 24–30)
 

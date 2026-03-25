@@ -10,17 +10,17 @@
 
 _Prerequisite to everything. No code can be written without this foundation._
 
-- [ ] Create root directory structure: `backend/`, `mobile/`, `admin/`, `supabase/migrations/`, `ml/`
-- [ ] Create `backend/requirements.txt` with all dependencies: `fastapi`, `uvicorn`, `pydantic`, `apscheduler`, `httpx`, `python-jose`, `xgboost`, `scikit-learn`, `numpy`, `pandas`, `h3`, `shapely`, `supabase`, `asyncpg`, `razorpay`, `firebase-admin`
-- [ ] Create `backend/.env.example` with all required env vars: `SUPABASE_URL`, `SUPABASE_KEY`, `OPENWEATHER_API_KEY`, `CPCB_API_KEY`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `FIREBASE_CREDENTIALS_PATH`, `OPENROUTER_API_KEY`, `JWT_SECRET`
-- [ ] Create `backend/main.py` — FastAPI app entry point with lifespan handler and router registration skeleton
-- [ ] Create `backend/config.py` — Pydantic `Settings` class loading from `.env`
-- [ ] Create `backend/api/__init__.py` and empty router files: `workers.py`, `policies.py`, `claims.py`, `notifications.py`, `chat.py`, `admin.py`
-- [ ] Create `backend/services/` directory with empty files: `dci_engine.py`, `signal_fetchers.py`, `spatial.py`, `policy_manager.py`, `risk_profiler.py`, `premium_bander.py`, `trigger_monitor.py`, `pop_validator.py`, `payout_calculator.py`, `claim_approver.py`, `fraud_engine.py`, `payment_service.py`, `notification_service.py`
-- [ ] Create `backend/scheduler/jobs.py` — APScheduler instance (not yet wired)
-- [ ] Create `backend/models/` directory with Pydantic schemas file `schemas.py` (empty for now)
-- [ ] Set up Python virtual environment and install all dependencies from `requirements.txt`
-- [ ] Verify FastAPI app starts: `uvicorn backend.main:app --reload`
+- [x] Create root directory structure: `backend/`, `mobile/`, `admin/`, `supabase/migrations/`, `ml/`
+- [x] Create `backend/requirements.txt` with all dependencies: `fastapi`, `uvicorn`, `pydantic`, `apscheduler`, `httpx`, `python-jose`, `xgboost`, `scikit-learn`, `numpy`, `pandas`, `h3`, `shapely`, `supabase`, `asyncpg`, `razorpay`, `firebase-admin`
+- [x] Create `backend/.env.example` with all required env vars: `SUPABASE_URL`, `SUPABASE_KEY`, `OPENWEATHER_API_KEY`, `CPCB_API_KEY`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `FIREBASE_CREDENTIALS_PATH`, `OPENROUTER_API_KEY`, `JWT_SECRET`
+- [x] Create `backend/main.py` — FastAPI app entry point with lifespan handler and router registration skeleton
+- [x] Create `backend/config.py` — Pydantic `Settings` class loading from `.env`
+- [x] Create `backend/api/__init__.py` and empty router files: `workers.py`, `policies.py`, `claims.py`, `notifications.py`, `chat.py`, `admin.py`
+- [x] Create `backend/services/` directory with empty files: `dci_engine.py`, `signal_fetchers.py`, `spatial.py`, `policy_manager.py`, `risk_profiler.py`, `premium_bander.py`, `trigger_monitor.py`, `pop_validator.py`, `payout_calculator.py`, `claim_approver.py`, `fraud_engine.py`, `payment_service.py`, `notification_service.py`
+- [x] Create `backend/scheduler/jobs.py` — APScheduler instance (not yet wired)
+- [x] Create `backend/models/` directory with Pydantic schemas file `schemas.py` (empty for now)
+- [x] Set up Python virtual environment and install all dependencies from `requirements.txt`
+- [x] Verify FastAPI app starts: `uvicorn backend.main:app --reload`
 
 ---
 
@@ -28,21 +28,21 @@ _Prerequisite to everything. No code can be written without this foundation._
 
 _All modules depend on these tables existing. Schema must be stable before any service is built._
 
-- [ ] Create Supabase project (free tier) and copy `SUPABASE_URL` and `SUPABASE_KEY` to `.env`
-- [ ] Enable PostGIS extension on Supabase via the dashboard SQL editor: `CREATE EXTENSION IF NOT EXISTS postgis;`
-- [ ] Write migration `supabase/migrations/001_create_workers.sql` — `workers` table with all columns from `IMPLEMENTATION.md` Section 5.1 including `trust_score`, `status` enum, `hex_id`, `device_model`, `sim_carrier`, `sim_registration_date`
-- [ ] Write migration `supabase/migrations/002_create_hex_zones.sql` — `hex_zones` table with PostGIS `centroid` and `boundary` columns, `dci_status` enum
-- [ ] Write migration `supabase/migrations/003_create_policies.sql` — `policies` table with `tier` enum, `status` enum, `is_waiting_period` flag, FK → `workers`
-- [ ] Write migration `supabase/migrations/004_create_signal_cache.sql` — `signal_cache` table with `signal_type` enum and `JSONB raw_data`
-- [ ] Write migration `supabase/migrations/005_create_dci_history.sql` — `dci_history` table with component scores `w_score`, `t_score`, `p_score`, `s_score`, FK → `hex_zones`
-- [ ] Write migration `supabase/migrations/006_create_location_pings.sql` — `location_pings` table with GPS fields, `accuracy_radius`, `mock_location_flag`, FK → `workers`
-- [ ] Write migration `supabase/migrations/007_create_disruption_events.sql` — `disruption_events` table with `dci_peak`, `started_at`, `ended_at`, `duration_hours`, `trigger_signals JSONB`, FK → `hex_zones`
-- [ ] Write migration `supabase/migrations/008_create_claims.sql` — `claims` table with `resolution_path` enum, `fraud_score`, `pop_validated`, `razorpay_payment_id`, FKs → `workers`, `policies`, `disruption_events`
-- [ ] Write migration `supabase/migrations/009_create_fraud_flags.sql` — `fraud_flags` table with `flag_type`, `score_contribution`, `details JSONB`, FK → `claims`
-- [ ] Write migration `supabase/migrations/010_create_premium_payments.sql` — `premium_payments` table with `razorpay_payment_id`, FKs → `workers`, `policies`
-- [ ] Apply all migrations to Supabase in order and verify all tables are created
-- [ ] Create `backend/db/client.py` — initialize Supabase Python client using env vars
-- [ ] Write a smoke test: query all table names from `information_schema.tables` to confirm schema is live
+- [x] Create Supabase project (free tier) and copy `SUPABASE_URL` and `SUPABASE_KEY` to `.env`
+- [x] Enable PostGIS extension on Supabase via the dashboard SQL editor: `CREATE EXTENSION IF NOT EXISTS postgis;`
+- [x] Write migration `supabase/migrations/001_create_workers.sql` — `workers` table with all columns from `IMPLEMENTATION.md` Section 5.1 including `trust_score`, `status` enum, `hex_id`, `device_model`, `sim_carrier`, `sim_registration_date`
+- [x] Write migration `supabase/migrations/002_create_hex_zones.sql` — `hex_zones` table with PostGIS `centroid` and `boundary` columns, `dci_status` enum
+- [x] Write migration `supabase/migrations/003_create_policies.sql` — `policies` table with `tier` enum, `status` enum, `is_waiting_period` flag, FK → `workers`
+- [x] Write migration `supabase/migrations/004_create_signal_cache.sql` — `signal_cache` table with `signal_type` enum and `JSONB raw_data`
+- [x] Write migration `supabase/migrations/005_create_dci_history.sql` — `dci_history` table with component scores `w_score`, `t_score`, `p_score`, `s_score`, FK → `hex_zones`
+- [x] Write migration `supabase/migrations/006_create_location_pings.sql` — `location_pings` table with GPS fields, `accuracy_radius`, `mock_location_flag`, FK → `workers`
+- [x] Write migration `supabase/migrations/007_create_disruption_events.sql` — `disruption_events` table with `dci_peak`, `started_at`, `ended_at`, `duration_hours`, `trigger_signals JSONB`, FK → `hex_zones`
+- [x] Write migration `supabase/migrations/008_create_claims.sql` — `claims` table with `resolution_path` enum, `fraud_score`, `pop_validated`, `razorpay_payment_id`, FKs → `workers`, `policies`, `disruption_events`
+- [x] Write migration `supabase/migrations/009_create_fraud_flags.sql` — `fraud_flags` table with `flag_type`, `score_contribution`, `details JSONB`, FK → `claims`
+- [x] Write migration `supabase/migrations/010_create_premium_payments.sql` — `premium_payments` table with `razorpay_payment_id`, FKs → `workers`, `policies`
+- [x] Apply all migrations to Supabase in order and verify all tables are created
+- [x] Create `backend/db/client.py` — initialize Supabase Python client using env vars
+- [x] Write a smoke test: query all table names from `information_schema.tables` to confirm schema is live
 
 ---
 
@@ -50,13 +50,13 @@ _All modules depend on these tables existing. Schema must be stable before any s
 
 _Signal fetchers and DCI engine both need H3 hex grid data. Spatial must exist first._
 
-- [ ] Implement `backend/services/spatial.py` — `lat_lng_to_hex(lat, lng, resolution=9) -> str` using `h3-py`
-- [ ] Implement `get_hex_centroid(hex_id: str) -> tuple[float, float]` — returns `(lat, lng)` of hex center
-- [ ] Implement `get_hex_neighbors(hex_id: str, k_rings: int = 1) -> list[str]` — returns neighboring hex IDs
-- [ ] Implement `seed_hex_zones(city: str, center_lat: float, center_lng: float, radius_km: float)` — generates H3 hex grid for a city and upserts all hex boundaries into `hex_zones` table
-- [ ] Implement PostGIS geometry serialization: convert H3 boundary vertices to WKT `POLYGON` for storage in `hex_zones.boundary`
-- [ ] Write unit tests for `spatial.py`: verify known lat/lng → expected H3 hex ID, verify boundary polygon is valid
-- [ ] Run `seed_hex_zones` for one pilot city (e.g., Bengaluru) and verify rows inserted into `hex_zones`
+- [x] Implement `backend/services/spatial.py` — `lat_lng_to_hex(lat, lng, resolution=9) -> str` using `h3-py`
+- [x] Implement `get_hex_centroid(hex_id: str) -> tuple[float, float]` — returns `(lat, lng)` of hex center
+- [x] Implement `get_hex_neighbors(hex_id: str, k_rings: int = 1) -> list[str]` — returns neighboring hex IDs
+- [x] Implement `seed_hex_zones(city: str, center_lat: float, center_lng: float, radius_km: float)` — generates H3 hex grid for a city and upserts all hex boundaries into `hex_zones` table
+- [x] Implement PostGIS geometry serialization: convert H3 boundary vertices to WKT `POLYGON` for storage in `hex_zones.boundary`
+- [x] Write unit tests for `spatial.py`: verify known lat/lng → expected H3 hex ID, verify boundary polygon is valid
+- [x] Run `seed_hex_zones` for one pilot city (e.g., Bengaluru) and verify rows inserted into `hex_zones`
 
 ---
 
@@ -84,10 +84,11 @@ _Depends on spatial (hex IDs) and signal ingestion (cached scores). Core of the 
 - [ ] Implement `compute_dci(w: float, t: float, p: float, s: float, alpha=0.45, beta=0.25, gamma=0.20, delta=0.10) -> float` — applies the formula `σ(α·W + β·T + γ·P + δ·S)`
 - [ ] Implement `get_dci_status(dci: float) -> str` — returns `'normal'` (≤0.65), `'elevated'` (0.65–0.85), or `'disrupted'` (>0.85)
 - [ ] Implement `run_dci_cycle(hex_ids: list[str])` — for each hex: read latest signals from `signal_cache`, check ≥3 sources available, compute DCI, write to `dci_history`, update `hex_zones.current_dci` and `dci_status`
+- [ ] **[Fix 1 — Hysteresis]** Implement hysteresis in `trigger_monitor`: once a hex enters `DISRUPTED` state (DCI > 0.85), do NOT close the disruption event until DCI drops **below 0.65 for two consecutive cycles**. Store a `consecutive_normal_cycles` counter per hex in memory (or `hex_zones`). This prevents event flapping during storms that hover around 0.85.
 - [ ] Implement degraded mode: if <3 signal sources available for a hex, set `dci_status='normal'`, skip computation, log the degraded hex
 - [ ] Write unit tests using the exact input/output examples from `IMPLEMENTATION.md` Section 8.1: `σ(0.45×1.0 + 0.25×0.8 + 0.20×0.9 + 0.10×0.5)` = `σ(0.88)` ≈ 0.707
 - [ ] Write unit tests: `σ(0)=0.5`, `σ(2)≈0.88`, `σ(-2)≈0.12`
-- [ ] Write unit test: extreme inputs (W=2.0, T=1.0, P=1.5, S=1.0) → verify DCI approaches but does not trivially exceed 0.85
+- [ ] Write unit test: hysteresis — simulate DCI sequence [0.87, 0.82, 0.91, 0.61, 0.60] and verify the event is only closed after the **second** consecutive sub-0.65 cycle
 - [ ] Write unit test: verify disruption threshold requires σ(x)>0.85, meaning x>1.73
 
 ---
@@ -163,31 +164,37 @@ _Depends on DCI engine (Phase 4), spatial (Phase 2), policy engine (Phase 7), pa
 
 #### Trigger Monitor
 
-- [ ] Implement `backend/services/trigger_monitor.py` — `check_trigger_transitions(hex_id: str, new_dci: float)` — detect DCI crossing 0.85 up (create `disruption_event`) or down (close event with `ended_at` and `duration_hours`)
+- [ ] Implement `backend/services/trigger_monitor.py` — `check_trigger_transitions(hex_id: str, new_dci: float)` — detect DCI crossing 0.85 up (create `disruption_event`) or down, using hysteresis: only close event after DCI drops below 0.65 for **two consecutive cycles** (see Fix 1, Phase 4)
 - [ ] Implement `get_active_policyholders_in_hex(hex_id: str) -> list[str]` — query `workers` + `policies` for all workers in hex with active policy
 - [ ] Call `trigger_monitor.check_trigger_transitions` at end of each `run_dci_cycle` iteration
 
 #### PoP Validator
 
 - [ ] Implement `backend/services/pop_validator.py` — `validate_pop(worker_id: str, hex_id: str, disruption_start: datetime) -> dict` — query `location_pings` for pings in the specified hex within `disruption_start - 90min` to `disruption_start`
-- [ ] Return `{'present': True/False, 'ping_count': int, 'zone_hop_flag': bool}`
-- [ ] Write unit test: worker with 3 pings in hex within 90min → `present=True`
+- [ ] **[Fix 3 — PoP Threshold]** Require **≥ 3 pings** in the 90-minute window to establish a valid presence track; workers with fewer pings are marked `present=False`. This minimum is also required for a statistically valid `std_dev` calculation in the fraud engine.
+- [ ] Return `{'present': bool, 'ping_count': int, 'zone_hop_flag': bool}`
+- [ ] Write unit test: worker with exactly 3 pings in hex within 90min → `present=True`
+- [ ] Write unit test: worker with 2 pings (below threshold) → `present=False` even if pings are in correct hex
 - [ ] Write unit test: worker with 0 pings in hex → `present=False, zone_hop_flag=True`
 
 #### Payout Calculator
 
-- [ ] Implement `backend/services/payout_calculator.py` — `calculate_payout(avg_daily_earnings: float, disrupted_hours: float, tier: str, payout_history_4w: list[float]) -> float`
+- [ ] Implement `backend/services/payout_calculator.py` — `calculate_payout(avg_daily_earnings: float, disrupted_hours: float, tier: str, worker_id: str) -> float`
 - [ ] Apply formula: `(avg_daily_earnings ÷ 8) × disrupted_hours`
 - [ ] Apply daily coverage caps: ₹600 (Tier A), ₹700 (Tier B), ₹800 (Tier C)
-- [ ] Apply maturation cap: payout ≤ 2.5× 4-week average daily payout
+- [ ] **[Fix 8 — Cold Start Cap]** Implement `get_4w_avg_payout(worker_id: str) -> float` — query the `claims` table for the last 28 days; if no paid claims exist (new worker cold start), **default the 4-week average to ₹500** (zone 50th percentile earnings proxy)
+- [ ] Apply maturation cap: payout ≤ 2.5× result of `get_4w_avg_payout(worker_id)`
 - [ ] Write unit tests: ₹600 earnings × 4 hours → ₹300; verify tier cap; verify maturation cap
+- [ ] Write unit test: new worker (zero claims history) → `get_4w_avg_payout` returns ₹500; maturation cap = ₹1250
 
 #### Claim Approver
 
 - [ ] Implement `backend/services/claim_approver.py` — `process_claim(worker_id: str, event_id: str, policy_id: str) -> dict` orchestrating PoP → Fraud Score → Path routing
+- [ ] **[Fix 2 — Idempotency]** Enforce idempotency: `claims` table must have a `UNIQUE(worker_id, event_id)` constraint (add to Phase 1 migration `008_create_claims.sql`). Use `claim_id` (UUID) as the **Razorpay idempotency key** on every payout call to prevent duplicate payouts during retries.
+- [ ] **[Fix 7 — Phase 10/11 Bridge]** In Phase 10: hardcode `fraud_score = 0` and `gate2_result = 'STRONG'` as stubs inside `process_claim`. The actual `FraudEvaluator` will be injected and replace these stubs in Phase 11 — do NOT attempt to import `fraud_engine` in Phase 10.
 - [ ] Implement `route_claim(fraud_score: int, gate2_result: str) -> str` — returns `'fast_track'`, `'soft_queue'`, `'active_verify'`, or `'denied'` per 4-path framework
 - [ ] Write unit test: Gate2=STRONG + score<30 → `fast_track`; Gate2=NONE → `denied`
-- [ ] Implement `execute_fast_track_payout(claim_id: str)` — call `payout_calculator`, call `payment_service.initiate_upi_payout`, update `claims.status='paid'`, trigger FCM notification
+- [ ] Implement `execute_fast_track_payout(claim_id: str)` — call `payout_calculator`, call `payment_service.initiate_upi_payout` with `claim_id` as idempotency key, update `claims.status='paid'`, trigger FCM notification
 - [ ] Implement `POST /location-pings` API endpoint — accept and store worker location pings (requires JWT auth)
 - [ ] Implement `GET /claims` API endpoint — return authenticated worker's claim history
 
@@ -198,14 +205,15 @@ _Depends on DCI engine (Phase 4), spatial (Phase 2), policy engine (Phase 7), pa
 _Depends on claims pipeline (Phase 10) and location_pings data being populated._
 
 - [ ] Implement `backend/services/fraud_engine.py` — `FraudEvaluator` class with a `evaluate(worker_id, event_id, disruption_start) -> dict` method returning `{'fraud_score': int, 'flags': list, 'gate2_result': str}`
-- [ ] Implement Gate 1 (Layer 1): GPS coordinate variance analysis — compute `std_dev` of lat/lng and `accuracy_radius` over 90min window from `location_pings`; if std_dev < threshold → `STATIC_DEVICE_FLAG` (+30 points)
-- [ ] Implement Gate 2 (Layer 2): Platform order activity — mock API query for accepted/completed orders in 90min pre-disruption; return `'STRONG'` (≥1 order), `'WEAK'` (online, no orders), or `'NONE'` (offline)
+- [ ] Implement Gate 1 (Layer 1): GPS coordinate variance analysis — compute `std_dev` of lat/lng and `accuracy_radius` over the 90min window (requires ≥3 pings from PoP validator); if std_dev < threshold → `STATIC_DEVICE_FLAG` (+30 points)
+- [ ] **[Fix 4 — Gate 2 Order Definition]** Implement Gate 2 (Layer 2): mock Zepto order API must return `pickup_coords` and `dropoff_coords` per order. Gate 2 must **filter out and ignore orders where pickup-to-dropoff Haversine distance < 100 meters** (micro-delivery fraud). After filtering: return `'STRONG'` (≥1 valid order), `'WEAK'` (online, no valid orders), or `'NONE'` (offline).
 - [ ] Implement Gate 3: Velocity check — compute distance/time between last out-of-hex ping and first in-hex ping; if >120 km/hr → `VELOCITY_VIOLATION` (+15 points)
 - [ ] Implement Layer 4: OS mock location flag — count `mock_location_flag=True` pings in window; if >0 → `MOCK_LOCATION_FLAG` (+20 points)
-- [ ] Implement Layer 5 — Cross-hex fingerprint graph: for each disruption event, group all claiming workers by `device_model`; flag `MODEL_CONCENTRATION` if >20% share same model; flag `REGISTRATION_COHORT` if >30% registered within same 7-day window; flag `MOCK_LOCATION_NETWORK` if >3 workers in same hex share mock location flag (+15 +10 points)
-- [ ] Implement compound fraud score aggregation: sum all flag contributions → single integer 0–150
-- [ ] Write unit tests: GPS static + Gate2 NONE + mock location → score=90 → Path 4; no flags + Gate2 STRONG → score=0 → Path 1
-- [ ] Wire `FraudEvaluator` into `claim_approver.process_claim`
+- [ ] **[Fix 6 — Baseline-Relative Model Concentration]** Implement Layer 5 — Cross-hex fingerprint graph: for each disruption event, group all claiming workers by `device_model`. Flag `MODEL_CONCENTRATION` if a model's frequency **exceeds 3× its historical baseline frequency for that hex** (computed from the last 90 days of `claims` + `workers` data — do NOT use flat percentage thresholds); flag `REGISTRATION_COHORT` if >30% registered within same 7-day window; flag `MOCK_LOCATION_NETWORK` if >3 workers in same hex share mock location flag.
+- [ ] **[Fix 5 — Explicit Fraud Score Formula]** Implement compound fraud score using the **exact formula**: `Score = (STATIC_DEVICE_FLAG × 30) + (MOCK_LOCATION_FLAG × 20) + (MODEL_CONCENTRATION × 25) + (VELOCITY_VIOLATION × 15) + (REGISTRATION_COHORT × 10) + (MOCK_LOCATION_NETWORK × 10)`. Routing thresholds: Score < 30 → Path 1 (Fast Track); 30–59 → Path 2 (Soft Queue); 60–89 → Path 3 (Active Verify); ≥90 or Gate2=NONE → Path 4 (Denied).
+- [ ] Write unit tests: GPS static (30) + Gate2 NONE (→ Path 4 override) + mock location (20) → score=50 → but Gates to Path 4; no flags + Gate2 STRONG → score=0 → Path 1
+- [ ] Write unit test: micro-delivery filter — order with pickup/dropoff distance=80m must be excluded; only the remaining ≥1 valid order should qualify Gate 2 as STRONG
+- [ ] Wire `FraudEvaluator` into `claim_approver.process_claim`, replacing the Phase 10 stubs
 
 ---
 
