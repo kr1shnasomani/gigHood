@@ -97,14 +97,14 @@ _Depends on spatial (hex IDs) and signal ingestion (cached scores). Core of the 
 
 _Signal ingestion and DCI computation must exist before scheduling. Scheduler runs both in sequence._
 
-- [ ] Implement `backend/scheduler/jobs.py` — initialize `BackgroundScheduler` from `apscheduler`
-- [ ] Register `run_signal_ingestion_cycle` job: every 5 minutes at offset T+0
-- [ ] Register `run_dci_cycle` job: every 5 minutes at offset T+1 minute (after ingestion)
-- [ ] Register weekly Monday 00:00 job stub for premium debit and policy renewal (logic added in Phase 8)
-- [ ] Register Sunday evening job stub for forecast + tier upgrade notifications (logic added in Phase 11)
-- [ ] Register Sunday night job stub for XGBoost retrain (logic added in Phase 11)
-- [ ] Wire scheduler startup into FastAPI `lifespan` event in `main.py`
-- [ ] Verify scheduler starts on app boot and logs each job execution in console
+- [x] Implement `backend/scheduler/jobs.py` — initialize `BackgroundScheduler` from `apscheduler`
+- [x] Register `run_signal_ingestion_cycle` job: every 5 minutes at offset T+0
+- [x] Register `run_dci_cycle` job: every 5 minutes at offset T+1 minute (after ingestion)
+- [x] Register weekly Monday 00:00 job stub for premium debit and policy renewal (logic added in Phase 8)
+- [x] Register Sunday evening job stub for forecast + tier upgrade notifications (logic added in Phase 11)
+- [x] Register Sunday night job stub for XGBoost retrain (logic added in Phase 11)
+- [x] Wire scheduler startup into FastAPI `lifespan` event in `main.py`
+- [x] Verify scheduler starts on app boot and logs each job execution in console
 
 ---
 

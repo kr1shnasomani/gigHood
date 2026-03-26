@@ -16,9 +16,9 @@ Full product scope: `README.md` | Full technical spec: `IMPLEMENTATION.md`
 
 ## Current Development Phase
 
-> **Phase 5 — APScheduler Integration**
+> **Phase 6 — Auth Module**
 
-Phase 4 (DCI Computation Engine) has been completed. The `dci_engine.py` processing module correctly evaluates combinations of environment arrays using standard sigmoid bounding to map risk states. Persistent hysteresis is managed by `trigger_monitor.py` requiring two cycle confirmations to close a disrupted event, stored sequentially in the new `consecutive_normal_cycles` Postgres column.
+Phase 5 (APScheduler Integration) is complete. The FastAPI application now boots alongside an active APScheduler daemon that automatically triggers the signal ingestion API every 5 minutes, followed tightly by the DCI mathematics loop offset by exactly one minute safely. Jobs are accurately hooked into the application core standard `lifespan` lifecycle management pattern ensuring clean shutdowns.
 
 ---
 
@@ -150,7 +150,7 @@ Full schema (all columns, types, FKs): `IMPLEMENTATION.md` Section 5.
 | **Phase 2** | H3 Spatial grid module | ✅ Complete |
 | **Phase 3** | Signal ingestion (5 fetchers) | ✅ Complete |
 | **Phase 4** | DCI computation engine | ✅ Complete |
-| **Phase 5** | APScheduler integration | ⬜ Not started |
+| **Phase 5** | APScheduler integration | ✅ Complete |
 | **Phase 6** | Auth module (OTP + JWT) | ⬜ Not started |
 | **Phase 7** | Policy engine (XGBoost + premium bander) | ⬜ Not started |
 | **Phase 8** | Weekly premium debit scheduler job | ⬜ Not started |
@@ -168,11 +168,11 @@ Full schema (all columns, types, FKs): `IMPLEMENTATION.md` Section 5.
 
 ## Next Task for a New Agent
 
-**Start at Phase 5, Task 1 in `TODO.md`:**
+**Start at Phase 6, Task 1 in `TODO.md`:**
 
-Please execute the `Phase 5` sequence in `TODO.md` regarding APScheduler Integration.
-1. Implement `backend/scheduler/jobs.py` to initialize the APScheduler.
-2. Schedule `run_signal_ingestion_cycle()` followed by `run_dci_cycle()`.
-3. Wrap them in a lifecycle manager in `backend/main.py` so the tasks boot alongside the FastAPI server.
+Please execute the `Phase 6` sequence in `TODO.md` regarding Auth Module.
+1. Implement `auth_service.py` to create and decode standard JWT arrays leveraging `python-jose`.
+2. Construct the registration router API endpoint inside `workers.py`.
+3. Stub the mock OTP workflow and ensure user auth gates block properly via a custom `get_current_worker` FastAPI dependency.
 
 > Before writing any code, read `MEMORY.md` → `TODO.md` → `IMPLEMENTATION.md` Section 3 → `RULES.md` in that order.

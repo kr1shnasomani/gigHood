@@ -1,18 +1,79 @@
-from apscheduler.schedulers.background import BackgroundScheduler
 import logging
+from apscheduler.schedulers.background import BackgroundScheduler
+from backend.services.signal_fetchers import run_signal_ingestion_cycle
+from backend.services.dci_engine import run_dci_cycle
+from backend.services.trigger_monitor import evaluate_disruptions
+from backend.db.client import supabase
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("api")
 
+def fetch_all_hexes() -> list[str]:
+    """Helper to get the current system hex IDs dynamically for the jobs."""
+    try:
+        response = supabase.table('hex_zones').select('hex_id').execute()
+        return [row['hex_id'] for row in response.data]
+    except Exception as e:
+        logger.error(f"Failed to fetch hex zones for scheduler: {e}")
+        return []
+
+def signal_job():
+    logger.info("Starting scheduled signal ingestion cycle...")
+    hexes = fetch_all_hexes()
+    if not hexes:
+        logger.warning("No hex zones found. Skipping signal ingestion.")
+        return
+    res = run_signal_ingestion_cycle(hexes)
+    logger.info(f"Signal cycle complete for {len(res)} zones.")
+
+def dci_job():
+    logger.info("Starting scheduled DCI computation cycle...")
+    hexes = fetch_all_hexes()
+    if not hexes:
+        logger.warning("No hex zones found. Skipping DCI computation.")
+        return
+        
+    res = run_dci_cycle(hexes)
+    logger.info(f"DCI cycle complete for {len(res)} zones.")
+    
+    # After computing raw DCI, evaluate active disruption flap states
+    try:
+        flap_res = evaluate_disruptions(hexes)
+        logger.info(f"Hysteresis evaluated for {len(flap_res)} zones.")
+    except Exception as e:
+        logger.error(f"Error during trigger evaluation: {e}")
+
+def premium_debit_stub():
+    logger.info("[STUB] Running weekly Premium Debit job...")
+
+def forecast_alert_stub():
+    logger.info("[STUB] Running Sunday evening forecast notification...")
+
+def xgboost_retrain_stub():
+    logger.info("[STUB] Running XGBoost weekly retraining pipeline...")
+
+# Create the global scheduler instance
 scheduler = BackgroundScheduler()
 
+# Register the 5-minute repeating jobs
+# T+0: Ingestion
+scheduler.add_job(signal_job, 'cron', minute='*/5', id='signal_ingestion', replace_existing=True)
+# T+1: DCI Engine handles the ingested data exactly 1 minute later
+# Since '*/5' offset + 1 is tricky in simple cron strings, we can use an explicit delay or staggered minute list.
+# A robust staggered list: 1,6,11,16,21,26,31,36,41,46,51,56
+scheduler.add_job(dci_job, 'cron', minute='1,6,11,16,21,26,31,36,41,46,51,56', id='dci_computation', replace_existing=True)
+
+# Stubs for subsequent phases
+# Monday 00:00
+scheduler.add_job(premium_debit_stub, 'cron', day_of_week='mon', hour=0, minute=0, id='premium_debit_job', replace_existing=True)
+# Sunday 18:00
+scheduler.add_job(forecast_alert_stub, 'cron', day_of_week='sun', hour=18, minute=0, id='forecast_alert_job', replace_existing=True)
+# Sunday 23:00
+scheduler.add_job(xgboost_retrain_stub, 'cron', day_of_week='sun', hour=23, minute=0, id='xgboost_retrain_job', replace_existing=True)
+
 def start_scheduler():
-    logger.info("Initializing APScheduler")
-    if not scheduler.running:
-        scheduler.start()
-        logger.info("APScheduler started")
+    scheduler.start()
+    logger.info("APScheduler started.")
 
 def shutdown_scheduler():
-    logger.info("Shutting down APScheduler")
-    if scheduler.running:
-        scheduler.shutdown()
-        logger.info("APScheduler stopped")
+    scheduler.shutdown()
+    logger.info("APScheduler stopped.")
