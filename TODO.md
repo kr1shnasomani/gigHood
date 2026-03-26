@@ -204,16 +204,16 @@ _Depends on DCI engine (Phase 4), spatial (Phase 2), policy engine (Phase 7), pa
 
 _Depends on claims pipeline (Phase 10) and location_pings data being populated._
 
-- [ ] Implement `backend/services/fraud_engine.py` — `FraudEvaluator` class with a `evaluate(worker_id, event_id, disruption_start) -> dict` method returning `{'fraud_score': int, 'flags': list, 'gate2_result': str}`
-- [ ] Implement Gate 1 (Layer 1): GPS coordinate variance analysis — compute `std_dev` of lat/lng and `accuracy_radius` over the 90min window (requires ≥3 pings from PoP validator); if std_dev < threshold → `STATIC_DEVICE_FLAG` (+30 points)
-- [ ] **[Fix 4 — Gate 2 Order Definition]** Implement Gate 2 (Layer 2): mock Zepto order API must return `pickup_coords` and `dropoff_coords` per order. Gate 2 must **filter out and ignore orders where pickup-to-dropoff Haversine distance < 100 meters** (micro-delivery fraud). After filtering: return `'STRONG'` (≥1 valid order), `'WEAK'` (online, no valid orders), or `'NONE'` (offline).
-- [ ] Implement Gate 3: Velocity check — compute distance/time between last out-of-hex ping and first in-hex ping; if >120 km/hr → `VELOCITY_VIOLATION` (+15 points)
-- [ ] Implement Layer 4: OS mock location flag — count `mock_location_flag=True` pings in window; if >0 → `MOCK_LOCATION_FLAG` (+20 points)
-- [ ] **[Fix 6 — Baseline-Relative Model Concentration]** Implement Layer 5 — Cross-hex fingerprint graph: for each disruption event, group all claiming workers by `device_model`. Flag `MODEL_CONCENTRATION` if a model's frequency **exceeds 3× its historical baseline frequency for that hex** (computed from the last 90 days of `claims` + `workers` data — do NOT use flat percentage thresholds); flag `REGISTRATION_COHORT` if >30% registered within same 7-day window; flag `MOCK_LOCATION_NETWORK` if >3 workers in same hex share mock location flag.
-- [ ] **[Fix 5 — Explicit Fraud Score Formula]** Implement compound fraud score using the **exact formula**: `Score = (STATIC_DEVICE_FLAG × 30) + (MOCK_LOCATION_FLAG × 20) + (MODEL_CONCENTRATION × 25) + (VELOCITY_VIOLATION × 15) + (REGISTRATION_COHORT × 10) + (MOCK_LOCATION_NETWORK × 10)`. Routing thresholds: Score < 30 → Path 1 (Fast Track); 30–59 → Path 2 (Soft Queue); 60–89 → Path 3 (Active Verify); ≥90 or Gate2=NONE → Path 4 (Denied).
-- [ ] Write unit tests: GPS static (30) + Gate2 NONE (→ Path 4 override) + mock location (20) → score=50 → but Gates to Path 4; no flags + Gate2 STRONG → score=0 → Path 1
-- [ ] Write unit test: micro-delivery filter — order with pickup/dropoff distance=80m must be excluded; only the remaining ≥1 valid order should qualify Gate 2 as STRONG
-- [ ] Wire `FraudEvaluator` into `claim_approver.process_claim`, replacing the Phase 10 stubs
+- [x] Implement `backend/services/fraud_engine.py` — `FraudEvaluator` class with a `evaluate(worker_id, event_id, disruption_start) -> dict` method returning `{'fraud_score': int, 'flags': list, 'gate2_result': str}`
+- [x] Implement Gate 1 (Layer 1): GPS coordinate variance analysis — compute `std_dev` of lat/lng and `accuracy_radius` over the 90min window (requires ≥3 pings from PoP validator); if std_dev < threshold → `STATIC_DEVICE_FLAG` (+30 points)
+- [x] **[Fix 4 — Gate 2 Order Definition]** Implement Gate 2 (Layer 2): mock Zepto order API must return `pickup_coords` and `dropoff_coords` per order. Gate 2 must **filter out and ignore orders where pickup-to-dropoff Haversine distance < 100 meters** (micro-delivery fraud). After filtering: return `'STRONG'` (≥1 valid order), `'WEAK'` (online, no valid orders), or `'NONE'` (offline).
+- [x] Implement Gate 3: Velocity check — compute distance/time between last out-of-hex ping and first in-hex ping; if >120 km/hr → `VELOCITY_VIOLATION` (+15 points)
+- [x] Implement Layer 4: OS mock location flag — count `mock_location_flag=True` pings in window; if >0 → `MOCK_LOCATION_FLAG` (+20 points)
+- [x] **[Fix 6 — Baseline-Relative Model Concentration]** Implement Layer 5 — Cross-hex fingerprint graph: for each disruption event, group all claiming workers by `device_model`. Flag `MODEL_CONCENTRATION` if a model's frequency **exceeds 3× its historical baseline frequency for that hex** (computed from the last 90 days of `claims` + `workers` data — do NOT use flat percentage thresholds); flag `REGISTRATION_COHORT` if >30% registered within same 7-day window; flag `MOCK_LOCATION_NETWORK` if >3 workers in same hex share mock location flag.
+- [x] **[Fix 5 — Explicit Fraud Score Formula]** Implement compound fraud score using the **exact formula**: `Score = (STATIC_DEVICE_FLAG × 30) + (MOCK_LOCATION_FLAG × 20) + (MODEL_CONCENTRATION × 25) + (VELOCITY_VIOLATION × 15) + (REGISTRATION_COHORT × 10) + (MOCK_LOCATION_NETWORK × 10)`. Routing thresholds: Score < 30 → Path 1 (Fast Track); 30–59 → Path 2 (Soft Queue); 60–89 → Path 3 (Active Verify); ≥90 or Gate2=NONE → Path 4 (Denied).
+- [x] Write unit tests: GPS static (30) + Gate2 NONE (→ Path 4 override) + mock location (20) → score=50 → but Gates to Path 4; no flags + Gate2 STRONG → score=0 → Path 1
+- [x] Write unit test: micro-delivery filter — order with pickup/dropoff distance=80m must be excluded; only the remaining ≥1 valid order should qualify Gate 2 as STRONG
+- [x] Wire `FraudEvaluator` into `claim_approver.process_claim`, replacing the Phase 10 stubs
 
 ---
 

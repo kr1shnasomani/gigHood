@@ -117,14 +117,18 @@ def process_claim(worker_id: str, event_id: str, policy_id: str) -> dict:
               }).eq('id', claim_id).execute()
               return {"path": "denied"}
               
-         # 2. Fraud Engine (Phase 10 Stubs strictly)
-         fraud_score = 0
-         gate2_result = 'STRONG'
+         # 2. Fraud Engine (Phase 11 7-Layer Defense)
+         from backend.services.fraud_engine import FraudEvaluator
+         evaluator = FraudEvaluator()
+         fraud_res = evaluator.evaluate(worker_id, event_id, disruption_start)
+         
+         fraud_score = fraud_res.get('fraud_score', 0)
+         gate2_result = fraud_res.get('gate2_result', 'NONE')
+         flags = fraud_res.get('flags', [])
          
          # 3. Rule Router
          path = route_claim(fraud_score, gate2_result)
          
-         # Update Database mapping
          supabase.table('claims').update({
              'pop_validated': True,
              'fraud_score': fraud_score,

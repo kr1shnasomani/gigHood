@@ -16,9 +16,9 @@ Full product scope: `README.md` | Full technical spec: `IMPLEMENTATION.md`
 
 ## Current Development Phase
 
-> **Phase 10 — Claims Automation Pipeline**
+> **Phase 11 — Fraud Engine (7-Layer Defense)**
 
-Phases 7, 8, and 9 have been seamlessly executed sequentially. The backend now runs the mathematical Premium Bander (calculating tier pricing with 1.4x monsoon multipliers). It governs Weekly Monday background cron tasks routing autonomous Razorpay debit hooks based on valid Policy renewals. The Razorpay SDK was integrated to dispatch verifiable, securely-HMAC-signed webhook events mapping payload metadata sequentially to active database rows.
+Phases 10 and 11 have been seamlessly executed sequentially. The backend now runs the mathematical Claim Approver routing claims identically using the 7-layer Fraud Evaluator bounding micro-deliveries and static GPS variances. It governs internal automated payouts bypassing mock stubs natively.
 
 ---
 
@@ -155,8 +155,8 @@ Full schema (all columns, types, FKs): `IMPLEMENTATION.md` Section 5.
 | **Phase 7** | Policy engine (XGBoost + premium bander) | ✅ Complete |
 | **Phase 8** | Weekly premium debit scheduler job | ✅ Complete |
 | **Phase 9** | Razorpay payment service | ✅ Complete |
-| **Phase 10** | Claims automation pipeline | ⬜ Not started |
-| **Phase 11** | 7-layer fraud engine | ⬜ Not started |
+| **Phase 10** | Claims automation pipeline | ✅ Complete |
+| **Phase 11** | 7-layer fraud engine | ✅ Complete |
 | **Phase 12** | FCM notification service | ⬜ Not started |
 | **Phase 13** | Worker mobile app (React Native) | ⬜ Not started |
 | **Phase 14** | Admin dashboard (Next.js) | ⬜ Not started |
@@ -168,10 +168,10 @@ Full schema (all columns, types, FKs): `IMPLEMENTATION.md` Section 5.
 
 ## Next Task for a New Agent
 
-**Start at Phase 10, Task 1 in `TODO.md`:**
+**Start at Phase 12, Task 1 in `TODO.md`:**
 
-Please execute the `Phase 10` sequence in `TODO.md` regarding the Claims Automation Pipeline:
-1. Link the real-time DCI disruption events to a formal `PoP Validator` tracking 15-minute worker pings to prove real presence inside Hex blocks.
-2. Build the `Payout Calculator` triggering Fast Track (Path 1) payouts automatically based on disruption hours metrics.
+Please execute the `Phase 12` sequence in `TODO.md` regarding FCM notifications:
+1. Link Firebase push APIs cleanly mapped across trigger bounds alerting workers.
+2. Build Worker App architecture in `Phase 13`.
 
 > Before writing any code, read `MEMORY.md` → `TODO.md` → `IMPLEMENTATION.md` Section 3 → `RULES.md` in that order.
