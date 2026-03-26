@@ -80,3 +80,24 @@ def handle_payout_webhook(payload: dict, signature: str, secret: str = "gigHoodT
     except Exception as e:
         logger.error(f"Error handling webhook: {e}")
         return False
+
+def process_webhook_mutation(payload: dict):
+    """
+    Safely executes database modifications directly intercepting Razorpay success streams cleanly preventing route leaks.
+    """
+    from backend.db.client import supabase
+    if payload.get("event") == "payout.processed":
+        try:
+             # Extract the reference ID which we mapped to our internal Claim UUID securely
+             payout_entity = payload.get("payload", {}).get("payout", {}).get("entity", {})
+             reference_id = payout_entity.get("reference_id")
+             
+             if reference_id:
+                 # Update the Claim status safely to paid
+                 logger.info(f"Webhook confirming payout {reference_id} processed. Updating database...")
+                 supabase.table('claims').update({
+                     "status": "paid"
+                 }).eq("id", reference_id).execute()
+                 
+        except Exception as e:
+             logger.error(f"Failed to parse and update database from Razorpay Webhook: {e}")

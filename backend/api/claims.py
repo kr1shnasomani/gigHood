@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, HTTPException, Header, Depends
 import logging
-from backend.services.payment_service import handle_payout_webhook
+from backend.services.payment_service import handle_payout_webhook, process_webhook_mutation
 from backend.services.auth_service import get_current_worker
 from backend.db.client import supabase
 
@@ -35,21 +35,6 @@ async def razorpay_webhook(request: Request, x_razorpay_signature: str = Header(
     if not is_valid:
         raise HTTPException(status_code=400, detail="Invalid webhook signature")
         
-    # We only care when payouts succeed fully
-    if payload.get("event") == "payout.processed":
-        try:
-             # Extract the reference ID which we mapped to our internal Claim UUID securely
-             payout_entity = payload.get("payload", {}).get("payout", {}).get("entity", {})
-             reference_id = payout_entity.get("reference_id")
-             
-             if reference_id:
-                 # Update the Claim status safely to paid
-                 logger.info(f"Webhook confirming payout {reference_id} processed. Updating database...")
-                 supabase.table('claims').update({
-                     "status": "paid"
-                 }).eq("id", reference_id).execute()
-                 
-        except Exception as e:
-             logger.error(f"Failed to parse and update database from Razorpay Webhook: {e}")
+    process_webhook_mutation(payload)
              
     return {"status": "success"}
