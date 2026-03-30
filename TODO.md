@@ -164,39 +164,39 @@ _Depends on DCI engine (Phase 4), spatial (Phase 2), policy engine (Phase 7), pa
 
 #### Trigger Monitor
 
-- [ ] Implement `backend/services/trigger_monitor.py` — `check_trigger_transitions(hex_id: str, new_dci: float)` — detect DCI crossing 0.85 up (create `disruption_event`) or down, using hysteresis: only close event after DCI drops below 0.65 for **two consecutive cycles** (see Fix 1, Phase 4)
-- [ ] Implement `get_active_policyholders_in_hex(hex_id: str) -> list[str]` — query `workers` + `policies` for all workers in hex with active policy
-- [ ] Call `trigger_monitor.check_trigger_transitions` at end of each `run_dci_cycle` iteration
+- [x] Implement `backend/services/trigger_monitor.py` — `check_trigger_transitions(hex_id: str, new_dci: float)` — detect DCI crossing 0.85 up (create `disruption_event`) or down, using hysteresis: only close event after DCI drops below 0.65 for **two consecutive cycles** (see Fix 1, Phase 4)
+- [x] Implement `get_active_policyholders_in_hex(hex_id: str) -> list[str]` — query `workers` + `policies` for all workers in hex with active policy
+- [x] Call `trigger_monitor.check_trigger_transitions` at end of each `run_dci_cycle` iteration
 
 #### PoP Validator
 
-- [ ] Implement `backend/services/pop_validator.py` — `validate_pop(worker_id: str, hex_id: str, disruption_start: datetime) -> dict` — query `location_pings` for pings in the specified hex within `disruption_start - 90min` to `disruption_start`
-- [ ] **[Fix 3 — PoP Threshold]** Require **≥ 3 pings** in the 90-minute window to establish a valid presence track; workers with fewer pings are marked `present=False`. This minimum is also required for a statistically valid `std_dev` calculation in the fraud engine.
-- [ ] Return `{'present': bool, 'ping_count': int, 'zone_hop_flag': bool}`
-- [ ] Write unit test: worker with exactly 3 pings in hex within 90min → `present=True`
-- [ ] Write unit test: worker with 2 pings (below threshold) → `present=False` even if pings are in correct hex
-- [ ] Write unit test: worker with 0 pings in hex → `present=False, zone_hop_flag=True`
+- [x] Implement `backend/services/pop_validator.py` — `validate_pop(worker_id: str, hex_id: str, disruption_start: datetime) -> dict` — query `location_pings` for pings in the specified hex within `disruption_start - 90min` to `disruption_start`
+- [x] **[Fix 3 — PoP Threshold]** Require **≥ 3 pings** in the 90-minute window to establish a valid presence track; workers with fewer pings are marked `present=False`. This minimum is also required for a statistically valid `std_dev` calculation in the fraud engine.
+- [x] Return `{'present': bool, 'ping_count': int, 'zone_hop_flag': bool}`
+- [x] Write unit test: worker with exactly 3 pings in hex within 90min → `present=True`
+- [x] Write unit test: worker with 2 pings (below threshold) → `present=False` even if pings are in correct hex
+- [x] Write unit test: worker with 0 pings in hex → `present=False, zone_hop_flag=True`
 
 #### Payout Calculator
 
-- [ ] Implement `backend/services/payout_calculator.py` — `calculate_payout(avg_daily_earnings: float, disrupted_hours: float, tier: str, worker_id: str) -> float`
-- [ ] Apply formula: `(avg_daily_earnings ÷ 8) × disrupted_hours`
-- [ ] Apply daily coverage caps: ₹600 (Tier A), ₹700 (Tier B), ₹800 (Tier C)
-- [ ] **[Fix 8 — Cold Start Cap]** Implement `get_4w_avg_payout(worker_id: str) -> float` — query the `claims` table for the last 28 days; if no paid claims exist (new worker cold start), **default the 4-week average to ₹500** (zone 50th percentile earnings proxy)
-- [ ] Apply maturation cap: payout ≤ 2.5× result of `get_4w_avg_payout(worker_id)`
-- [ ] Write unit tests: ₹600 earnings × 4 hours → ₹300; verify tier cap; verify maturation cap
-- [ ] Write unit test: new worker (zero claims history) → `get_4w_avg_payout` returns ₹500; maturation cap = ₹1250
+- [x] Implement `backend/services/payout_calculator.py` — `calculate_payout(avg_daily_earnings: float, disrupted_hours: float, tier: str, worker_id: str) -> float`
+- [x] Apply formula: `(avg_daily_earnings ÷ 8) × disrupted_hours`
+- [x] Apply daily coverage caps: ₹600 (Tier A), ₹700 (Tier B), ₹800 (Tier C)
+- [x] **[Fix 8 — Cold Start Cap]** Implement `get_4w_avg_payout(worker_id: str) -> float` — query the `claims` table for the last 28 days; if no paid claims exist (new worker cold start), **default the 4-week average to ₹500** (zone 50th percentile earnings proxy)
+- [x] Apply maturation cap: payout ≤ 2.5× result of `get_4w_avg_payout(worker_id)`
+- [x] Write unit tests: ₹600 earnings × 4 hours → ₹300; verify tier cap; verify maturation cap
+- [x] Write unit test: new worker (zero claims history) → `get_4w_avg_payout` returns ₹500; maturation cap = ₹1250
 
 #### Claim Approver
 
-- [ ] Implement `backend/services/claim_approver.py` — `process_claim(worker_id: str, event_id: str, policy_id: str) -> dict` orchestrating PoP → Fraud Score → Path routing
-- [ ] **[Fix 2 — Idempotency]** Enforce idempotency: `claims` table must have a `UNIQUE(worker_id, event_id)` constraint (add to Phase 1 migration `008_create_claims.sql`). Use `claim_id` (UUID) as the **Razorpay idempotency key** on every payout call to prevent duplicate payouts during retries.
-- [ ] **[Fix 7 — Phase 10/11 Bridge]** In Phase 10: hardcode `fraud_score = 0` and `gate2_result = 'STRONG'` as stubs inside `process_claim`. The actual `FraudEvaluator` will be injected and replace these stubs in Phase 11 — do NOT attempt to import `fraud_engine` in Phase 10.
-- [ ] Implement `route_claim(fraud_score: int, gate2_result: str) -> str` — returns `'fast_track'`, `'soft_queue'`, `'active_verify'`, or `'denied'` per 4-path framework
-- [ ] Write unit test: Gate2=STRONG + score<30 → `fast_track`; Gate2=NONE → `denied`
-- [ ] Implement `execute_fast_track_payout(claim_id: str)` — call `payout_calculator`, call `payment_service.initiate_upi_payout` with `claim_id` as idempotency key, update `claims.status='paid'`, trigger FCM notification
-- [ ] Implement `POST /location-pings` API endpoint — accept and store worker location pings (requires JWT auth)
-- [ ] Implement `GET /claims` API endpoint — return authenticated worker's claim history
+- [x] Implement `backend/services/claim_approver.py` — `process_claim(worker_id: str, event_id: str, policy_id: str) -> dict` orchestrating PoP → Fraud Score → Path routing
+- [x] **[Fix 2 — Idempotency]** Enforce idempotency: `claims` table must have a `UNIQUE(worker_id, event_id)` constraint (add to Phase 1 migration `008_create_claims.sql`). Use `claim_id` (UUID) as the **Razorpay idempotency key** on every payout call to prevent duplicate payouts during retries.
+- [x] **[Fix 7 — Phase 10/11 Bridge]** In Phase 10: hardcode `fraud_score = 0` and `gate2_result = 'STRONG'` as stubs inside `process_claim`. The actual `FraudEvaluator` will be injected and replace these stubs in Phase 11 — do NOT attempt to import `fraud_engine` in Phase 10.
+- [x] Implement `route_claim(fraud_score: int, gate2_result: str) -> str` — returns `'fast_track'`, `'soft_queue'`, `'active_verify'`, or `'denied'` per 4-path framework
+- [x] Write unit test: Gate2=STRONG + score<30 → `fast_track`; Gate2=NONE → `denied`
+- [x] Implement `execute_fast_track_payout(claim_id: str)` — call `payout_calculator`, call `payment_service.initiate_upi_payout` with `claim_id` as idempotency key, update `claims.status='paid'`, trigger FCM notification
+- [x] Implement `POST /location-pings` API endpoint — accept and store worker location pings (requires JWT auth)
+- [x] Implement `GET /claims` API endpoint — return authenticated worker's claim history
 
 ---
 

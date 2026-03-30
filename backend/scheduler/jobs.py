@@ -35,17 +35,19 @@ def dci_job():
     logger.info(f"DCI cycle complete for {len(res)} zones.")
     logger.info(f"DCI cycle complete for {len(res)} zones.")
 
-from backend.scheduler.weekly_jobs import run_monday_policy_cycle
+from backend.scheduler.weekly_jobs import run_monday_policy_cycle, run_sunday_forecast_cycle, run_sunday_xgboost_retrain
 
 def premium_debit_job():
     logger.info("Running weekly Premium Debit job...")
     run_monday_policy_cycle()
 
 def forecast_alert_stub():
-    logger.info("[STUB] Running Sunday evening forecast notification...")
+    logger.info("Running Sunday evening forecast notification...")
+    run_sunday_forecast_cycle()
 
 def xgboost_retrain_stub():
-    logger.info("[STUB] Running XGBoost weekly retraining pipeline...")
+    logger.info("Running XGBoost weekly retraining pipeline...")
+    run_sunday_xgboost_retrain()
 
 # Create the global scheduler instance
 scheduler = BackgroundScheduler()

@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate Release Notes
+        id: release_notes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: latestRelease } = await github.rest.repos.getLatestRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            }).catch(() => ({ data: null }));
+            
+            const base = latestRelease ? latestRelease.tag_name : null;
+            const head = context.ref.replace('refs/tags/', '');
+            
+            let changelog = "### Changes in this Release\n\n";
+            
+            if (base) {
+              const { data: comparison } = await github.rest.repos.compareCommits({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                base,
+                head,
+              });
+              changelog += comparison.commits.map(c => `- ${c.commit.message.split('\n')[0]} (${c.sha.substring(0, 7)})`).join('\n');
+            } else {
+              changelog += "Initial release of the gigHood backend platform.";
+            }
+            
+            core.setOutput('changelog', changelog);
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body: ${{ steps.release_notes.outputs.changelog }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

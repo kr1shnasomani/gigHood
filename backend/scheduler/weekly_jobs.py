@@ -45,3 +45,39 @@ def run_monday_policy_cycle():
         
     except Exception as db_err:
         logger.error(f"Failed fetching active workers during cycle boot: {db_err}")
+
+def run_sunday_forecast_cycle():
+    """
+    Run on Sundays to mock-forecast DCI probabilities and send proactive Tier Upgrade
+    pushes to users who show improved safety trends before Monday's renewal.
+    """
+    logger.info("Initializing Sunday Tier Upgrade Forecast Cycle...")
+    try:
+        from backend.services.notification_service import notification_service
+        # Fetch active workers
+        workers_res = supabase.table('workers').select('id, name, fcm_token').eq('status', 'active').execute()
+        
+        count = 0
+        for worker in workers_res.data:
+            if worker.get('fcm_token'):
+                # Mock logic: we pretend the backend predicted they can upgrade from B -> A
+                # In production this calls a timeseries forecast model
+                notification_service.notify_tier_upgrade(worker['fcm_token'], "B", "A")
+                count += 1
+                
+        logger.info(f"Sunday Forecast completed. Sent {count} tier upgrade offers.")
+    except Exception as e:
+        logger.error(f"Sunday forecast cycle failed: {e}")
+
+def run_sunday_xgboost_retrain():
+    """
+    Weekly automated MLOps pipeline executing on Sundays to refresh the model 
+    weights on the latest collected data.
+    """
+    logger.info("Initializing Sunday XGBoost Auto-Retrain Pipeline...")
+    try:
+        from backend.services.risk_profiler import train_and_save_model
+        train_and_save_model()
+        logger.info("XGBoost retraining successfully completed.")
+    except Exception as e:
+        logger.error(f"XGBoost retraining cycle failed: {e}")

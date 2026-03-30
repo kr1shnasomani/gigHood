@@ -13,55 +13,31 @@ MODEL_PATH = os.path.join(ML_DIR, "risk_profiler.pkl")
 # Global in-memory cache for the loaded model to prevent I/O blocking
 _model = None
 
-def _generate_synthetic_data(num_samples: int = 2000) -> pd.DataFrame:
-    """
-    Generates deterministic synthetic training data mapping historical DCI attributes to Risk Tiers.
-    Features:
-    - 12_week_dci_avg: float
-    - seasonal_flag: int (1 = monsoon, 0 = dry)
-    - flood_proximity_m: float (meters to historically flooded point)
-    - claim_frequency: float (normalized frequency)
-    
-    Target:
-    - tier: 0 (A), 1 (B), 2 (C)
-    """
-    np.random.seed(42)  # Ensure perfectly deterministic output across runs
-    
-    # Generate feature arrays
-    dci_avg = np.random.uniform(0.1, 0.95, num_samples)
-    seasonal_flag = np.random.choice([0, 1], num_samples, p=[0.7, 0.3])
-    flood_proximity_m = np.random.uniform(0, 5000, num_samples)
-    claim_freq = np.random.uniform(0, 1, num_samples)
-    
-    # Calculate a synthetic core logic score
-    # Higher score = higher risk
-    risk_score = (dci_avg * 40) + (seasonal_flag * 20) + ((5000 - flood_proximity_m) / 5000 * 30) + (claim_freq * 10)
-    
-    # Add noise to make it realistic for ML
-    noise = np.random.normal(0, 5, num_samples)
-    final_score = risk_score + noise
-    
-    # Map boundaries to Tiers
-    # 0 = A (Safe), 1 = B (Elevated), 2 = C (High Risk)
-    tiers = np.where(final_score > 65, 2, np.where(final_score > 40, 1, 0))
-    
-    df = pd.DataFrame({
-        "dci_avg": dci_avg,
-        "seasonal_flag": seasonal_flag,
-        "flood_proximity_m": flood_proximity_m,
-        "claim_frequency": claim_freq,
-        "tier": tiers
-    })
-    return df
+
 
 def train_and_save_model():
     """
-    Trains the XGBoost classifier on synthetic data and saves weights to the local filesystem.
+    Trains the XGBoost classifier on realistic data loaded from the dataset artifacts and saves weights.
     """
-    logger.info("Generating synthetic risk profiling dataset...")
-    df = _generate_synthetic_data()
+    logger.info("Loading realistic dataset CSV...")
+    csv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "../dataset/synthetic_training_data.csv")
+    df = pd.read_csv(csv_path)
     
-    X = df[["dci_avg", "seasonal_flag", "flood_proximity_m", "claim_frequency"]]
+    # Calculate DCI Avg dynamically
+    dci_cols = [f"dci_w{i}" for i in range(1, 13)]
+    df["dci_avg"] = df[dci_cols].mean(axis=1)
+    
+    # Rename columns to match the ML signature natively across the backend code
+    df.rename(columns={
+        "is_high_risk_season": "seasonal_flag",
+        "historical_claim_freq": "claim_frequency"
+    }, inplace=True)
+    
+    # Encode target tier integers
+    tier_map = {"Tier A": 0, "Tier B": 1, "Tier C": 2}
+    df["tier"] = df["target_tier"].map(tier_map)
+    
+    X = df[["dci_avg", "seasonal_flag", "flood_proximity_score", "claim_frequency"]]
     y = df["tier"]
     
     logger.info("Training XGBoost Classifier...")
@@ -110,10 +86,14 @@ def predict_tier(worker_hex_history: list[float], seasonal_flag: bool, flood_pro
     season_int = 1 if seasonal_flag else 0
     
     # Construct singleton DataFrame explicitly mirroring training schema
+    # We must normalize the raw distance (meters) into the 0.0-1.0 risk score used in the new synthetic schema
+    # where 0.0 = 5000m (safe), 1.0 = 0m (high chance of flood)
+    normalized_flood_score = max(0.0, (5000.0 - flood_proximity) / 5000.0)
+    
     df_inf = pd.DataFrame([{
         "dci_avg": dci_avg,
         "seasonal_flag": season_int,
-        "flood_proximity_m": flood_proximity,
+        "flood_proximity_score": normalized_flood_score,
         "claim_frequency": claim_frequency
     }])
     

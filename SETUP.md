@@ -53,3 +53,26 @@ uvicorn main:app --reload
 
 - API Base URL: [http://127.0.0.1:8000](http://127.0.0.1:8000)
 - OpenAPI / Swagger Docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+
+## 4. Docker Setup (Optional)
+
+If you prefer to run the backend via Docker, ensuring exact system parity across macOS, Linux, and Windows:
+
+1. Ensure Docker Desktop is running.
+2. Copy `backend/.env.example` to `backend/.env` and add your keys.
+3. In the root directory, run:
+   ```bash
+   docker compose up --build -d
+   ```
+4. To stop the container later:
+   ```bash
+   docker compose down
+   ```
+
+## CI/CD 
+
+This repository is equipped with GitHub Actions for Continuous Integration and Delivery:
+- **Dependency Review**: Blocks PRs that introduce known vulnerabilities.
+- **Backend CI**: Runs the `pytest` suite strictly on every pull request to `main`.
+- **Docker Publish**: Pushes a new `ghcr.io` image when pushing to `main` or cutting a release.
+- **Release Automation**: Generates clean changelogs for any new `v*.*.*` tag.
