@@ -5,7 +5,7 @@ on:
     branches: [ "main" ]
     paths:
       - 'backend/**'
-      - '.github/workflows/backend-ci.yml'
+      - '.github/workflows/backend.yml'
   pull_request:
     branches: [ "main" ]
     paths:
@@ -32,9 +32,4 @@ jobs:
 
       - name: Run tests (Unit & Integration)
         run: |
-          pytest backend/tests/ -v
-        env:
-          PYTHONPATH: .
-          # Expected secrets to be placed in your repository settings:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          PYTHONPATH=. SUPABASE_URL="${SUPABASE_URL:-}" SUPABASE_KEY="${SUPABASE_KEY:-}" pytest backend/tests/ -v

@@ -2,15 +2,14 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { 
   ShieldCheck, AlertCircle, Bell,
   CircleDollarSign, CloudLightning,
-  MessageSquare, FileText, Wallet, CheckCircle
+  Wallet, CheckCircle, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { workerApi, simulateDisruption, processClaim, pollUntilDisrupted } from '@/lib/worker';
 import { useAuthStore } from '@/store/authStore';
-import Link from 'next/link';
 
 interface ClaimReceipt {
   claim_id: string;
@@ -28,6 +27,15 @@ function getErrorMessage(error: unknown, fallback: string): string {
     return error.message;
   }
   return fallback;
+}
+
+function getResolutionPathColor(path: string): string {
+  const normalized = (path || '').toLowerCase();
+  if (normalized.includes('fast_track')) return '#10B981';
+  if (normalized.includes('soft_queue')) return '#F59E0B';
+  if (normalized.includes('active_verify')) return '#3B82F6';
+  if (normalized.includes('denied')) return '#EF4444';
+  return '#94A3B8';
 }
 
 export default function DashboardPage() {
@@ -50,6 +58,7 @@ export default function DashboardPage() {
   const [dciStatus, setDciStatus] = useState<'normal' | 'elevated' | 'disrupted'>('normal');
   const [simulationError, setSimulationError] = useState<string | null>(null);
   const [processingError, setProcessingError] = useState<string | null>(null);
+  const coverageCarouselRef = useRef<HTMLDivElement | null>(null);
 
   // Initialize DCI/status from dashboard payload.
   useEffect(() => {
@@ -118,6 +127,7 @@ export default function DashboardPage() {
     } catch (err: unknown) {
       console.error('Claim processing error:', err);
       setProcessingError(getErrorMessage(err, 'Claim processing failed. Please try again.'));
+    } finally {
       setIsProcessing(false);
     }
   }, []);
@@ -205,6 +215,23 @@ export default function DashboardPage() {
     ? `${start.toLocaleDateString('en-US', dateOptions)} - ${end.toLocaleDateString('en-US', dateOptions)}`
     : '—';
 
+  const coverageBadges = [
+    'Heavy Rainfall',
+    'Hazardous AQI',
+    'Traffic Gridlock',
+    'Platform Outage',
+  ];
+
+  const shiftCoverage = (direction: 'left' | 'right') => {
+    const node = coverageCarouselRef.current;
+    if (!node) return;
+
+    node.scrollBy({
+      left: direction === 'left' ? -160 : 160,
+      behavior: 'smooth',
+    });
+  };
+
   // ===== RECEIPT VIEW (Phase 3 Success) =====
   if (claimReceipt) {
     return (
@@ -251,7 +278,9 @@ export default function DashboardPage() {
               {/* Resolution Path */}
               <div style={{ padding: '16px', background: 'rgba(0, 0, 0, 0.3)', borderRadius: '12px' }}>
                 <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Processing Track</p>
-                <p style={{ fontSize: '16px', fontWeight: 700, color: '#3B82F6', textTransform: 'capitalize' }}>{claimReceipt.resolution_path.replace('_', ' ')}</p>
+                <p style={{ fontSize: '16px', fontWeight: 700, color: getResolutionPathColor(claimReceipt.resolution_path), textTransform: 'capitalize' }}>
+                  {claimReceipt.resolution_path.replace('_', ' ')}
+                </p>
               </div>
 
               {/* Payment ID */}
@@ -318,6 +347,28 @@ export default function DashboardPage() {
   // ===== MAIN DASHBOARD VIEW =====
   return (
     <div className="dashboard-page">
+
+      {isProcessing && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1000,
+            background: 'rgba(2, 6, 23, 0.78)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '12px',
+            pointerEvents: 'all',
+          }}
+        >
+          <div className="spinner" style={{ width: '42px', height: '42px', borderWidth: '3px' }} />
+          <p style={{ fontSize: '16px', fontWeight: 700, color: 'white' }}>Running 7-Layer Fraud Engine...</p>
+          <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Please wait while your claim is securely evaluated.</p>
+        </div>
+      )}
       
       {/* 1. Worker Greeting + Policy Status Card */}
       <section className="stagger-1">
@@ -416,23 +467,62 @@ export default function DashboardPage() {
 
       {/* 3. What Is Covered */}
       <section className="stagger-3" style={{ marginTop: '-10px' }}>
-        <p className="label-micro" style={{ marginBottom: '10px', fontSize: '11px' }}>What Is Covered</p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+          <p className="label-micro" style={{ fontSize: '11px' }}>What Is Covered</p>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button
+              type="button"
+              aria-label="Scroll coverage badges left"
+              onClick={() => shiftCoverage('left')}
+              style={{
+                width: '26px',
+                height: '26px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-glass)',
+                background: 'rgba(15, 23, 42, 0.45)',
+                color: 'var(--text-secondary)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+              }}
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <button
+              type="button"
+              aria-label="Scroll coverage badges right"
+              onClick={() => shiftCoverage('right')}
+              style={{
+                width: '26px',
+                height: '26px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-glass)',
+                background: 'rgba(15, 23, 42, 0.45)',
+                color: 'var(--text-secondary)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+              }}
+            >
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
         <div
+          ref={coverageCarouselRef}
           style={{
             display: 'flex',
             gap: '8px',
             overflowX: 'auto',
             paddingBottom: '2px',
+            scrollSnapType: 'x mandatory',
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
           }}
         >
-          {[
-            '🌧️ Heavy Rainfall',
-            '🌫️ Hazardous AQI',
-            '🚧 Traffic Gridlock',
-            '📉 Platform Outage',
-          ].map((label) => (
+          {coverageBadges.map((label) => (
             <span
               key={label}
               style={{
@@ -444,8 +534,13 @@ export default function DashboardPage() {
                 color: '#BAE6FD',
                 fontSize: '12px',
                 fontWeight: 600,
+                scrollSnapAlign: 'start',
               }}
             >
+              {label === 'Heavy Rainfall' && '🌧️ '}
+              {label === 'Hazardous AQI' && '🌫️ '}
+              {label === 'Traffic Gridlock' && '🚧 '}
+              {label === 'Platform Outage' && '📉 '}
               {label}
             </span>
           ))}

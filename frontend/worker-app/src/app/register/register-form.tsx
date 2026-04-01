@@ -170,7 +170,7 @@ export default function RegisterFormContent() {
       }
 
       await requestGpsPermission();
-      router.push('/home');
+      router.push('/');
     } catch (err: unknown) {
       setError(extractErrorMessage(err));
     } finally {
@@ -230,6 +230,27 @@ export default function RegisterFormContent() {
               </li>
               <li style={{ lineHeight: 1.55 }}>
                 <strong style={{ color: 'white' }}>Waiting Period:</strong> A 7-day waiting period applies to new accounts.
+              </li>
+              <li style={{ lineHeight: 1.55 }}>
+                <strong style={{ color: 'white' }}>Auto Trigger Rule:</strong> Coverage triggers only when your zone&apos;s DCI exceeds 0.85.
+              </li>
+              <li style={{ lineHeight: 1.55 }}>
+                <strong style={{ color: 'white' }}>Payout Basis:</strong> Payout is calculated from your declared daily earnings and disruption duration.
+              </li>
+              <li style={{ lineHeight: 1.55 }}>
+                <strong style={{ color: 'white' }}>Coverage Cap:</strong> Daily payout is capped by your assigned policy tier limit.
+              </li>
+              <li style={{ lineHeight: 1.55 }}>
+                <strong style={{ color: 'white' }}>Event Close Logic:</strong> A disruption closes only after the DCI returns to stable levels.
+              </li>
+              <li style={{ lineHeight: 1.55 }}>
+                <strong style={{ color: 'white' }}>Premium Obligation:</strong> Weekly premium deductions are required to keep coverage active.
+              </li>
+              <li style={{ lineHeight: 1.55 }}>
+                <strong style={{ color: 'white' }}>Appeals:</strong> Denied or high-risk claims may enter review and appeal workflows.
+              </li>
+              <li style={{ lineHeight: 1.55 }}>
+                <strong style={{ color: 'white' }}>Data Use & Consent:</strong> Device and location signals are used for eligibility, fraud checks, and claim automation.
               </li>
             </ol>
 
