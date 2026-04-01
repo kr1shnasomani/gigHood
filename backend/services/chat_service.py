@@ -46,7 +46,8 @@ Their current zone DCI score is {dci_score} ({dci_status}).
 Last claim: {last_payout}. Total paid claims: {total_payouts}.
 
 You are read-only — you explain policies, payouts and zone risk. Never file or modify claims.
-Answer in the language the user writes in. Be concise and warm — this worker may be stressed.
+Always answer in {response_language}. Do not switch to any other language unless explicitly asked to change language.
+Be concise and warm — this worker may be stressed.
 Keep answers under 150 words. Use simple language suitable for a delivery worker."""
 
 LANGUAGE_LABELS = {
@@ -55,6 +56,20 @@ LANGUAGE_LABELS = {
     "ta": "Tamil",
     "te": "Telugu",
     "kn": "Kannada",
+    "mr": "Marathi",
+    "bn": "Bengali",
+    "as": "Assamese",
+}
+
+LANGUAGE_FALLBACKS = {
+    "en": "I'm having trouble connecting right now. Please try again in a moment.",
+    "hi": "अभी कनेक्शन में समस्या है। कृपया थोड़ी देर बाद फिर प्रयास करें।",
+    "ta": "இப்போது இணைப்பில் சிக்கல் உள்ளது. சிறிது நேரம் கழித்து மீண்டும் முயற்சிக்கவும்.",
+    "te": "ప్రస్తుతం కనెక్షన్ సమస్య ఉంది. కొద్దిసేపటి తర్వాత మళ్లీ ప్రయత్నించండి.",
+    "kn": "ಈಗ ಸಂಪರ್ಕ ಸಮಸ್ಯೆ ಇದೆ. ದಯವಿಟ್ಟು ಸ್ವಲ್ಪ ಸಮಯದ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+    "mr": "आत्ता कनेक्शनमध्ये अडचण आहे. कृपया थोड्या वेळाने पुन्हा प्रयत्न करा.",
+    "bn": "এখন সংযোগে সমস্যা হচ্ছে। অনুগ্রহ করে কিছুক্ষণ পরে আবার চেষ্টা করুন।",
+    "as": "এতিয়া সংযোগত সমস্যা হৈছে। অনুগ্ৰহ কৰি অলপ পিছত পুনৰ চেষ্টা কৰক।",
 }
 
 # ── Context builder ─────────────────────────────────────────
@@ -239,7 +254,8 @@ def query_llm(context: dict, user_message: str, language: str = "en") -> str:
     Never return the hardcoded template.
     """
     lang_label   = LANGUAGE_LABELS.get(language, "English")
-    system_prompt = SYSTEM_PROMPT_TEMPLATE.format(**context) + f"\n\nRespond in {lang_label}."
+    prompt_context = {**context, "response_language": lang_label}
+    system_prompt = SYSTEM_PROMPT_TEMPLATE.format(**prompt_context)
 
     # ── Attempt 1: Groq ─────────────────────────────────────
     if GROQ_API_KEY:
@@ -261,4 +277,4 @@ def query_llm(context: dict, user_message: str, language: str = "en") -> str:
 
     # ── Both failed ──────────────────────────────────────────
     logger.error("Both Groq and OpenRouter failed. Returning error message.")
-    return "I'm having trouble connecting right now. Please try again in a moment."
+    return LANGUAGE_FALLBACKS.get(language, LANGUAGE_FALLBACKS["en"])

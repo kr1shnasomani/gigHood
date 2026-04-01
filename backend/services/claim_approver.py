@@ -10,21 +10,27 @@ logger = logging.getLogger("api")
 def route_claim(fraud_score: int, gate2_result: str, flags: list[str] | None = None) -> str:
     """
     Standard 4-path routing constraint map determining financial limits.
-    Rules defined in IMPLEMENTATION.md.
+    Rules defined in the documented claim-routing contract and current tests.
     """
     flags = flags or []
     fast_track_block_flags = {
         'MODEL_CONCENTRATION',
     }
 
-    # Fast-track only for fully clean claims with strong gate2 and no blocking flags.
-    if fraud_score == 0 and gate2_result == 'STRONG' and not any(f in fast_track_block_flags for f in flags):
-        return 'fast_track'
-
-    if fraud_score > 65:
+    # Gate2 NONE is an immediate deny irrespective of score.
+    if gate2_result == 'NONE':
         return 'denied'
 
-    if fraud_score > 40:
+    # Very high fraud score is denied regardless of gate strength.
+    if fraud_score >= 90:
+        return 'denied'
+
+    # Fast-track is allowed for low-risk STRONG claims with no blocking flags.
+    if fraud_score < 30 and gate2_result == 'STRONG' and not any(f in fast_track_block_flags for f in flags):
+        return 'fast_track'
+
+    # High-risk but not denied goes to active verification.
+    if fraud_score >= 70:
         return 'active_verify'
 
     return 'soft_queue'

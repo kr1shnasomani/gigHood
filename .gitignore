@@ -24,10 +24,20 @@ share/python-wheels/
 *.egg
 .pytest_cache/
 .coverage
+.coverage.*
+coverage.xml
 htmlcov/
 uvicorn.log
 .mypy_cache/
 .ruff_cache/
+
+# Backend local env and logs
+backend/.env
+backend/*.log
+
+# Notebook and misc local artifacts
+*.ipynb_checkpoints
+
 
 # Node.js / Frontend / Admin / Mobile
 node_modules/
@@ -40,6 +50,12 @@ out/
 .expo/
 web-build/
 *.tsbuildinfo
+frontend/.next/
+frontend/out/
+frontend/node_modules/
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
 
 # Supabase
 .supabase/
@@ -73,6 +89,15 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+
+# Runtime/data artifacts
+*.db
+*.sqlite
+*.sqlite3
+
+# Temp files
+*.tmp
+*.temp
 
 # Project specific
 .agents/.skills-cache/

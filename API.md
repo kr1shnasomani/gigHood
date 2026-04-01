@@ -1,121 +1,242 @@
-# gigHood REST API Specification
+# gigHood API
 
-This document reflects the currently implemented backend routes in `backend/main.py`.
+This document reflects currently mounted FastAPI routers from `backend/main.py`.
 
-All authenticated endpoints require:
+Base URLs:
 
-- `Authorization: Bearer <token>`
+1. Local backend: `http://127.0.0.1:8001`
+2. OpenAPI docs: `http://127.0.0.1:8001/docs`
 
----
+Authentication:
 
-## Auth and Worker
+1. Protected routes require `Authorization: Bearer <access_token>`.
+2. JWT subject is worker ID (`sub` claim).
 
-`POST /workers/auth/register`
+## Mounted Router Prefixes
 
-- Registers a new worker.
-- Body: `phone`, `name`, `city`, `dark_store_zone`, `avg_daily_earnings`, `upi_id`, `device_model`, `device_os_version`, `sim_carrier`, `sim_registration_date`
-- Returns: `access_token`, `token_type`, `hex_id`, `worker`
+1. `/workers`
+2. `/policies`
+3. `/claims`
+4. `/location-pings`
+5. `/notifications`
+6. `/chat`
 
-`POST /workers/auth/otp/send`
+`/admin` is currently not mounted.
 
-- Sends a demo OTP (mocked in development).
-- Body: `phone`
-- Returns: status message
+## Health
 
-`POST /workers/auth/otp/verify`
+### `GET /`
 
-- Verifies OTP and returns login token.
-- Body: `phone`, `otp`
-- Returns: `access_token`, `token_type`, `worker`
+Returns service heartbeat.
 
-`GET /workers/me`
+Response:
 
-- Returns authenticated worker profile.
+```json
+{ "message": "gigHood API is running" }
+```
 
-`PATCH /workers/me`
+## Workers and Auth
 
-- Updates worker profile fields currently supported by API.
-- Supported field: `avg_daily_earnings`
+### `POST /workers/auth/otp/send`
 
-`GET /workers/me/policy`
+Sends mock OTP in development.
 
-- Returns active policy for authenticated worker.
+Request:
 
-`POST /workers/me/device-token`
+```json
+{ "phone": "9876543210" }
+```
 
-- Stores worker FCM device token.
-- Body: `device_token`
+Response:
 
-`POST /workers/me/location/hex`
+```json
+{ "message": "OTP sent successfully." }
+```
 
-- Converts latitude/longitude to hex and updates worker context.
-- Body: `latitude`, `longitude`
-- Returns: `hex_id`
+### `POST /workers/auth/otp/verify`
 
-`GET /workers/me/hex/dci`
+Verifies OTP and returns access token for existing worker.
 
-- Returns live DCI snapshot for worker's current hex.
+Request:
 
-`GET /workers/me/claims`
+```json
+{ "phone": "9876543210", "otp": "123456" }
+```
 
-- Returns worker payout history, newest first.
+Returns `404` if worker does not exist.
 
----
+### `POST /workers/auth/register`
+
+Registers a worker and immediately returns JWT.
+
+Required fields:
+
+1. `phone`
+2. `name`
+3. `city`
+4. `dark_store_zone`
+5. `avg_daily_earnings`
+6. `upi_id`
+7. `device_model`
+8. `device_os_version`
+9. `sim_carrier`
+10. `sim_registration_date`
+
+### `GET /workers/me`
+
+Returns current worker profile.
+
+### `PATCH /workers/me`
+
+Updates current worker profile.
+
+Supported field today:
+
+1. `avg_daily_earnings` (must be positive)
+
+### `GET /workers/me/policy`
+
+Returns active policy for current worker.
+
+### `POST /workers/me/device-token`
+
+Stores Firebase device token.
+
+Request:
+
+```json
+{ "device_token": "<fcm-token>" }
+```
+
+### `POST /workers/me/location/hex`
+
+Converts lat/lng to H3 hex and updates worker `hex_id`.
+
+Request:
+
+```json
+{ "latitude": 12.9716, "longitude": 77.5946 }
+```
+
+Response:
+
+```json
+{ "hex_id": "..." }
+```
+
+### `GET /workers/me/hex/dci`
+
+Returns current DCI snapshot for worker's assigned hex.
+
+### `GET /workers/me/claims`
+
+Returns current worker claim history (newest first).
+
+## Demo Endpoints
+
+All demo endpoints are mounted under `/workers/me/demo/*` and require auth.
+
+### `POST /workers/me/demo/seed`
+
+Seeds deterministic demo telemetry and DCI history.
+
+### `POST /workers/me/demo/simulate-disruption`
+
+Injects weighted disruption signals and computes DCI.
+
+Request:
+
+```json
+{ "w": 2.5, "t": 1.2, "p": 1.8, "s": 1.0 }
+```
+
+### `POST /workers/me/demo/process-claim`
+
+Runs end-to-end demo claim processing and returns settlement receipt payload.
 
 ## Policies
 
-`POST /policies/create`
+### `POST /policies/create`
 
-- Creates or refreshes an active policy for the authenticated worker.
+Creates active policy for current worker if none exists.
 
----
+Returns `400` when worker already has an active policy.
 
-## Claims and Webhooks
+## Claims
 
-`GET /claims`
+### `GET /claims`
 
-- Returns claims for authenticated worker.
+Returns claims for current worker.
 
-`POST /claims/webhooks/razorpay`
+### `POST /claims/webhooks/razorpay`
 
-- Razorpay webhook receiver.
-- Header: `X-Razorpay-Signature`
-- Validates signature and applies payout mutation.
+Razorpay webhook ingestion.
 
----
+Header:
 
-## Telemetry
+1. `X-Razorpay-Signature`
 
-`POST /location-pings`
+Validates signature then mutates payout status.
 
-- Ingests worker location ping for Proof-of-Presence.
-- Body: `hex_id` (or `h3_index`), `latitude`, `longitude`, `accuracy_radius`, `network_signal_strength`, `mock_location_flag`
+## Location Pings
 
----
+### `POST /location-pings`
 
-## Chat Assistant
+Ingests worker telemetry for Proof-of-Presence.
 
-`POST /chat`
+Request fields:
 
-- Returns context-aware assistant response using worker context.
-- Body: `message`, `language`
-- Response: `reply`, `language`, `worker_name`
-- Supported `language`: `en`, `hi`, `ta`, `te`, `kn`
-- Server sanitizes internal reasoning tags before returning response.
+1. `hex_id` (required)
+2. `h3_index` (optional alias)
+3. `latitude`
+4. `longitude`
+5. `accuracy_radius`
+6. `network_signal_strength`
+7. `mock_location_flag`
 
----
+## Chat
 
-## Demo Endpoints (Authenticated)
+### `POST /chat`
 
-`POST /workers/me/demo/seed`
+Context-aware worker assistant endpoint.
 
-- Seeds demo data for the logged-in worker.
+Request:
 
-`POST /workers/me/demo/simulate-disruption`
+```json
+{ "message": "What is my current zone risk?", "language": "en" }
+```
 
-- Forces disruption simulation using weighted signals.
-- Body: `w`, `t`, `p`, `s`
+Response shape:
 
-`POST /workers/me/demo/process-claim`
+```json
+{
+  "reply": "...",
+  "language": "en",
+  "worker_name": "..."
+}
+```
 
-- Runs demo claim processing and returns receipt details.
+Supported languages:
+
+1. `en`
+2. `hi`
+3. `ta`
+4. `te`
+5. `kn`
+6. `mr`
+7. `bn`
+8. `as`
+
+Unsupported language values fallback to `en`.
+
+## Notifications
+
+### `GET /notifications/`
+
+Placeholder route.
+
+Response:
+
+```json
+{ "message": "Notifications API" }
+```

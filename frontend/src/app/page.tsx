@@ -67,7 +67,7 @@ export default function RootPage() {
           <a href="#pipeline">How it works</a>
         </nav>
         <div className="project-actions">
-          <Link href="/worker-app/register" className="project-link-ghost">
+          <Link href="/worker-app/login" className="project-link-ghost">
             Submit a claim
           </Link>
           <Link href="/worker-app/login" className="project-link-primary project-link-primary-dark">

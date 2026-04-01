@@ -13,7 +13,7 @@ from backend.services.chat_service import build_context, query_llm
 
 router = APIRouter()
 
-SUPPORTED_LANGUAGES = {"en", "hi", "ta", "te", "kn"}
+SUPPORTED_LANGUAGES = {"en", "hi", "ta", "te", "kn", "mr", "bn", "as"}
 
 
 class ChatRequest(BaseModel):
@@ -32,7 +32,7 @@ def chat(req: ChatRequest, worker: dict = Depends(get_current_worker)):
     """
     Accepts a worker's message and returns a context-aware LLM response.
     Worker context (policy, DCI, last payout) is injected automatically.
-    Supports: en, hi, ta, te, kn
+    Supports: en, hi, ta, te, kn, mr, bn, as
     """
     worker_id = worker.get("id")
     if not worker_id:

@@ -12,7 +12,7 @@ def calculate_premium(tier: str, avg_dci_4w: float, month: int) -> float:
     """
     premium = 0.0
     
-    # 1. Base Rates based on defined bounds inside IMPLEMENTATION.md
+    # 1. Base rates based on documented product bounds
     # Tier A: ₹20 (low DCI < 0.4) or ₹28 (high DCI >= 0.4)
     # Tier B: ₹30 (low DCI < 0.6) or ₹42 (high DCI >= 0.6)
     # Tier C: ₹42 (low DCI < 0.8) or ₹59 (high DCI >= 0.8)

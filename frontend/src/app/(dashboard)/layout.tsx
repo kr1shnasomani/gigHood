@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Shield, Home, MessageSquare, User } from 'lucide-react';
 import { isAuthenticated } from '@/lib/auth';
+import { useLanguageStore } from '@/store/languageStore';
+import { t } from '@/lib/i18n';
 
 export default function DashboardLayout({
   children,
@@ -13,6 +15,7 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const language = useLanguageStore((s) => s.language);
   const normalizedPath = pathname.startsWith('/worker-app')
     ? pathname.slice('/worker-app'.length) || '/'
     : pathname;
@@ -25,10 +28,10 @@ export default function DashboardLayout({
   }, [pathname, router]);
 
   const navItems = [
-    { href: '/worker-app/home', matchPath: '/home', label: 'Home', icon: Home },
-    { href: '/worker-app/payouts', matchPath: '/payouts', label: 'Payouts', icon: Shield },
-    { href: '/worker-app/chat', matchPath: '/chat', label: 'Copilot', icon: MessageSquare },
-    { href: '/worker-app/profile', matchPath: '/profile', label: 'Profile', icon: User },
+    { href: '/worker-app/home', matchPath: '/home', label: t(language, 'nav_home'), icon: Home },
+    { href: '/worker-app/payouts', matchPath: '/payouts', label: t(language, 'nav_payouts'), icon: Shield },
+    { href: '/worker-app/chat', matchPath: '/chat', label: t(language, 'nav_copilot'), icon: MessageSquare },
+    { href: '/worker-app/profile', matchPath: '/profile', label: t(language, 'nav_profile'), icon: User },
   ];
 
   return (

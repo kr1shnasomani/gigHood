@@ -215,7 +215,7 @@ function StageCard({
   const scale = useTransform(scrollYProgress, [0, 0.7, 1], [1, targetScale, targetScale]);
 
   return (
-    <div ref={cardRef} className={`gh-pipeline-stage-wrap ${index === total - 1 ? 'gh-pipeline-stage-last' : ''}`}>
+    <div ref={cardRef} style={{ position: 'relative' }} className={`gh-pipeline-stage-wrap ${index === total - 1 ? 'gh-pipeline-stage-last' : ''}`}>
       <div className="gh-pipeline-stage-sticky">
         <motion.article
           style={{

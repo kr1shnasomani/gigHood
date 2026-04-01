@@ -35,7 +35,7 @@ def _get_coverage_cap_for_tier(tier: str) -> float:
 def create_policy(worker_id: str):
     """
     Creates a brand new policy for a completely new worker. 
-    Implements a 7-day waiting period as per IMPLEMENTATION.md.
+    Implements the documented 7-day waiting period policy.
     """
     history, season_flag, claim_freq = fetch_worker_mock_metrics()
 

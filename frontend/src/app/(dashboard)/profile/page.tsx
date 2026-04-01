@@ -158,7 +158,7 @@ export default function ProfilePage() {
   // ── Loading ─────────────────────────────────────────────
   if (workerLoading || policyLoading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 180px)', width: '100%' }}>
         <div className="spinner" />
       </div>
     );

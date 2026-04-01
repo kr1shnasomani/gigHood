@@ -11,7 +11,7 @@ def test_sigmoid_values():
 
 def test_compute_dci_formula():
     """
-    Test exact formula inputs from IMPLEMENTATION.md Section 8.1:
+    Test exact formula inputs from the documented DCI formula examples:
     σ(0.45×1.0 + 0.25×0.8 + 0.20×0.9 + 0.10×0.5) = σ(0.88) ≈ 0.70682
     """
     res = compute_dci(w=1.0, t=0.8, p=0.9, s=0.5)

@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { workerApi, simulateDisruption, processClaim, pollUntilDisrupted } from '@/lib/worker';
 import { useAuthStore } from '@/store/authStore';
+import { LANGUAGE_OPTIONS, useLanguageStore } from '@/store/languageStore';
+import { t } from '@/lib/i18n';
 
 interface ClaimReceipt {
   claim_id: string;
@@ -44,6 +46,9 @@ export default function DashboardPage() {
   const router = useRouter();
   const hasHydrated = useAuthStore((s) => s._hasHydrated);
   const accessToken = useAuthStore((s) => s.accessToken);
+  const language = useLanguageStore((s) => s.language);
+  const setLanguage = useLanguageStore((s) => s.setLanguage);
+  const inferLanguageFromCity = useLanguageStore((s) => s.inferLanguageFromCity);
 
   const { data: dashboard, isLoading, error, refetch } = useQuery({
     queryKey: ['dashboard'],
@@ -77,6 +82,13 @@ export default function DashboardPage() {
       setDciStatus('normal');
     }
   }, [dashboard]);
+
+  useEffect(() => {
+    if (!dashboard?.worker?.city) {
+      return;
+    }
+    inferLanguageFromCity(dashboard.worker.city);
+  }, [dashboard?.worker?.city, inferLanguageFromCity]);
 
   useEffect(() => {
     if (!hasHydrated) return; // Wait for store to hydrate from localStorage
@@ -136,27 +148,36 @@ export default function DashboardPage() {
 
   if (!hasHydrated) {
     return (
-      <div className="flex-col items-center justify-center h-full" style={{ display: 'flex', gap: '16px' }}>
+      <div
+        className="flex-col items-center justify-center"
+        style={{ display: 'flex', gap: '16px', minHeight: 'calc(100vh - 180px)', width: '100%' }}
+      >
         <div className="spinner" style={{ width: '40px', height: '40px', borderWidth: '3px' }} />
-        <p className="text-muted" style={{ fontWeight: 500 }}>Initializing...</p>
+        <p className="text-muted" style={{ fontWeight: 500 }}>{t(language, 'initializing')}</p>
       </div>
     );
   }
 
   if (!accessToken) {
     return (
-      <div className="flex-col items-center justify-center h-full" style={{ display: 'flex', gap: '16px' }}>
+      <div
+        className="flex-col items-center justify-center"
+        style={{ display: 'flex', gap: '16px', minHeight: 'calc(100vh - 180px)', width: '100%' }}
+      >
         <div className="spinner" style={{ width: '40px', height: '40px', borderWidth: '3px' }} />
-        <p className="text-muted" style={{ fontWeight: 500 }}>Redirecting to login...</p>
+        <p className="text-muted" style={{ fontWeight: 500 }}>{t(language, 'redirecting_login')}</p>
       </div>
     );
   }
 
   if (isLoading) {
     return (
-      <div className="flex-col items-center justify-center h-full" style={{ display: 'flex', gap: '16px' }}>
+      <div
+        className="flex-col items-center justify-center"
+        style={{ display: 'flex', gap: '16px', minHeight: 'calc(100vh - 180px)', width: '100%' }}
+      >
         <div className="spinner" style={{ width: '40px', height: '40px', borderWidth: '3px' }} />
-        <p className="text-muted" style={{ fontWeight: 500 }}>Loading Dashboard...</p>
+        <p className="text-muted" style={{ fontWeight: 500 }}>{t(language, 'loading_dashboard')}</p>
       </div>
     );
   }
@@ -380,13 +401,44 @@ export default function DashboardPage() {
               Hey {firstName} 👋
             </h2>
             <p className="label-micro" style={{ fontSize: '13px' }}>
-              {worker.city} • Zone: <span style={{ color: 'var(--text-primary)' }}>{worker.dark_store_zone}</span>
+              {worker.city} • {t(language, 'zone')}: <span style={{ color: 'var(--text-primary)' }}>{worker.dark_store_zone}</span>
             </p>
           </div>
           <div style={{ padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--border-glass)' }}>
             <Bell size={20} color="var(--text-secondary)" />
           </div>
         </header>
+
+        <div className="glass-panel" style={{ padding: '10px 14px', marginBottom: '14px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+              {t(language, 'select_language')}
+            </span>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t(language, 'applies_entire_app')}</span>
+          </div>
+
+          <select
+            value={language}
+            onChange={(e) => setLanguage(e.target.value as (typeof LANGUAGE_OPTIONS)[number]['code'])}
+            style={{
+              minWidth: '170px',
+              padding: '10px 12px',
+              borderRadius: '10px',
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid var(--border-glass)',
+              color: 'white',
+              fontSize: '13px',
+              fontWeight: 600,
+              outline: 'none',
+            }}
+          >
+            {LANGUAGE_OPTIONS.map((option) => (
+              <option key={option.code} value={option.code} style={{ background: '#0f172a', color: 'white' }}>
+                {option.label} - {option.name}
+              </option>
+            ))}
+          </select>
+        </div>
 
         <div className="glass-panel status-card" style={{ borderLeftColor: statusColor }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>

@@ -55,5 +55,6 @@ echo =========================================
 echo To start the development server:
 echo 1. Activate environment: venv\Scripts\activate
 echo 2. Add your keys to backend\.env
-echo 3. Run server: cd backend ^& uvicorn main:app --reload
+echo 3. Run backend from repo root: uvicorn backend.main:app --reload --host 0.0.0.0 --port 8001
+echo 4. Run frontend in another terminal: cd frontend ^& npm install ^& npm run dev
 pause
