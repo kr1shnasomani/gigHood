@@ -21,10 +21,10 @@ def get_current_monday_sunday_bounds(from_date: date) -> tuple[date, date]:
     curr_sun = curr_mon + timedelta(days=6)
     return curr_mon, curr_sun
 
-def fetch_worker_mock_metrics() -> tuple[list[float], bool, float, float]:
+def fetch_worker_mock_metrics() -> tuple[list[float], bool, float]:
     """Stub simulating history fetches for Phase 7 prediction logic"""
     # Assuming standard Bengaluru normal-ish zone
-    return [0.35, 0.40, 0.38, 0.30, 0.35, 0.32], False, 4500.0, 0.05
+    return [0.35, 0.40, 0.38, 0.30, 0.35, 0.32], False, 0.05
 
 def _get_coverage_cap_for_tier(tier: str) -> float:
     if tier == 'A': return 600.0
@@ -37,9 +37,17 @@ def create_policy(worker_id: str):
     Creates a brand new policy for a completely new worker. 
     Implements a 7-day waiting period as per IMPLEMENTATION.md.
     """
-    history, season_flag, flood_prox, claim_freq = fetch_worker_mock_metrics()
-    
-    tier = predict_tier(history, season_flag, flood_prox, claim_freq)
+    history, season_flag, claim_freq = fetch_worker_mock_metrics()
+
+    city = "Bengaluru"
+    try:
+        worker_res = supabase.table('workers').select('city').eq('id', worker_id).execute()
+        if worker_res.data and worker_res.data[0].get('city'):
+            city = worker_res.data[0]['city']
+    except Exception:
+        pass
+
+    tier = predict_tier(history, season_flag, city, claim_freq)
     
     # Quick DCI proxy average
     dci_avg = sum(history) / len(history) if history else 0.0
@@ -78,9 +86,17 @@ def renew_policy(worker_id: str):
     No waiting period cleanly applied (False) since they are renewing active members.
     """
     # We simulate reading the same metrics
-    history, season_flag, flood_prox, claim_freq = fetch_worker_mock_metrics()
-    
-    tier = predict_tier(history, season_flag, flood_prox, claim_freq)
+    history, season_flag, claim_freq = fetch_worker_mock_metrics()
+
+    city = "Bengaluru"
+    try:
+        worker_res = supabase.table('workers').select('city').eq('id', worker_id).execute()
+        if worker_res.data and worker_res.data[0].get('city'):
+            city = worker_res.data[0]['city']
+    except Exception:
+        pass
+
+    tier = predict_tier(history, season_flag, city, claim_freq)
     dci_avg = sum(history) / len(history) if history else 0.0
     curr_date = date.today()
     premium = calculate_premium(tier, dci_avg, curr_date.month)

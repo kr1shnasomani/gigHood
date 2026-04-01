@@ -52,6 +52,11 @@ class FraudEvaluator:
                 .order('pinged_at') \
                 .execute()
             pings = pings_res.data
+
+            # Global no-ping penalty: no telemetry in disruption window is high risk.
+            if not pings:
+                flags.append("NO_LOCATION_PINGS")
+                score += 30
             
             # Layer 1: Static GPS (Variance analysis)
             hex_pings = [p for p in pings if p.get('hex_id') == hex_id]
@@ -64,6 +69,9 @@ class FraudEvaluator:
             
             # Layer 2: API Order Activity (Mocked bounding micro-deliveries)
             gate2_result = self._evaluate_gate2_orders(worker_id)
+            if gate2_result == 'NONE':
+                flags.append("GATE2_NONE")
+                score += 40
             
             # Layer 3: Velocity Check > 120km/hr
             if self._evaluate_velocity(pings, hex_id):

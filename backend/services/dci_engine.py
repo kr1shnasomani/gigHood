@@ -54,7 +54,8 @@ def run_dci_cycle(hex_ids: list[str]) -> dict:
     for row in all_signals:
         h = row['hex_id']
         if h in signals_by_hex:
-            signals_by_hex[h][row['signal_type']] = row['normalized_score']
+            sig_key = str(row.get('signal_type') or '').upper()
+            signals_by_hex[h][sig_key] = row['normalized_score']
             
     for hex_id in hex_ids:
         hex_sigs = signals_by_hex[hex_id]
@@ -71,7 +72,7 @@ def run_dci_cycle(hex_ids: list[str]) -> dict:
                 supabase.table('hex_zones').update({
                     "current_dci": None,
                     "dci_status": "normal"
-                }).eq('hex_id', hex_id).execute()
+                }).eq('h3_index', hex_id).execute()
             except Exception:
                 pass
             continue
@@ -105,14 +106,28 @@ def run_dci_cycle(hex_ids: list[str]) -> dict:
                 "computed_at": now_iso
             }).execute()
         except Exception as e:
-            print(f"Error inserting dci_history for {hex_id}: {e}")
+            # Backward-compatible schema variant using w_score/t_score/p_score/s_score.
+            try:
+                supabase.table('dci_history').insert({
+                    "hex_id": hex_id,
+                    "dci_score": dci,
+                    "w_score": w_combined,
+                    "t_score": t,
+                    "p_score": p,
+                    "s_score": s,
+                    "dci_status": status,
+                    "signal_count": len(hex_sigs),
+                    "computed_at": now_iso,
+                }).execute()
+            except Exception as e2:
+                print(f"Error inserting dci_history for {hex_id}: {e2}")
             
         # Update zone
         try:
             supabase.table('hex_zones').update({
                 "current_dci": dci,
                 "dci_status": status
-            }).eq('hex_id', hex_id).execute()
+            }).eq('h3_index', hex_id).execute()
         except Exception as e:
             print(f"Error updating hex_zones for {hex_id}: {e}")
             

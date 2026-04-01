@@ -12,12 +12,14 @@ def cache_signal(hex_id: str, signal_type: str, raw_data: dict, normalized_score
     UPSERTS based on (hex_id, signal_type).
     """
     try:
+        signal_type_db = signal_type.lower()
         supabase.table("signal_cache").upsert({
             "hex_id": hex_id,
-            "signal_type": signal_type,
-            "raw_payload": raw_data,
+            "signal_type": signal_type_db,
+            "raw_data": raw_data,
             "normalized_score": normalized_score,
-            "updated_at": datetime.now(timezone.utc).isoformat()
+            "fetched_at": datetime.now(timezone.utc).isoformat(),
+            "source_available": True,
         }).execute()
     except Exception as e:
         print(f"Error caching signal {signal_type} for hex {hex_id}: {e}")

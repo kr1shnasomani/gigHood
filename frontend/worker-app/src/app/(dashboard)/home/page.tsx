@@ -1,0 +1,594 @@
+'use client';
+
+import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
+import { useState, useCallback, useEffect } from 'react';
+import { 
+  ShieldCheck, AlertCircle, Bell,
+  CircleDollarSign, CloudLightning,
+  MessageSquare, FileText, Wallet, CheckCircle
+} from 'lucide-react';
+import { workerApi, simulateDisruption, processClaim, pollUntilDisrupted } from '@/lib/worker';
+import { useAuthStore } from '@/store/authStore';
+import Link from 'next/link';
+
+interface ClaimReceipt {
+  claim_id: string;
+  fraud_score: number;
+  resolution_path: string;
+  payout_amount: number;
+  razorpay_payment_id: string;
+  pop_validated: boolean;
+  gate2_result: string;
+  fraud_flags: string[];
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return fallback;
+}
+
+export default function DashboardPage() {
+  const router = useRouter();
+  const hasHydrated = useAuthStore((s) => s._hasHydrated);
+  const accessToken = useAuthStore((s) => s.accessToken);
+
+  const { data: dashboard, isLoading, error, refetch } = useQuery({
+    queryKey: ['dashboard'],
+    queryFn: workerApi.getDashboard,
+    refetchInterval: 30000,
+    enabled: !!accessToken, // only fetch if we have a token
+  });
+
+  // Phase 2 & 3 State
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [claimReceipt, setClaimReceipt] = useState<ClaimReceipt | null>(null);
+  const [dciScore, setDciScore] = useState(0);
+  const [dciStatus, setDciStatus] = useState<'normal' | 'elevated' | 'disrupted'>('normal');
+  const [simulationError, setSimulationError] = useState<string | null>(null);
+  const [processingError, setProcessingError] = useState<string | null>(null);
+
+  // Initialize DCI/status from dashboard payload.
+  useEffect(() => {
+    if (!dashboard?.worker) return;
+
+    const nextDci = dashboard.worker.dynamic_coverage_index ?? 0;
+    setDciScore(nextDci);
+
+    if (nextDci > 0.85) {
+      setDciStatus('disrupted');
+    } else if (nextDci >= 0.5) {
+      setDciStatus('elevated');
+    } else {
+      setDciStatus('normal');
+    }
+  }, [dashboard]);
+
+  useEffect(() => {
+    if (!hasHydrated) return; // Wait for store to hydrate from localStorage
+    
+    if (!accessToken) {
+      router.replace('/login');
+    }
+  }, [hasHydrated, accessToken, router]);
+
+  // Phase 2: Simulate Disruption
+  const handleSimulateDisruption = useCallback(async () => {
+    setIsSimulating(true);
+    setSimulationError(null);
+
+    try {
+      // Call simulate endpoint with exact weights
+      await simulateDisruption({
+        w: 2.5,
+        t: 1.2,
+        p: 1.8,
+        s: 1.0,
+      });
+
+      // Poll until disrupted
+      const result = await pollUntilDisrupted(60, 1000);
+      if (result && result.dci_status === 'disrupted') {
+        setDciScore(result.current_dci);
+        setDciStatus('disrupted');
+        // Refresh dashboard data
+        await refetch();
+      } else {
+        setSimulationError('Failed to reach disruption threshold. Try again.');
+      }
+    } catch (err: unknown) {
+      console.error('Simulation error:', err);
+      setSimulationError(getErrorMessage(err, 'Simulation failed. Please try again.'));
+    } finally {
+      setIsSimulating(false);
+    }
+  }, [refetch]);
+
+  // Phase 3: Process Claim
+  const handleProcessClaim = useCallback(async () => {
+    setIsProcessing(true);
+    setProcessingError(null);
+
+    try {
+      const receipt = await processClaim();
+      setClaimReceipt(receipt as ClaimReceipt);
+    } catch (err: unknown) {
+      console.error('Claim processing error:', err);
+      setProcessingError(getErrorMessage(err, 'Claim processing failed. Please try again.'));
+      setIsProcessing(false);
+    }
+  }, []);
+
+  if (!hasHydrated) {
+    return (
+      <div className="flex-col items-center justify-center h-full" style={{ display: 'flex', gap: '16px' }}>
+        <div className="spinner" style={{ width: '40px', height: '40px', borderWidth: '3px' }} />
+        <p className="text-muted" style={{ fontWeight: 500 }}>Initializing...</p>
+      </div>
+    );
+  }
+
+  if (!accessToken) {
+    return (
+      <div className="flex-col items-center justify-center h-full" style={{ display: 'flex', gap: '16px' }}>
+        <div className="spinner" style={{ width: '40px', height: '40px', borderWidth: '3px' }} />
+        <p className="text-muted" style={{ fontWeight: 500 }}>Redirecting to login...</p>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex-col items-center justify-center h-full" style={{ display: 'flex', gap: '16px' }}>
+        <div className="spinner" style={{ width: '40px', height: '40px', borderWidth: '3px' }} />
+        <p className="text-muted" style={{ fontWeight: 500 }}>Loading Dashboard...</p>
+      </div>
+    );
+  }
+
+  if (error || !dashboard) {
+    return (
+      <div className="flex-col items-center justify-center h-full" style={{ display: 'flex', gap: '16px', padding: '24px' }}>
+        <AlertCircle size={48} color="#EF4444" />
+        <p className="text-muted" style={{ fontWeight: 500, textAlign: 'center' }}>Failed to load dashboard</p>
+        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '16px' }}>
+          {error?.message || 'Please check your connection and try again'}
+        </p>
+        <button
+          onClick={() => refetch()}
+          style={{
+            padding: '10px 20px',
+            background: 'var(--accent-primary)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontWeight: 600,
+          }}
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  const { worker, active_policy, weekly_summary } = dashboard;
+
+  const firstName = (worker.name || '').split(' ')[0] || 'Worker';
+
+  // Determine DCI status based on score
+  const isNormal = dciStatus === 'normal' || dciScore < 0.5;
+  const isElevated = dciStatus === 'elevated' || (dciScore >= 0.5 && dciScore <= 0.85);
+  const isDisrupted = dciStatus === 'disrupted' || dciScore > 0.85;
+
+  const statusColor = isNormal ? 'var(--dci-normal)' : (isElevated ? 'var(--dci-elevated)' : 'var(--dci-disrupted)');
+  const statusBg = isNormal ? 'var(--dci-normal-bg)' : (isElevated ? 'var(--dci-elevated-bg)' : 'var(--dci-disrupted-bg)');
+  const statusLabel = isNormal ? 'NORMAL' : (isElevated ? 'ELEVATED' : 'DISRUPTED');
+  const dciText = isNormal ? 'Zone operates optimally.' : (isElevated ? '⚠️ Your zone is at risk. Stay alert.' : '⚡ Disruption detected. Claim processing ready.');
+
+  const lastUpdated = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const radius = 60;
+  const strokeWidth = 12;
+  const circumference = Math.PI * radius;
+  const strokeDashoffset = circumference - (circumference * dciScore);
+
+  // Format dates
+  const startStr = active_policy?.week_start || active_policy?.start_date;
+  const endStr = active_policy?.week_end || active_policy?.end_date;
+  const start = startStr ? new Date(startStr) : null;
+  const end = endStr ? new Date(endStr) : null;
+  const dateOptions: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+  const policyWeek = start && end
+    ? `${start.toLocaleDateString('en-US', dateOptions)} - ${end.toLocaleDateString('en-US', dateOptions)}`
+    : '—';
+
+  // ===== RECEIPT VIEW (Phase 3 Success) =====
+  if (claimReceipt) {
+    return (
+      <div style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: '28px', minHeight: '100vh', justifyContent: 'center', alignItems: 'center', paddingBottom: '32px' }}>
+        
+        {/* Receipt Card */}
+        <div style={{ width: '100%', maxWidth: '400px' }} className="stagger-1">
+          <div className="glass-panel" style={{ padding: '32px 24px', textAlign: 'center', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+            
+            {/* Success Icon */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
+              <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'pulse 2s infinite' }}>
+                <CheckCircle size={48} color="#10B981" />
+              </div>
+            </div>
+
+            {/* Title */}
+            <h1 style={{ fontSize: '28px', fontWeight: 700, color: '#10B981', marginBottom: '8px' }}>Payout Successful</h1>
+            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '32px' }}>Your claim has been processed and approved</p>
+
+            {/* Claim Details Grid */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '28px' }}>
+              
+              {/* Claim ID */}
+              <div style={{ padding: '16px', background: 'rgba(0, 0, 0, 0.3)', borderRadius: '12px', textAlign: 'left' }}>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Claim ID</p>
+                <p style={{ fontSize: '18px', fontWeight: 700, fontFamily: 'monospace', color: 'white', wordBreak: 'break-all' }}>{claimReceipt.claim_id}</p>
+              </div>
+
+              {/* Payout Amount - Prominent */}
+              <div style={{ padding: '20px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(16, 185, 129, 0.05) 100%)', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.3)', textAlign: 'center' }}>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Payout Amount</p>
+                <p style={{ fontSize: '32px', fontWeight: 800, color: '#10B981' }}>₹{claimReceipt.payout_amount.toLocaleString('en-IN')}</p>
+              </div>
+
+              {/* Fraud Score */}
+              <div style={{ padding: '16px', background: 'rgba(0, 0, 0, 0.3)', borderRadius: '12px' }}>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Fraud Score</p>
+                <p style={{ fontSize: '16px', fontWeight: 700, color: claimReceipt.fraud_score === 0 ? '#10B981' : '#F59E0B' }}>
+                  {claimReceipt.fraud_score.toFixed(2)} {claimReceipt.fraud_score === 0 ? '✓ Clean' : '⚠ Review'}
+                </p>
+              </div>
+
+              {/* Resolution Path */}
+              <div style={{ padding: '16px', background: 'rgba(0, 0, 0, 0.3)', borderRadius: '12px' }}>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Processing Track</p>
+                <p style={{ fontSize: '16px', fontWeight: 700, color: '#3B82F6', textTransform: 'capitalize' }}>{claimReceipt.resolution_path.replace('_', ' ')}</p>
+              </div>
+
+              {/* Payment ID */}
+              <div style={{ padding: '16px', background: 'rgba(0, 0, 0, 0.3)', borderRadius: '12px' }}>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Payment ID</p>
+                <p style={{ fontSize: '13px', fontFamily: 'monospace', color: '#94A3B8', wordBreak: 'break-all' }}>{claimReceipt.razorpay_payment_id}</p>
+              </div>
+
+              {/* PoP Status */}
+              <div style={{ padding: '16px', background: 'rgba(0, 0, 0, 0.3)', borderRadius: '12px' }}>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Proof of Presence</p>
+                <p style={{ fontSize: '16px', fontWeight: 700, color: claimReceipt.pop_validated ? '#10B981' : '#EF4444' }}>
+                  {claimReceipt.pop_validated ? '✓ Validated' : '✗ Failed'}
+                </p>
+              </div>
+
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '12px', flexDirection: 'column' }}>
+              <button
+                onClick={() => {
+                  setClaimReceipt(null);
+                  router.push('/home');
+                }}
+                className="btn-premium"
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  background: 'linear-gradient(90deg, #10B981 0%, #059669 100%)',
+                  fontSize: '16px',
+                }}
+              >
+                Back to Dashboard
+              </button>
+              <button
+                onClick={() => router.push('/payouts')}
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  background: 'rgba(16, 185, 129, 0.1)',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  borderRadius: '8px',
+                  color: '#10B981',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                }}
+              >
+                View All Payouts
+              </button>
+            </div>
+
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '20px' }}>
+              Receipt generated on {new Date().toLocaleDateString('en-IN', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+            </p>
+          </div>
+        </div>
+
+      </div>
+    );
+  }
+
+  // ===== MAIN DASHBOARD VIEW =====
+  return (
+    <div className="dashboard-page">
+      
+      {/* 1. Worker Greeting + Policy Status Card */}
+      <section className="stagger-1">
+        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+          <div>
+            <h2 style={{ fontSize: '28px', fontWeight: 700, letterSpacing: '-0.5px', marginBottom: '4px' }}>
+              Hey {firstName} 👋
+            </h2>
+            <p className="label-micro" style={{ fontSize: '13px' }}>
+              {worker.city} • Zone: <span style={{ color: 'var(--text-primary)' }}>{worker.dark_store_zone}</span>
+            </p>
+          </div>
+          <div style={{ padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--border-glass)' }}>
+            <Bell size={20} color="var(--text-secondary)" />
+          </div>
+        </header>
+
+        <div className="glass-panel status-card" style={{ borderLeftColor: statusColor }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <ShieldCheck size={18} color={statusColor} />
+              <span style={{ fontSize: '15px', fontWeight: 600 }}>
+                {active_policy ? `Active Tier ${active_policy.tier}` : 'Tier Pending Calculation'}
+              </span>
+            </div>
+            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{policyWeek}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+            <span style={{ color: 'var(--text-secondary)' }}>
+              Weekly Premium: <strong style={{ color: 'white' }}>
+                {active_policy ? `₹${active_policy.weekly_premium ?? active_policy.premium_amount ?? '—'}` : '—'}
+              </strong>
+            </span>
+            <span style={{ color: 'var(--text-secondary)' }}>
+              Cap: <strong style={{ color: 'white' }}>
+                {active_policy ? `₹${active_policy.coverage_cap_daily}/day` : '—'}
+              </strong>
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* 2. Live Zone Risk Panel */}
+      <section className="stagger-2 glass-panel risk-panel">
+        <div style={{ position: 'absolute', top: '-50px', left: '50%', transform: 'translateX(-50%)', width: '200px', height: '200px', background: `${statusColor}20`, filter: 'blur(50px)', borderRadius: '50%', pointerEvents: 'none' }} />
+        
+        <div className="risk-head">
+          <h3 style={{ fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.8 }}>Zone Risk Level</h3>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Updated: {lastUpdated}</span>
+        </div>
+        
+        {/* DCI Gauge */}
+        <div className="risk-gauge-wrap">
+          <svg className="gauge-svg" width="220" height="90" viewBox="0 0 140 75" style={{ overflow: 'visible' }}>
+            <defs>
+              <filter id="glow-panel" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="4" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+              </filter>
+            </defs>
+            <path
+              d="M 10 72 A 60 60 0 0 1 130 72"
+              fill="none"
+              stroke="rgba(255,255,255,0.06)"
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+            />
+            <path
+              d="M 10 72 A 60 60 0 0 1 130 72"
+              fill="none"
+              stroke={statusColor}
+              strokeWidth={strokeWidth}
+              strokeDasharray={`${circumference} ${circumference}`}
+              strokeDashoffset={strokeDashoffset}
+              strokeLinecap="round"
+              filter="url(#glow-panel)"
+              style={{ transition: 'stroke-dashoffset 1.5s cubic-bezier(0.16, 1, 0.3, 1)', transformOrigin: '70px 72px' }}
+            />
+          </svg>
+          
+          <div className="risk-score">
+            <div style={{ fontSize: '42px', fontWeight: 800, lineHeight: 1, letterSpacing: '-1px', textShadow: `0 4px 20px ${statusColor}60` }} className="tabular-nums">
+              {dciScore.toFixed(2)}
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', letterSpacing: '0.5px' }}>DCI Score / 1.00</div>
+            <div className="badge-pill" style={{ display: 'inline-flex', marginTop: '10px', background: statusBg, color: statusColor, borderColor: `${statusColor}40`, textTransform: 'uppercase', letterSpacing: '1px', fontSize: '11px' }}>
+              {statusLabel}
+            </div>
+          </div>
+        </div>
+
+        <p className="risk-caption">
+          {dciText}
+        </p>
+      </section>
+
+      {/* 3. What Is Covered */}
+      <section className="stagger-3" style={{ marginTop: '-10px' }}>
+        <p className="label-micro" style={{ marginBottom: '10px', fontSize: '11px' }}>What Is Covered</p>
+        <div
+          style={{
+            display: 'flex',
+            gap: '8px',
+            overflowX: 'auto',
+            paddingBottom: '2px',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+          }}
+        >
+          {[
+            '🌧️ Heavy Rainfall',
+            '🌫️ Hazardous AQI',
+            '🚧 Traffic Gridlock',
+            '📉 Platform Outage',
+          ].map((label) => (
+            <span
+              key={label}
+              style={{
+                whiteSpace: 'nowrap',
+                padding: '8px 12px',
+                borderRadius: '999px',
+                background: 'rgba(14, 165, 233, 0.08)',
+                border: '1px solid rgba(14, 165, 233, 0.22)',
+                color: '#BAE6FD',
+                fontSize: '12px',
+                fontWeight: 600,
+              }}
+            >
+              {label}
+            </span>
+          ))}
+        </div>
+      </section>
+
+      {/* 4. Phase 2: Simulate Disruption Button */}
+      {!isDisrupted && (
+        <section className="stagger-4">
+          <button
+            onClick={handleSimulateDisruption}
+            disabled={isSimulating}
+            className="action-button primary"
+            style={{ background: isSimulating ? 'rgba(14, 165, 233, 0.3)' : undefined }}
+          >
+            {isSimulating ? (
+              <>
+                <div className="spinner" style={{ width: '18px', height: '18px', borderWidth: '2px' }} />
+                Simulating Extreme Weather...
+              </>
+            ) : (
+              <>
+                <CloudLightning size={20} />
+                Simulate Extreme Weather
+              </>
+            )}
+          </button>
+          {simulationError && (
+            <div style={{ marginTop: '12px', padding: '12px', background: 'rgba(239, 68, 68, 0.15)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#FCA5A5', fontSize: '14px' }}>
+              {simulationError}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* 5. Phase 3: Process Claim Button (only when disrupted) */}
+      {isDisrupted && !claimReceipt && (
+        <section className="stagger-4">
+          <button
+            onClick={handleProcessClaim}
+            disabled={isProcessing}
+            className="action-button success"
+            style={{ background: isProcessing ? 'rgba(16, 185, 129, 0.3)' : undefined }}
+          >
+            {isProcessing ? (
+              <>
+                <div className="spinner" style={{ width: '18px', height: '18px', borderWidth: '2px' }} />
+                Processing Claim...
+              </>
+            ) : (
+              <>
+                <CheckCircle size={20} />
+                Process Claim
+              </>
+            )}
+          </button>
+          {processingError && (
+            <div style={{ marginTop: '12px', padding: '12px', background: 'rgba(239, 68, 68, 0.15)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#FCA5A5', fontSize: '14px' }}>
+              {processingError}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* 6. Earnings Snapshot */}
+      <section className="stagger-5">
+        <h3 className="label-micro section-title">Earnings Snapshot</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Declared Avg</span>
+            <span style={{ fontSize: '22px', fontWeight: 700, color: 'white' }}>₹{worker.avg_daily_earnings}</span>
+          </div>
+          <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Coverage Cap</span>
+            <span style={{ fontSize: '22px', fontWeight: 700, color: 'var(--trust-emerald)' }}>
+              {active_policy ? `₹${active_policy.coverage_cap_daily}` : '—'}
+              {active_policy && <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted)' }}>/day</span>}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* 7. Weekly Summary */}
+      <section className="stagger-5">
+        <h3 className="label-micro section-title">This Week&apos;s Summary</h3>
+        <div className="summary-grid">
+          <div className="glass-panel" style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Wallet size={13} color="#94A3B8" />
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Premium</span>
+            </div>
+            <span style={{ fontSize: '16px', fontWeight: 700 }}>₹{weekly_summary.premium_paid}</span>
+          </div>
+
+          <div className="glass-panel" style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <AlertCircle size={13} color="#F59E0B" />
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Events</span>
+            </div>
+            <span style={{ fontSize: '16px', fontWeight: 700 }}>{weekly_summary.disruptions}</span>
+          </div>
+
+          <div className="glass-panel" style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <CircleDollarSign size={13} color="#10B981" />
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Paid Out</span>
+            </div>
+            <span style={{ fontSize: '16px', fontWeight: 700, color: '#10B981' }}>₹{weekly_summary.total_paid_out}</span>
+          </div>
+        </div>
+      </section>
+
+      {/* 8. Quick Actions */}
+      <section className="stagger-5">
+        <h3 className="label-micro section-title">Quick Actions</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+          <Link href="/payouts" style={{ textDecoration: 'none' }}>
+            <div className="glass-panel hover-glow" style={{ padding: '16px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', textAlign: 'center', height: '100%' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(139, 92, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ShieldCheck size={18} color="#8B5CF6" />
+              </div>
+              <span style={{ fontSize: '12px', fontWeight: 500, color: '#E2E8F0', lineHeight: 1.2 }}>View<br/>Payouts</span>
+            </div>
+          </Link>
+
+          <Link href="/chat" style={{ textDecoration: 'none' }}>
+            <div className="glass-panel hover-glow" style={{ padding: '16px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', textAlign: 'center', height: '100%' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <MessageSquare size={18} color="#3B82F6" />
+              </div>
+              <span style={{ fontSize: '12px', fontWeight: 500, color: '#E2E8F0', lineHeight: 1.2 }}>Gig<br/>Copilot</span>
+            </div>
+          </Link>
+
+          <div className="glass-panel" style={{ padding: '16px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', textAlign: 'center', height: '100%', cursor: 'pointer', opacity: 0.8 }}>
+            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <FileText size={18} color="#94A3B8" />
+            </div>
+            <span style={{ fontSize: '12px', fontWeight: 500, color: '#E2E8F0', lineHeight: 1.2 }}>Update<br/>Earnings</span>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  );
+}

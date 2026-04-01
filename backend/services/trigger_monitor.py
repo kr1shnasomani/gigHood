@@ -11,7 +11,7 @@ def check_trigger_transitions(hex_id: str, new_dci: float):
     or drops below `0.65` for 2 consecutive cycles (closing an event via hysteresis).
     """
     try:
-        res = supabase.table('hex_zones').select('is_disrupted', 'consecutive_normal_cycles').eq('hex_id', hex_id).execute()
+        res = supabase.table('hex_zones').select('is_disrupted', 'consecutive_normal_cycles').eq('h3_index', hex_id).execute()
         if not res.data:
             return
             
@@ -25,7 +25,7 @@ def check_trigger_transitions(hex_id: str, new_dci: float):
             supabase.table('hex_zones').update({
                 'is_disrupted': True,
                 'consecutive_normal_cycles': 0
-            }).eq('hex_id', hex_id).execute()
+            }).eq('h3_index', hex_id).execute()
             
             _open_disruption_event(hex_id, new_dci)
             
@@ -38,19 +38,19 @@ def check_trigger_transitions(hex_id: str, new_dci: float):
                     supabase.table('hex_zones').update({
                         'is_disrupted': False,
                         'consecutive_normal_cycles': 0
-                    }).eq('hex_id', hex_id).execute()
+                    }).eq('h3_index', hex_id).execute()
                     
                     _close_disruption_event(hex_id)
                 else:
                     supabase.table('hex_zones').update({
                         'consecutive_normal_cycles': consecutive_normal_cycles
-                    }).eq('hex_id', hex_id).execute()
+                    }).eq('h3_index', hex_id).execute()
             else:
                 # Reset counts if it spikes back up
                 if consecutive_normal_cycles > 0:
                      supabase.table('hex_zones').update({
                          'consecutive_normal_cycles': 0
-                     }).eq('hex_id', hex_id).execute()
+                     }).eq('h3_index', hex_id).execute()
 
     except Exception as e:
         logger.error(f"Failed to check trigger transitions for hex {hex_id}: {e}")

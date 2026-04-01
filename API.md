@@ -1,74 +1,121 @@
 # gigHood REST API Specification
 
-This document maps all backend capabilities spanning Fast-Track Automation pipelines, DCI metrics logic, and Identity schemas routing across the system. 
+This document reflects the currently implemented backend routes in `backend/main.py`.
 
-All authenticated endpoints strictly expect to find `Authorization: Bearer <TOKEN>` in Headers securely. 
+All authenticated endpoints require:
+
+- `Authorization: Bearer <token>`
 
 ---
 
-### Auth & Worker Operations 
+## Auth and Worker
 
 `POST /workers/auth/register`
-*Registers a brand-new Worker creating identity tracking and mapping them natively into an encrypted Hex Region physically based on geometric bounds.*
-- **Body**: `WorkerRegisterRequest` (phone, name, city, dark_store_zone, avg_daily_earnings, upi_id, device_model, device_os_version, sim_carrier, sim_registration_date)
-- **Returns**: `{ "access_token": string, "hex_id": string }`
+
+- Registers a new worker.
+- Body: `phone`, `name`, `city`, `dark_store_zone`, `avg_daily_earnings`, `upi_id`, `device_model`, `device_os_version`, `sim_carrier`, `sim_registration_date`
+- Returns: `access_token`, `token_type`, `hex_id`, `worker`
 
 `POST /workers/auth/otp/send`
-*Triggers native Mock APIs outputting physical OTPs to console for Demo operations smoothly.*
-- **Body**: `{ "phone": string }`
-- **Returns**: Success Message
+
+- Sends a demo OTP (mocked in development).
+- Body: `phone`
+- Returns: status message
 
 `POST /workers/auth/otp/verify`
-*Examines Mock OTP codes extracting worker profile variables routing a dynamic JWT Session back across components.*
-- **Body**: `{ "phone": string, "otp": string }`
-- **Returns**: `{ "access_token": string }`
+
+- Verifies OTP and returns login token.
+- Body: `phone`, `otp`
+- Returns: `access_token`, `token_type`, `worker`
 
 `GET /workers/me`
-*Fetches physical profile components natively representing worker structures dynamically.*
-- **Requires Auth**: Yes
-- **Returns**: Worker JSON payload.
+
+- Returns authenticated worker profile.
+
+`PATCH /workers/me`
+
+- Updates worker profile fields currently supported by API.
+- Supported field: `avg_daily_earnings`
 
 `GET /workers/me/policy`
-*Retrieves exactly one Active Policy isolating their coverage ceilings, premiums, and tier definitions locally.*
-- **Requires Auth**: Yes
-- **Returns**: Policy JSON payload (or 404 if missing)
+
+- Returns active policy for authenticated worker.
 
 `POST /workers/me/device-token`
-*Updates their physical structure injecting Firebase mappings binding device boundaries safely intercepting FCM Notification triggers natively.*
-- **Requires Auth**: Yes
-- **Body**: `{ "device_token": string }`
-- **Returns**: Success message natively describing token bind state
+
+- Stores worker FCM device token.
+- Body: `device_token`
+
+`POST /workers/me/location/hex`
+
+- Converts latitude/longitude to hex and updates worker context.
+- Body: `latitude`, `longitude`
+- Returns: `hex_id`
+
+`GET /workers/me/hex/dci`
+
+- Returns live DCI snapshot for worker's current hex.
+
+`GET /workers/me/claims`
+
+- Returns worker payout history, newest first.
 
 ---
 
-### Policy Enrollment & Webhooks
+## Policies
 
 `POST /policies/create`
-*Creates a brand new Subscription dynamically triggering Risk Profiling engines pushing Workers sequentially into strict physical Tier limits (A, B, C).*
-- **Requires Auth**: Yes
-- **Returns**: The generated Policy payload securely containing Premium caps and Coverage wait lists dynamically.
 
-`POST /claims/webhooks/razorpay`
-*Un-authenticated async webhook interface allowing Razorpay server hooks to validate internally encrypted signatures matching local Secret keys.*
-*Once `payout.processed` binds securely, modifies the corresponding database claim directly inside `payment_service` bypassing router loops isolating strictly to `payment_service`.*
-- **Headers**: `X-Razorpay-Signature`
-- **Body**: JSON Webhook Body 
+- Creates or refreshes an active policy for the authenticated worker.
 
 ---
 
-### Telemetry Pipeline
-
-`POST /location-pings`
-*Crucial backend polling layer designed explicitly for handling 15-minute bursts originating across the physical applications running. Ingests precise geometric traces protecting Proof-of-Presence tracking.*
-- **Requires Auth**: Yes
-- **Body**: `{ "hex_id": str, "latitude": float, "longitude": float, "accuracy_radius": float, "network_signal_strength": int, "mock_location_flag": boolean }`
-- **Returns**: Success JSON
-
---- 
-
-### Claim Management
+## Claims and Webhooks
 
 `GET /claims`
-*Fetches the complete payout histories representing Disruption Events mapping cleanly across Worker constraints locally.*
-- **Requires Auth**: Yes
-- **Returns**: JSON Array of native `claims` rows tracing specific mathematical outcomes (Path 1-4).
+
+- Returns claims for authenticated worker.
+
+`POST /claims/webhooks/razorpay`
+
+- Razorpay webhook receiver.
+- Header: `X-Razorpay-Signature`
+- Validates signature and applies payout mutation.
+
+---
+
+## Telemetry
+
+`POST /location-pings`
+
+- Ingests worker location ping for Proof-of-Presence.
+- Body: `hex_id` (or `h3_index`), `latitude`, `longitude`, `accuracy_radius`, `network_signal_strength`, `mock_location_flag`
+
+---
+
+## Chat Assistant
+
+`POST /chat`
+
+- Returns context-aware assistant response using worker context.
+- Body: `message`, `language`
+- Response: `reply`, `language`, `worker_name`
+- Supported `language`: `en`, `hi`, `ta`, `te`, `kn`
+- Server sanitizes internal reasoning tags before returning response.
+
+---
+
+## Demo Endpoints (Authenticated)
+
+`POST /workers/me/demo/seed`
+
+- Seeds demo data for the logged-in worker.
+
+`POST /workers/me/demo/simulate-disruption`
+
+- Forces disruption simulation using weighted signals.
+- Body: `w`, `t`, `p`, `s`
+
+`POST /workers/me/demo/process-claim`
+
+- Runs demo claim processing and returns receipt details.

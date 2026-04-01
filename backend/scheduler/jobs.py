@@ -1,4 +1,5 @@
 import logging
+import traceback
 from apscheduler.schedulers.background import BackgroundScheduler
 from backend.services.signal_fetchers import run_signal_ingestion_cycle
 from backend.services.dci_engine import run_dci_cycle
@@ -9,10 +10,14 @@ logger = logging.getLogger("api")
 def fetch_all_hexes() -> list[str]:
     """Helper to get the current system hex IDs dynamically for the jobs."""
     try:
-        response = supabase.table('hex_zones').select('hex_id').execute()
-        return [row['hex_id'] for row in response.data]
+        # Current schema uses h3_index as canonical zone id.
+        response = supabase.table('hex_zones').select('h3_index').execute()
+        rows = response.data or []
+        hexes = [row.get('h3_index') for row in rows if row.get('h3_index')]
+        return hexes
     except Exception as e:
         logger.error(f"Failed to fetch hex zones for scheduler: {e}")
+        logger.error(traceback.format_exc())
         return []
 
 def signal_job():

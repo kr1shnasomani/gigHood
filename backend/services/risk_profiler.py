@@ -14,6 +14,18 @@ MODEL_PATH_PKL  = os.path.join(ML_DIR, "risk_profiler.pkl")  # legacy — migrat
 # Global in-memory cache for the loaded model to prevent I/O blocking
 _model = None
 
+CITY_FLOOD_PROXIMITY = {
+    "Bengaluru": 0.35,
+    "Chennai": 0.75,    # High — coastal + cyclone risk
+    "Mumbai": 0.80,     # Very high — sea level flooding
+    "Delhi": 0.65,      # AQI spikes — not flood but equally disruptive
+    "Jaipur": 0.15,     # Low — dry climate
+    "Hyderabad": 0.40,
+    "Lucknow": 0.45,
+    "Kolkata": 0.70,    # High — delta flooding
+    "Guwahati": 0.65    # High — Brahmaputra flooding
+}
+
 
 
 def train_and_save_model():
@@ -85,7 +97,7 @@ def load_model():
     _model = model
     return _model
 
-def predict_tier(worker_hex_history: list[float], seasonal_flag: bool, flood_proximity: float, claim_frequency: float) -> str:
+def predict_tier(worker_hex_history: list[float], seasonal_flag: bool, city: str, claim_frequency: float) -> str:
     """
     Computes the insurance risk Tier ('A', 'B', or 'C') based on physical properties of the assigned Hex zone.
     """
@@ -95,21 +107,33 @@ def predict_tier(worker_hex_history: list[float], seasonal_flag: bool, flood_pro
     dci_avg = float(np.mean(worker_hex_history)) if worker_hex_history else 0.0
     season_int = 1 if seasonal_flag else 0
     
-    # Construct singleton DataFrame explicitly mirroring training schema
-    # We must normalize the raw distance (meters) into the 0.0-1.0 risk score used in the new synthetic schema
-    # where 0.0 = 5000m (safe), 1.0 = 0m (high chance of flood)
-    normalized_flood_score = max(0.0, (5000.0 - flood_proximity) / 5000.0)
+    # Flood score is sourced from a deterministic city-risk lookup for the demo.
+    flood_proximity_score = CITY_FLOOD_PROXIMITY.get(city, 0.35)
     
     df_inf = pd.DataFrame([{
         "dci_avg": dci_avg,
         "seasonal_flag": season_int,
-        "flood_proximity_score": normalized_flood_score,
+        "flood_proximity_score": flood_proximity_score,
         "claim_frequency": claim_frequency
     }])
     
     # Predict deterministic class
     pred = model.predict(df_inf)[0]
-    
+
     # Safely route the predicted integer back to String Tier definitions
     mapping = {0: 'A', 1: 'B', 2: 'C'}
-    return mapping.get(int(pred), 'B') # Fallback safely to B if corrupted prediction occurs
+    ml_tier = mapping.get(int(pred), 'B')  # Fallback safely to B if corrupted prediction occurs
+
+    # Deterministic calibration layer for demo consistency:
+    # - Keep low-risk dry zones in A
+    # - Promote moderate DCI to at least B
+    # - Promote high DCI + flood-prone cities to C
+    if dci_avg >= 0.65 and flood_proximity_score >= 0.70:
+        rule_tier = 'C'
+    elif dci_avg >= 0.50 or (dci_avg >= 0.45 and flood_proximity_score >= 0.60):
+        rule_tier = 'B'
+    else:
+        rule_tier = 'A'
+
+    order = {'A': 0, 'B': 1, 'C': 2}
+    return rule_tier if order[rule_tier] > order[ml_tier] else ml_tier

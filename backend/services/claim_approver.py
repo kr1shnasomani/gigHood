@@ -7,21 +7,26 @@ from backend.services.payment_service import initiate_upi_payout
 
 logger = logging.getLogger("api")
 
-def route_claim(fraud_score: int, gate2_result: str) -> str:
+def route_claim(fraud_score: int, gate2_result: str, flags: list[str] | None = None) -> str:
     """
     Standard 4-path routing constraint map determining financial limits.
     Rules defined in IMPLEMENTATION.md.
     """
-    if gate2_result == 'NONE':
-        return 'denied'
-        
-    if gate2_result == 'STRONG' and fraud_score < 30:
+    flags = flags or []
+    fast_track_block_flags = {
+        'MODEL_CONCENTRATION',
+    }
+
+    # Fast-track only for fully clean claims with strong gate2 and no blocking flags.
+    if fraud_score == 0 and gate2_result == 'STRONG' and not any(f in fast_track_block_flags for f in flags):
         return 'fast_track'
-        
-    if fraud_score >= 70:
+
+    if fraud_score > 65:
+        return 'denied'
+
+    if fraud_score > 40:
         return 'active_verify'
-        
-    # Catch-all for medium scores or WEAK gates
+
     return 'soft_queue'
 
 def execute_fast_track_payout(claim_id: str, worker_id: str):
@@ -130,7 +135,7 @@ def process_claim(worker_id: str, event_id: str, policy_id: str) -> dict:
          flags = fraud_res.get('flags', [])
          
          # 3. Rule Router
-         path = route_claim(fraud_score, gate2_result)
+         path = route_claim(fraud_score, gate2_result, flags)
          
          supabase.table('claims').update({
              'pop_validated': True,

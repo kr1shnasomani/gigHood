@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from typing import Optional
 import logging
 from datetime import datetime, timezone
 from backend.services.auth_service import get_current_worker
@@ -9,7 +10,8 @@ logger = logging.getLogger("api")
 router = APIRouter()
 
 class LocationPingParams(BaseModel):
-    hex_id: str
+    hex_id: str                            # Required: H3 hex index
+    h3_index: Optional[str] = None        # Alias from mobile (if sent separately)
     latitude: float
     longitude: float
     accuracy_radius: float = 0.0
@@ -19,14 +21,17 @@ class LocationPingParams(BaseModel):
 @router.post("")
 def ingest_location_ping(payload: LocationPingParams, worker: dict = Depends(get_current_worker)):
     """
-    Ingests 15-minute telemetry streams securely verifying 
-    worker limits inside tracking regions.
+    Ingests 15-minute PoP telemetry pings from the worker's mobile device.
+    Accepts both hex_id and h3_index (mobile may send either or both).
     """
     worker_id = worker.get("id")
+    # Normalise: h3_index takes priority if provided, else fall back to hex_id
+    effective_hex = payload.h3_index or payload.hex_id
     try:
         supabase.table("location_pings").insert({
             "worker_id": worker_id,
-            "hex_id": payload.hex_id,
+            "hex_id": effective_hex,
+            "h3_index": effective_hex,
             "latitude": payload.latitude,
             "longitude": payload.longitude,
             "accuracy_radius": payload.accuracy_radius,

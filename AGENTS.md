@@ -80,6 +80,7 @@ Reusable skills are in `.agents/skills/`. **Check for a relevant skill before im
 | `react-components` | Shared frontend component patterns |
 | `frontend-design` | Design system, color palette, layout patterns |
 | `web-design-guidelines` | Accessibility, responsive design, typography |
+| `ui-ux-pro-max` | **Any UI/UX work** — style selection, color palettes, font pairings, component design, animations, accessibility, chart types, dark mode; covers 50+ styles, 161 palettes, 57 font pairings across React Native and Next.js. **Use this before building any screen or component.** |
 
 ---
 
@@ -105,8 +106,9 @@ gigHood/
 │   ├── services/         # Business logic (dci, fraud, policy, payout)
 │   ├── models/           # Pydantic schemas
 │   └── scheduler/        # APScheduler jobs
-├── mobile/               # React Native (Expo) — worker app
-├── admin/                # Next.js — admin dashboard
+├── frontend/
+│   ├── mobile/           # React Native (Expo) — worker app
+│   └── admin/            # Next.js — admin dashboard
 ├── supabase/
 │   └── migrations/       # SQL migrations only, applied via Supabase CLI
 └── ml/                   # XGBoost training scripts, model artefacts
