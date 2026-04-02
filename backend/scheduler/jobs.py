@@ -15,6 +15,8 @@ def fetch_all_hexes() -> list[str]:
         response = supabase.table('hex_zones').select('h3_index').execute()
         rows = response.data or []
         hexes = [row.get('h3_index') for row in rows if row.get('h3_index')]
+        if settings.SCHEDULER_HEX_LIMIT > 0:
+            return hexes[:settings.SCHEDULER_HEX_LIMIT]
         return hexes
     except Exception as e:
         logger.error(f"Failed to fetch hex zones for scheduler: {e}")

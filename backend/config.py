@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     SCHEDULER_MAX_INSTANCES: int = 1
     SCHEDULER_COALESCE: bool = True
     SCHEDULER_MISFIRE_GRACE_SECONDS: int = 300
+    SCHEDULER_HEX_LIMIT: int = 500
 
     # Supabase network resilience
     SUPABASE_RETRY_ATTEMPTS: int = 3
