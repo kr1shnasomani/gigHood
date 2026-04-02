@@ -4,6 +4,7 @@ import requests
 from datetime import datetime, timezone
 from backend.config import settings
 from backend.db.client import supabase
+from backend.db.supabase_retry import execute_with_retry
 from backend.services.spatial import get_hex_centroid
 
 def cache_signal(hex_id: str, signal_type: str, raw_data: dict, normalized_score: float) -> None:
@@ -13,14 +14,17 @@ def cache_signal(hex_id: str, signal_type: str, raw_data: dict, normalized_score
     """
     try:
         signal_type_db = signal_type.lower()
-        supabase.table("signal_cache").upsert({
-            "hex_id": hex_id,
-            "signal_type": signal_type_db,
-            "raw_data": raw_data,
-            "normalized_score": normalized_score,
-            "fetched_at": datetime.now(timezone.utc).isoformat(),
-            "source_available": True,
-        }).execute()
+        execute_with_retry(
+            lambda: supabase.table("signal_cache").upsert({
+                "hex_id": hex_id,
+                "signal_type": signal_type_db,
+                "raw_data": raw_data,
+                "normalized_score": normalized_score,
+                "fetched_at": datetime.now(timezone.utc).isoformat(),
+                "source_available": True,
+            }).execute(),
+            op_name=f"cache_signal:{signal_type_db}:{hex_id}",
+        )
     except Exception as e:
         print(f"Error caching signal {signal_type} for hex {hex_id}: {e}")
 

@@ -1,6 +1,7 @@
 import math
 from datetime import datetime, timezone
 from backend.db.client import supabase
+from backend.db.supabase_retry import execute_with_retry
 
 def sigmoid(x: float) -> float:
     """Standard sigmoid function mapping any real number into the (0, 1) bounds."""
@@ -43,7 +44,10 @@ def run_dci_cycle(hex_ids: list[str]) -> dict:
 
     # Fetch signals from Supabase cache
     try:
-        response = supabase.table('signal_cache').select("*").in_('hex_id', hex_ids).execute()
+        response = execute_with_retry(
+            lambda: supabase.table('signal_cache').select("*").in_('hex_id', hex_ids).execute(),
+            op_name="dci_cycle:fetch_signal_cache",
+        )
         all_signals = response.data
     except Exception as e:
         print(f"Failed to fetch signal_cache: {e}")
@@ -69,10 +73,13 @@ def run_dci_cycle(hex_ids: list[str]) -> dict:
             }
             # Set to normal/none in DB, but log degradation safely
             try:
-                supabase.table('hex_zones').update({
-                    "current_dci": None,
-                    "dci_status": "normal"
-                }).eq('h3_index', hex_id).execute()
+                execute_with_retry(
+                    lambda: supabase.table('hex_zones').update({
+                        "current_dci": None,
+                        "dci_status": "normal"
+                    }).eq('h3_index', hex_id).execute(),
+                    op_name=f"dci_cycle:degraded_update_hex:{hex_id}",
+                )
             except Exception:
                 pass
             continue
@@ -96,38 +103,47 @@ def run_dci_cycle(hex_ids: list[str]) -> dict:
         
         # Store to history
         try:
-            supabase.table('dci_history').insert({
-                "hex_id": hex_id,
-                "dci_score": dci,
-                "weather_component": w_combined,
-                "traffic_component": t,
-                "platform_component": p,
-                "social_component": s,
-                "computed_at": now_iso
-            }).execute()
+            execute_with_retry(
+                lambda: supabase.table('dci_history').insert({
+                    "hex_id": hex_id,
+                    "dci_score": dci,
+                    "weather_component": w_combined,
+                    "traffic_component": t,
+                    "platform_component": p,
+                    "social_component": s,
+                    "computed_at": now_iso
+                }).execute(),
+                op_name=f"dci_cycle:insert_history:{hex_id}",
+            )
         except Exception as e:
             # Backward-compatible schema variant using w_score/t_score/p_score/s_score.
             try:
-                supabase.table('dci_history').insert({
-                    "hex_id": hex_id,
-                    "dci_score": dci,
-                    "w_score": w_combined,
-                    "t_score": t,
-                    "p_score": p,
-                    "s_score": s,
-                    "dci_status": status,
-                    "signal_count": len(hex_sigs),
-                    "computed_at": now_iso,
-                }).execute()
+                execute_with_retry(
+                    lambda: supabase.table('dci_history').insert({
+                        "hex_id": hex_id,
+                        "dci_score": dci,
+                        "w_score": w_combined,
+                        "t_score": t,
+                        "p_score": p,
+                        "s_score": s,
+                        "dci_status": status,
+                        "signal_count": len(hex_sigs),
+                        "computed_at": now_iso,
+                    }).execute(),
+                    op_name=f"dci_cycle:insert_history_compat:{hex_id}",
+                )
             except Exception as e2:
                 print(f"Error inserting dci_history for {hex_id}: {e2}")
             
         # Update zone
         try:
-            supabase.table('hex_zones').update({
-                "current_dci": dci,
-                "dci_status": status
-            }).eq('h3_index', hex_id).execute()
+            execute_with_retry(
+                lambda: supabase.table('hex_zones').update({
+                    "current_dci": dci,
+                    "dci_status": status
+                }).eq('h3_index', hex_id).execute(),
+                op_name=f"dci_cycle:update_hex:{hex_id}",
+            )
         except Exception as e:
             print(f"Error updating hex_zones for {hex_id}: {e}")
             

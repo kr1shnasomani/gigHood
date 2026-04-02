@@ -34,6 +34,18 @@ class Settings(BaseSettings):
     RISK_PROFILER_DATASET_PATH: str = "dataset/synthetic_training_data.csv"
     AUTO_TRAIN_RISK_MODEL_ON_STARTUP: bool = True
 
+    # Scheduler
+    ENABLE_SCHEDULER: bool = True
+    SIGNAL_JOB_CRON_MINUTE: str = "*/10"
+    DCI_JOB_CRON_MINUTE: str = "1,11,21,31,41,51"
+    SCHEDULER_MAX_INSTANCES: int = 1
+    SCHEDULER_COALESCE: bool = True
+    SCHEDULER_MISFIRE_GRACE_SECONDS: int = 300
+
+    # Supabase network resilience
+    SUPABASE_RETRY_ATTEMPTS: int = 3
+    SUPABASE_RETRY_BACKOFF_SECONDS: float = 0.35
+
     # CORS
     BACKEND_CORS_ORIGINS: str = "http://localhost:3000,https://gighood.vercel.app"
     

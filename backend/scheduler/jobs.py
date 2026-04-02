@@ -4,6 +4,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from backend.services.signal_fetchers import run_signal_ingestion_cycle
 from backend.services.dci_engine import run_dci_cycle
 from backend.db.client import supabase
+from backend.config import settings
 
 logger = logging.getLogger("api")
 
@@ -59,11 +60,29 @@ scheduler = BackgroundScheduler()
 
 # Register the 5-minute repeating jobs
 # T+0: Ingestion
-scheduler.add_job(signal_job, 'cron', minute='*/5', id='signal_ingestion', replace_existing=True)
+scheduler.add_job(
+    signal_job,
+    'cron',
+    minute=settings.SIGNAL_JOB_CRON_MINUTE,
+    id='signal_ingestion',
+    replace_existing=True,
+    max_instances=settings.SCHEDULER_MAX_INSTANCES,
+    coalesce=settings.SCHEDULER_COALESCE,
+    misfire_grace_time=settings.SCHEDULER_MISFIRE_GRACE_SECONDS,
+)
 # T+1: DCI Engine handles the ingested data exactly 1 minute later
 # Since '*/5' offset + 1 is tricky in simple cron strings, we can use an explicit delay or staggered minute list.
 # A robust staggered list: 1,6,11,16,21,26,31,36,41,46,51,56
-scheduler.add_job(dci_job, 'cron', minute='1,6,11,16,21,26,31,36,41,46,51,56', id='dci_computation', replace_existing=True)
+scheduler.add_job(
+    dci_job,
+    'cron',
+    minute=settings.DCI_JOB_CRON_MINUTE,
+    id='dci_computation',
+    replace_existing=True,
+    max_instances=settings.SCHEDULER_MAX_INSTANCES,
+    coalesce=settings.SCHEDULER_COALESCE,
+    misfire_grace_time=settings.SCHEDULER_MISFIRE_GRACE_SECONDS,
+)
 
 # Stubs for subsequent phases
 # Monday 00:00
@@ -74,9 +93,16 @@ scheduler.add_job(forecast_alert_stub, 'cron', day_of_week='sun', hour=18, minut
 scheduler.add_job(xgboost_retrain_stub, 'cron', day_of_week='sun', hour=23, minute=0, id='xgboost_retrain_job', replace_existing=True)
 
 def start_scheduler():
+    if not settings.ENABLE_SCHEDULER:
+        logger.info("Scheduler disabled via ENABLE_SCHEDULER=false")
+        return
+
     scheduler.start()
     logger.info("APScheduler started.")
 
 def shutdown_scheduler():
+    if not scheduler.running:
+        return
+
     scheduler.shutdown()
     logger.info("APScheduler stopped.")

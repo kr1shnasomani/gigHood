@@ -8,5 +8,12 @@ def get_supabase_client() -> Client:
     key: str = settings.SUPABASE_SERVICE_ROLE_KEY or settings.SUPABASE_KEY
     return create_client(url, key)
 
-# Create a singleton instance for global use
-supabase: Client = get_supabase_client()
+class _SupabaseProxy:
+    """Create a fresh client per top-level call to avoid stale transport state."""
+
+    def __getattr__(self, name: str):
+        client = get_supabase_client()
+        return getattr(client, name)
+
+
+supabase = _SupabaseProxy()
