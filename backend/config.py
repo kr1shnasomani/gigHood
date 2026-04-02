@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     RISK_PROFILER_MODEL_PKL_PATH: str = "backend/ml/risk_profiler.pkl"
     RISK_PROFILER_DATASET_PATH: str = "dataset/synthetic_training_data.csv"
     AUTO_TRAIN_RISK_MODEL_ON_STARTUP: bool = True
+
+    # CORS
+    BACKEND_CORS_ORIGINS: str = "http://localhost:3000,https://gighood.vercel.app"
     
     # Security
     JWT_SECRET: str = "fallback_secret_key"

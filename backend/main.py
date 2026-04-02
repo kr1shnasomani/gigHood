@@ -32,11 +32,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="gigHood API", version="0.1.0", lifespan=lifespan)
 
-# ── CORS — allow browser requests from the Next.js dev server and any mobile browser ──
+# CORS origins are configured via BACKEND_CORS_ORIGINS (comma-separated).
+cors_origins = [origin.strip() for origin in settings.BACKEND_CORS_ORIGINS.split(",") if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],          # tighten to specific origins in production
-    allow_credentials=True,
+    allow_origins=cors_origins or ["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
