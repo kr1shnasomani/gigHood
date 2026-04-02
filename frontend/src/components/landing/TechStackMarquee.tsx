@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import {
   SiDocker,
@@ -13,7 +14,15 @@ import {
 const techStack = [
   {
     name: 'OpenRouter',
-    logo: <img src="/tech/openrouter-logo.png" alt="OpenRouter logo" className="project-tech-icon-image" />,
+    logo: (
+      <Image
+        src="/tech/openrouter-logo.png"
+        alt="OpenRouter logo"
+        width={28}
+        height={28}
+        className="project-tech-icon-image"
+      />
+    ),
   },
   {
     name: 'Qdrant',
@@ -43,7 +52,15 @@ const techStack = [
   },
   {
     name: 'Jina',
-    logo: <img src="/tech/jina-logo.png" alt="Jina logo" className="project-tech-icon-image project-tech-icon-image-jina" />,
+    logo: (
+      <Image
+        src="/tech/jina-logo.png"
+        alt="Jina logo"
+        width={28}
+        height={28}
+        className="project-tech-icon-image project-tech-icon-image-jina"
+      />
+    ),
   },
   {
     name: 'React',

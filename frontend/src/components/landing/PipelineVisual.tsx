@@ -2,7 +2,7 @@
 
 import { useRef, type ReactNode } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { ArrowRight, MapPinned, Search, ShieldCheck } from 'lucide-react';
+import { ArrowRight, MapPinned, Search } from 'lucide-react';
 
 type Stage = {
   num: string;
@@ -30,9 +30,9 @@ const stages: Stage[] = [
           <span />
         </div>
         <p><strong>if</strong> claim.worker_id is null:</p>
-        <p className="gh-pipeline-code-indent"><strong>return</strong> reject('missing_identity')</p>
+        <p className="gh-pipeline-code-indent"><strong>return</strong> reject(&apos;missing_identity&apos;)</p>
         <p><strong>if</strong> duplicate_window(claim) is true:</p>
-        <p className="gh-pipeline-code-indent"><strong>return</strong> review_queue('dup_claim')</p>
+        <p className="gh-pipeline-code-indent"><strong>return</strong> review_queue(&apos;dup_claim&apos;)</p>
         <p className="gh-pipeline-code-note"># Required payload and idempotency check</p>
       </div>
     ),

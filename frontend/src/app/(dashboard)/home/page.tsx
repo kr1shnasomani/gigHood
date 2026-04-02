@@ -150,7 +150,7 @@ export default function DashboardPage() {
     return (
       <div
         className="flex-col items-center justify-center"
-        style={{ display: 'flex', gap: '16px', minHeight: 'calc(100vh - 180px)', width: '100%' }}
+        style={{ display: 'flex', gap: '16px', minHeight: '100dvh', width: '100%' }}
       >
         <div className="spinner" style={{ width: '40px', height: '40px', borderWidth: '3px' }} />
         <p className="text-muted" style={{ fontWeight: 500 }}>{t(language, 'initializing')}</p>
@@ -162,7 +162,7 @@ export default function DashboardPage() {
     return (
       <div
         className="flex-col items-center justify-center"
-        style={{ display: 'flex', gap: '16px', minHeight: 'calc(100vh - 180px)', width: '100%' }}
+        style={{ display: 'flex', gap: '16px', minHeight: '100dvh', width: '100%' }}
       >
         <div className="spinner" style={{ width: '40px', height: '40px', borderWidth: '3px' }} />
         <p className="text-muted" style={{ fontWeight: 500 }}>{t(language, 'redirecting_login')}</p>
@@ -174,7 +174,7 @@ export default function DashboardPage() {
     return (
       <div
         className="flex-col items-center justify-center"
-        style={{ display: 'flex', gap: '16px', minHeight: 'calc(100vh - 180px)', width: '100%' }}
+        style={{ display: 'flex', gap: '16px', minHeight: '100dvh', width: '100%' }}
       >
         <div className="spinner" style={{ width: '40px', height: '40px', borderWidth: '3px' }} />
         <p className="text-muted" style={{ fontWeight: 500 }}>{t(language, 'loading_dashboard')}</p>

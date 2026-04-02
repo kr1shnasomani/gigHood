@@ -39,8 +39,8 @@ export function showNotification(payload: NotificationPayload): void {
 
   new Notification(payload.title, {
     body: payload.body,
-    icon: iconMap[payload.type] || '/logo.jpeg',
-    badge: '/logo.jpeg',
+    icon: iconMap[payload.type] || '/icon.jpg',
+    badge: '/icon.jpg',
     tag: payload.type, // Replaces existing notification of same type
     data: payload.data,
   });
@@ -88,9 +88,9 @@ export async function initNotifications(): Promise<void> {
 
   // Register service worker for background notifications (if available)
   try {
-    const registration = await navigator.serviceWorker.register('/sw.js');
+    await navigator.serviceWorker.register('/sw.js');
     console.log('Service worker registered for push notifications');
-  } catch (err) {
+  } catch {
     // Service worker not available — in-app notifications only
     console.log('Push notifications: in-app mode only');
   }

@@ -35,17 +35,13 @@ export interface VerifyOtpResponse {
 }
 
 export async function verifyOtp(phone: string, otp: string): Promise<VerifyOtpResponse> {
-  try {
-    const normalizedPhone = normalizePhone(phone);
-    const res = await api.post('/workers/auth/otp/verify', { phone: normalizedPhone, otp });
-    const worker = res.data.worker || (await getMe());
-    return {
-      access_token: res.data.access_token,
-      worker,
-    };
-  } catch (err: any) {
-    throw err;
-  }
+  const normalizedPhone = normalizePhone(phone);
+  const res = await api.post('/workers/auth/otp/verify', { phone: normalizedPhone, otp });
+  const worker = res.data.worker || (await getMe());
+  return {
+    access_token: res.data.access_token,
+    worker,
+  };
 }
 
 export interface RegisterPayload {

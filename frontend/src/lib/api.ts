@@ -19,6 +19,14 @@ function resolveApiBaseUrl(): string {
 
 export const API_BASE_URL = resolveApiBaseUrl();
 
+type ApiError = Error & { status?: number };
+
+function withStatus(error: Error, status: number): ApiError {
+  const next = error as ApiError;
+  next.status = status;
+  return next;
+}
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
@@ -37,22 +45,25 @@ api.interceptors.request.use((config) => {
 // Normalise errors to a single message string, but preserve status code
 api.interceptors.response.use(
   (r) => r,
-  (error) => {
-    if (!error?.response) {
+  (error: unknown) => {
+    const maybeError = error as {
+      response?: { data?: { detail?: string }; status?: number };
+      message?: string;
+    };
+
+    if (!maybeError?.response) {
       const networkErr = new Error(
         `Network error: cannot reach API (${API_BASE_URL}). Check NEXT_PUBLIC_API_URL and backend availability.`
       );
-      (networkErr as any).status = 0;
-      return Promise.reject(networkErr);
+      return Promise.reject(withStatus(networkErr, 0));
     }
 
     const msg =
-      error?.response?.data?.detail ||
-      error?.message ||
+      maybeError.response.data?.detail ||
+      maybeError.message ||
       'Unknown error';
     const err = new Error(msg);
-    (err as any).status = error?.response?.status;
-    return Promise.reject(err);
+    return Promise.reject(withStatus(err, maybeError.response.status ?? 0));
   }
 );
 

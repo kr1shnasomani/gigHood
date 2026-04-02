@@ -6,9 +6,9 @@ export const metadata: Metadata = {
   title: 'gigHood | AI Income Protection for Gig Workers',
   description: 'Parametric income protection platform with project website, worker app, and admin surface.',
   icons: {
-    icon: '/logo.jpeg',
-    shortcut: '/logo.jpeg',
-    apple: '/logo.jpeg',
+    icon: '/icon.jpg?v=3',
+    shortcut: '/icon.jpg?v=3',
+    apple: '/icon.jpg?v=3',
   },
 };
 

@@ -78,7 +78,7 @@ export async function sendChatMessage(message: string, language = 'en') {
     const res = await api.post('/chat', { message, language });
     // Backend ChatResponse schema: { reply, language, worker_name }
     return { response: res.data.reply ?? res.data.response ?? '' };
-  } catch (err) {
+  } catch {
     return { response: '' }; // caller handles errors
   }
 }
@@ -139,7 +139,7 @@ export interface SeedDemoResponse {
   dci_history_rows: number;
   location_ping_rows: number;
   rolling_4w_avg: number;
-  gate2_mock_preview: any;
+  gate2_mock_preview: unknown;
 }
 
 export interface SimulateDisruptionRequest {

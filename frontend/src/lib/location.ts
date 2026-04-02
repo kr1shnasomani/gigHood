@@ -47,18 +47,8 @@ export function detectMockLocation(): boolean {
   // This is a known limitation of web-based approach
   // For production, this would need native app support
   
-  // Check for common VPN patterns that might indicate location spoofing
-  const isVPN = checkVPNStatus();
-  
   // Return false as we cannot reliably detect mock location on web
   // In real implementation, this would require native app APIs
-  return false;
-}
-
-// Basic VPN detection heuristic (not foolproof)
-function checkVPNStatus(): boolean {
-  // This is a simplified check - real implementation would use
-  // WebRTC leak detection and other methods
   return false;
 }
 
@@ -68,9 +58,14 @@ export function getNetworkSignalStrength(): number {
   // Web browsers don't expose network signal strength
   // Return a default value - this would need native app for real data
   // Using connection API as a proxy indicator
-  const connection = (navigator as any).connection || 
-                     (navigator as any).mozConnection || 
-                     (navigator as any).webkitConnection;
+  type NavigatorWithConnection = Navigator & {
+    connection?: { effectiveType?: string };
+    mozConnection?: { effectiveType?: string };
+    webkitConnection?: { effectiveType?: string };
+  };
+
+  const nav = navigator as NavigatorWithConnection;
+  const connection = nav.connection || nav.mozConnection || nav.webkitConnection;
   
   if (connection) {
     // Map effective type to signal strength (1-5 scale)
@@ -95,10 +90,9 @@ export async function coordinatesToHexId(lat: number, lng: number): Promise<stri
   try {
     const response = await api.post('/workers/me/location/hex', { latitude: lat, longitude: lng });
     return response.data.hex_id;
-  } catch (error) {
+  } catch {
     // Fallback: generate a mock hex ID based on coordinates
     // This is for demo purposes - real implementation needs H3 library
-    const precision = 9;
     const latHex = Math.floor(lat * 1000000).toString(16);
     const lngHex = Math.floor(lng * 1000000).toString(16);
     return `${latHex}${lngHex}`.substring(0, 15);
@@ -176,7 +170,7 @@ export async function checkLocationPermission(): Promise<PermissionState> {
   try {
     const result = await navigator.permissions.query({ name: 'geolocation' });
     return result.state;
-  } catch (error) {
+  } catch {
     return 'prompt';
   }
 }
@@ -193,7 +187,7 @@ export async function requestLocationPermission(): Promise<boolean> {
     try {
       await getCurrentPosition();
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
