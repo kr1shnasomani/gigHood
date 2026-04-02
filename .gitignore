@@ -109,3 +109,5 @@ skills-lock.json
 # Keep frontend source library tracked
 !frontend/src/lib/
 !frontend/src/lib/**
+.vercel
+.env*.local
