@@ -4,6 +4,9 @@ export interface WorkerProfile {
   id: string; phone: string; name: string; city: string;
   dark_store_zone: string; hex_id: string;
   avg_daily_earnings: number; upi_id: string;
+  platform_affiliation?: string;
+  platform_id?: string;
+  is_platform_verified?: boolean;
   trust_score: number; status: string; device_model?: string;
   tier?: string;
   dynamic_coverage_index?: number;
@@ -37,6 +40,8 @@ export interface Claim {
   pop_validated: boolean;
   razorpay_payment_id?: string;
   razorpay_payout_id?: string;
+  payout_transaction_id?: string;
+  payout_channel?: string;
   created_at: string;
   resolved_at?: string;
 }
@@ -166,6 +171,8 @@ export interface ProcessClaimResponse {
   resolution_path: string;
   payout_amount: number;
   razorpay_payment_id: string;
+  payout_transaction_id?: string;
+  payout_channel?: string;
   pop_validated: boolean;
   status: string;
 }

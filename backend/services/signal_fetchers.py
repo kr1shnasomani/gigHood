@@ -2,11 +2,18 @@ import json
 import random
 import requests
 import time
+import asyncio
 from datetime import datetime, timezone
 from backend.config import settings
 from backend.db.client import supabase
 from backend.db.supabase_retry import execute_with_retry
 from backend.services.spatial import get_hex_centroid
+from backend.services.mock_external_apis import fetch_mock_tomtom_traffic, fetch_mock_platform_outage
+
+
+def _run_async(coro):
+    """Run async mock API calls from sync service code paths."""
+    return asyncio.run(coro)
 
 def cache_signal(hex_id: str, signal_type: str, raw_data: dict, normalized_score: float) -> None:
     """
@@ -88,32 +95,35 @@ def fetch_aqi(hex_id: str, city: str) -> float:
     cache_signal(hex_id, "AQI", raw_data, a_score)
     return a_score
 
+async def fetch_traffic_async(hex_id: str, lat: float, lng: float) -> float:
+    """Fetch traffic score from partner-style async mock API."""
+    payload = await fetch_mock_tomtom_traffic(hex_id, lat, lng)
+    t_score = float(payload.get("congestion_level", 0.0))
+    cache_signal(hex_id, "TRAFFIC", payload, t_score)
+    return t_score
+
+
 def fetch_traffic(hex_id: str, lat: float, lng: float) -> float:
     """
     Mock traffic congestion API.
     Returns random T score seeded deterministically per hex/hour.
     """
-    current_hour = datetime.now(timezone.utc).hour
-    random.seed(f"traffic-{hex_id}-{current_hour}")
-    t_score = random.uniform(0.1, 0.95)
-    
-    raw_data = {"congestion_level": t_score, "lat": lat, "lng": lng}
-    cache_signal(hex_id, "TRAFFIC", raw_data, t_score)
-    return t_score
+    return _run_async(fetch_traffic_async(hex_id, lat, lng))
+
+async def fetch_platform_status_async(hex_id: str) -> float:
+    """Fetch platform outage/degradation score from partner-style async mock API."""
+    payload = await fetch_mock_platform_outage(hex_id)
+    p_score = float(payload.get("order_drop_pct", 0.0)) / 100.0
+    cache_signal(hex_id, "PLATFORM", payload, p_score)
+    return p_score
+
 
 def fetch_platform_status(hex_id: str) -> float:
     """
     Mock platform status (Zepto/Blinkit) API simulating order volume drop %.
     Return P score as order_drop_pct / 100
     """
-    current_hour = datetime.now(timezone.utc).hour
-    random.seed(f"platform-{hex_id}-{current_hour}")
-    drop_pct = random.uniform(0.0, 80.0) # up to 80% drop
-    
-    p_score = drop_pct / 100.0
-    raw_data = {"order_drop_pct": drop_pct, "latency_ms": random.randint(50, 500)}
-    cache_signal(hex_id, "PLATFORM", raw_data, p_score)
-    return p_score
+    return _run_async(fetch_platform_status_async(hex_id))
 
 def fetch_social_signals(hex_id: str, city: str) -> float:
     """

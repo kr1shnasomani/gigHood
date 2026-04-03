@@ -1,7 +1,9 @@
 import math
+import asyncio
 from datetime import datetime, timedelta, timezone
 import logging
 from backend.db.client import supabase
+from backend.services.mock_external_apis import verify_zepto_worker_activity
 
 logger = logging.getLogger("api")
 
@@ -24,6 +26,9 @@ class FraudEvaluator:
         mean = sum(data) / len(data)
         variance = sum((x - mean) ** 2 for x in data) / (len(data) - 1)
         return math.sqrt(variance)
+
+    def _run_async(self, coro):
+        return asyncio.run(coro)
 
     def evaluate(self, worker_id: str, event_id: str, disruption_start: datetime) -> dict:
         flags = []
@@ -100,22 +105,17 @@ class FraudEvaluator:
             logger.error(f"Fraud Engine crashing safely isolated {worker_id}: {e}")
             return {'fraud_score': 0, 'flags': [], 'gate2_result': 'NONE'}
             
-    def _evaluate_gate2_orders(self, worker_id: str) -> str:
+    async def _evaluate_gate2_orders_async(self, worker_id: str) -> str:
         """
-        Mocks a Zepto/Swiggy order array checking Haversine micro-delivery skips.
+        Validates Zepto/partner activity via async mock external API.
         Returns: STRONG, WEAK, NONE.
         """
-        # Deterministic mock array for active pipeline simulation
-        # One valid 5km trip, one micro 50m trip. 
-        # For simplicity, if worker_id has 'offline' in string -> NONE
-        if 'offline' in worker_id: return 'NONE'
-        if 'weak'    in worker_id: return 'WEAK'
-        
-        mock_orders = [
-             {'pickup_lat': 12.9716, 'pickup_lng': 77.5946, 'dropoff_lat': 12.9816, 'dropoff_lng': 77.6046}, # Valid > 100m
-             {'pickup_lat': 12.9716, 'pickup_lng': 77.5946, 'dropoff_lat': 12.9717, 'dropoff_lng': 77.5947}  # Invalid < 100m ~15m
-        ]
-        
+        payload = await verify_zepto_worker_activity(worker_id)
+        status = payload.get('status', 'inactive')
+        if status != 'active':
+            return 'NONE'
+
+        mock_orders = payload.get('orders', [])
         valid_orders = 0
         total_orders = len(mock_orders)
         
@@ -129,6 +129,10 @@ class FraudEvaluator:
         elif total_orders > 0:
              return 'WEAK'
         return 'NONE'
+
+    def _evaluate_gate2_orders(self, worker_id: str) -> str:
+        """Sync wrapper used by existing pipeline and tests."""
+        return self._run_async(self._evaluate_gate2_orders_async(worker_id))
 
     def _evaluate_velocity(self, pings: list, target_hex: str) -> bool:
         """Calculates distance/time between out-hex and in-hex timestamps."""

@@ -21,9 +21,37 @@ interface ClaimReceipt {
   resolution_path: string;
   payout_amount: number;
   razorpay_payment_id: string;
+  payout_transaction_id?: string;
+  payout_channel?: string;
   pop_validated: boolean;
   gate2_result: string;
   fraud_flags: string[];
+}
+
+function SmsToast({ message }: { message: string }) {
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        top: '14px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 1200,
+        background: 'rgba(2, 6, 23, 0.96)',
+        border: '1px solid rgba(56, 189, 248, 0.4)',
+        color: 'white',
+        borderRadius: '12px',
+        padding: '12px 14px',
+        fontSize: '13px',
+        fontWeight: 600,
+        boxShadow: '0 12px 28px rgba(0, 0, 0, 0.45)',
+        maxWidth: 'min(92vw, 720px)',
+        animation: 'slideUpFade 0.25s ease both',
+      }}
+    >
+      {message}
+    </div>
+  );
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -53,7 +81,7 @@ export default function DashboardPage() {
   const { data: dashboard, isLoading, error, refetch } = useQuery({
     queryKey: ['dashboard'],
     queryFn: workerApi.getDashboard,
-    refetchInterval: 30000,
+    refetchInterval: 10000,
     enabled: !!accessToken, // only fetch if we have a token
   });
 
@@ -65,6 +93,7 @@ export default function DashboardPage() {
   const [dciStatus, setDciStatus] = useState<'normal' | 'elevated' | 'disrupted'>('normal');
   const [simulationError, setSimulationError] = useState<string | null>(null);
   const [processingError, setProcessingError] = useState<string | null>(null);
+  const [smsToast, setSmsToast] = useState<string | null>(null);
   const coverageCarouselRef = useRef<HTMLDivElement | null>(null);
 
   // Initialize DCI/status from dashboard payload.
@@ -138,13 +167,19 @@ export default function DashboardPage() {
     try {
       const receipt = await processClaim();
       setClaimReceipt(receipt as ClaimReceipt);
+
+      const channel = ((receipt as ClaimReceipt).payout_channel || 'UPI').toUpperCase();
+      const phone = dashboard?.worker?.phone || '';
+      const normalizedPhone = phone.startsWith('+91') ? phone : `+91 ${phone}`;
+      setSmsToast(`🔔 SMS Sent to ${normalizedPhone}: ₹${(receipt as ClaimReceipt).payout_amount.toLocaleString('en-IN')} credited to your account via ${channel}.`);
+      setTimeout(() => setSmsToast(null), 5000);
     } catch (err: unknown) {
       console.error('Claim processing error:', err);
       setProcessingError(getErrorMessage(err, 'Claim processing failed. Please try again.'));
     } finally {
       setIsProcessing(false);
     }
-  }, []);
+  }, [dashboard?.worker?.phone]);
 
   if (!hasHydrated) {
     return (
@@ -370,6 +405,8 @@ export default function DashboardPage() {
   // ===== MAIN DASHBOARD VIEW =====
   return (
     <div className="dashboard-page">
+
+      {smsToast && <SmsToast message={smsToast} />}
 
       {isProcessing && (
         <div
@@ -714,7 +751,7 @@ export default function DashboardPage() {
           <Link href="/worker-app/payouts" style={{ textDecoration: 'none' }}>
             <div className="glass-panel hover-glow" style={{ padding: '16px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', textAlign: 'center', height: '100%' }}>
               <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(139, 92, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <ShieldCheck size={18} color="#8B5CF6" />
+                <Wallet size={18} color="#8B5CF6" />
               </div>
               <span style={{ fontSize: '12px', fontWeight: 500, color: '#E2E8F0', lineHeight: 1.2 }}>View<br/>Payouts</span>
             </div>
@@ -729,12 +766,14 @@ export default function DashboardPage() {
             </div>
           </Link>
 
-          <div className="glass-panel" style={{ padding: '16px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', textAlign: 'center', height: '100%', cursor: 'pointer', opacity: 0.8 }}>
-            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <FileText size={18} color="#94A3B8" />
+          <Link href="/worker-app/profile?action=update-earnings" style={{ textDecoration: 'none' }}>
+            <div className="glass-panel hover-glow" style={{ padding: '16px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', textAlign: 'center', height: '100%' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <FileText size={18} color="#94A3B8" />
+              </div>
+              <span style={{ fontSize: '12px', fontWeight: 500, color: '#E2E8F0', lineHeight: 1.2 }}>Update<br/>Earnings</span>
             </div>
-            <span style={{ fontSize: '12px', fontWeight: 500, color: '#E2E8F0', lineHeight: 1.2 }}>Update<br/>Earnings</span>
-          </div>
+          </Link>
         </div>
       </section>
 

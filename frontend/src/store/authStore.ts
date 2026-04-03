@@ -7,6 +7,9 @@ export interface WorkerProfile {
   phone: string;
   name: string;
   city: string;
+  platform_affiliation?: string;
+  platform_id?: string;
+  is_platform_verified?: boolean;
   dark_store_zone: string;
   hex_id: string;
   avg_daily_earnings: number;

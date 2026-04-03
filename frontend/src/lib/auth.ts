@@ -48,6 +48,9 @@ export interface RegisterPayload {
   phone: string;
   name: string;
   city: string;
+  platform_affiliation: string;
+  platform_id: string;
+  is_platform_verified: boolean;
   dark_store_zone: string;
   avg_daily_earnings: number;
   upi_id: string;

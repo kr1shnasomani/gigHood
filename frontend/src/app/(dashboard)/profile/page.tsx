@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   User, LogOut, ShieldCheck, Download, Award,
   ChevronRight, Bell, TrendingUp, X, Check,
@@ -67,6 +67,14 @@ function tierGradient(tier: string): string {
   }
 }
 
+const POLICY_CERTIFICATE_BASE_URL = 'https://ifddoiwbxvfxsidksydf.supabase.co/storage/v1/object/public/policy_certificates';
+
+const POLICY_CERTIFICATES_BY_TIER: Record<string, string> = {
+  A: `${POLICY_CERTIFICATE_BASE_URL}/gighood_policy_tier_A.pdf`,
+  B: `${POLICY_CERTIFICATE_BASE_URL}/gighood_policy_tier_B.pdf`,
+  C: `${POLICY_CERTIFICATE_BASE_URL}/gighood_policy_tier_C.pdf`,
+};
+
 // ── Row item ────────────────────────────────────────────────
 
 function SettingsRow({
@@ -104,12 +112,20 @@ function SettingsRow({
 
 export default function ProfilePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
 
   const [toast, setToast] = useState<string | null>(null);
   const [showEarningsSheet, setShowEarningsSheet] = useState(false);
   const [earningsInput, setEarningsInput] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const action = searchParams.get('action');
+  useEffect(() => {
+    if (action === 'update-earnings') {
+      setShowEarningsSheet(true);
+    }
+  }, [action]);
 
   // ── Data fetching ───────────────────────────────────────
   const { data: worker, isLoading: workerLoading } = useQuery({
@@ -190,6 +206,11 @@ export default function ProfilePage() {
   const policyFilename = policy?.id
     ? `gighood-policy-${policy.id.substring(0, 8)}.pdf`
     : '—';
+  const tierKey = (policy?.tier ?? '').toUpperCase();
+  const policyCertificateUrl = POLICY_CERTIFICATES_BY_TIER[tierKey];
+  const policyCertificateFilename = policyCertificateUrl
+    ? policyCertificateUrl.split('/').pop() ?? policyFilename
+    : policyFilename;
 
   return (
     <>
@@ -338,6 +359,27 @@ export default function ProfilePage() {
                 <p style={{ fontSize: '13px', fontWeight: 600, color: 'white', wordBreak: 'break-all' }}>{worker?.upi_id ?? '—'}</p>
               </div>
             </div>
+
+            <div style={{ marginTop: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '12px', padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+              <div>
+                <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'rgba(255,255,255,0.55)', marginBottom: '3px' }}>Partner Profile</p>
+                <p style={{ fontSize: '13px', fontWeight: 600, color: 'white' }}>{worker?.platform_affiliation ?? '—'} • {worker?.platform_id ?? '—'}</p>
+              </div>
+              <span
+                style={{
+                  padding: '5px 10px',
+                  borderRadius: '999px',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  background: worker?.is_platform_verified ? 'rgba(16, 185, 129, 0.15)' : 'rgba(148, 163, 184, 0.14)',
+                  color: worker?.is_platform_verified ? '#34D399' : '#CBD5E1',
+                  border: worker?.is_platform_verified ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid rgba(148, 163, 184, 0.28)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {worker?.is_platform_verified ? '✅ Verified Partner' : '⚠️ Not Verified'}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -427,7 +469,13 @@ export default function ProfilePage() {
         <section className="stagger-4" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <h3 className="label-micro" style={{ marginBottom: '4px', marginLeft: '4px' }}>Documents</h3>
           <button
-            onClick={() => showToast('Policy document download coming in Phase 3')}
+            onClick={() => {
+              if (!policyCertificateUrl) {
+                showToast('Policy certificate unavailable. Tier not assigned yet.');
+                return;
+              }
+              window.open(policyCertificateUrl, '_blank', 'noopener,noreferrer');
+            }}
             style={{
               width: '100%', display: 'flex', alignItems: 'center',
               justifyContent: 'space-between', padding: '14px 16px',
@@ -440,8 +488,8 @@ export default function ProfilePage() {
                 <Download size={17} color="#60A5FA" />
               </div>
               <div>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: '#E2E8F0' }}>Download Policy Document</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '1px', fontFamily: 'monospace' }}>{policyFilename}</div>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: '#E2E8F0' }}>Download Tier Policy Certificate</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '1px', fontFamily: 'monospace' }}>{policyCertificateFilename}</div>
               </div>
             </div>
             <ChevronRight size={16} color="var(--text-muted)" />

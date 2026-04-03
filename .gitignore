@@ -67,6 +67,7 @@ supabase/.temp/
 !.env.example
 *.json.key
 firebase-credentials.json
+backend/firebase-credentials.json
 firebase-adminsdk.json
 
 # OS generated files

@@ -1,0 +1,3 @@
+ALTER TABLE claims
+ADD COLUMN IF NOT EXISTS payout_channel VARCHAR(20),
+ADD COLUMN IF NOT EXISTS payout_transaction_id VARCHAR(120);

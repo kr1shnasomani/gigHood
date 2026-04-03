@@ -67,15 +67,25 @@ def execute_fast_track_payout(claim_id: str, worker_id: str):
         # 3. Idempotency Mock Payment execution
         rzp_res = initiate_upi_payout(upi_id=upi, amount_rupees=payout_rupees, reference_id=claim_id)
         
-        if rzp_res.get('status') == 'processing':
+        if rzp_res.get('status') in {'processing', 'processed'}:
             # Razorpay accepted the idempotent push
             # Updating Database
-            supabase.table('claims').update({
-                'payout_amount': payout_rupees,
-                'razorpay_payment_id': rzp_res.get('id'),
-                'status': 'paid',  # Ideally this waits for the webhook, but specs say we can set directly or via webhook.
-                'resolved_at': datetime.now(timezone.utc).isoformat()
-            }).eq('id', claim_id).execute()
+            try:
+                supabase.table('claims').update({
+                    'payout_amount': payout_rupees,
+                    'razorpay_payment_id': rzp_res.get('id'),
+                    'payout_transaction_id': rzp_res.get('transaction_id') or rzp_res.get('id'),
+                    'payout_channel': rzp_res.get('channel', 'UPI'),
+                    'status': 'paid',  # Ideally this waits for the webhook, but specs say we can set directly or via webhook.
+                    'resolved_at': datetime.now(timezone.utc).isoformat()
+                }).eq('id', claim_id).execute()
+            except Exception:
+                supabase.table('claims').update({
+                    'payout_amount': payout_rupees,
+                    'razorpay_payment_id': rzp_res.get('id'),
+                    'status': 'paid',
+                    'resolved_at': datetime.now(timezone.utc).isoformat()
+                }).eq('id', claim_id).execute()
             
             logger.info(f"Fast Track Payout Completed. Claim {claim_id}. ₹{payout_rupees} sent.")
             

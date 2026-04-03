@@ -17,6 +17,9 @@ class WorkerRegisterRequest(BaseModel):
     phone: str = Field(..., max_length=15)
     name: str = Field(..., max_length=100)
     city: str = Field(..., max_length=50)
+    platform_affiliation: str = Field(..., max_length=50)
+    platform_id: str = Field(..., max_length=80)
+    is_platform_verified: bool = False
     dark_store_zone: str = Field(..., max_length=100)
     avg_daily_earnings: float
     upi_id: str = Field(..., max_length=100)
@@ -86,10 +89,7 @@ def hash_dark_store_to_coords(dark_store_name: str) -> tuple[float, float]:
 def send_otp(req: OTPRequest):
     # Mocking OTP sent via fake SMS gateway
     # Using deterministic mock for testing simplicity: "123456" for demo.
-    print(f"--- MOCK SMS ---")
-    print(f"To: {normalize_phone(req.phone)}")
-    print(f"OTP: 123456")
-    print(f"----------------")
+    print(f"Mock OTP Sent: 123456 (to {normalize_phone(req.phone)})")
     return {"message": "OTP sent successfully."}
 
 @router.post("/auth/otp/verify")
@@ -129,6 +129,9 @@ def register_worker(req: WorkerRegisterRequest):
             "phone": normalized_phone,
             "name": req.name,
             "city": req.city,
+            "platform_affiliation": req.platform_affiliation,
+            "platform_id": req.platform_id,
+            "is_platform_verified": req.is_platform_verified,
             "dark_store_zone": req.dark_store_zone,
             "hex_id": hex_id,
             "avg_daily_earnings": req.avg_daily_earnings,
@@ -290,10 +293,16 @@ def get_my_claims(worker: dict = Depends(get_current_worker)):
     """
     worker_id = worker.get("id")
     try:
-        res = supabase.table('claims').select(
-            'id,payout_amount,disrupted_hours,resolution_path,status,'
-            'fraud_score,pop_validated,razorpay_payment_id,created_at,resolved_at'
-        ).eq('worker_id', worker_id).order('created_at', desc=True).execute()
+        try:
+            res = supabase.table('claims').select(
+                'id,payout_amount,disrupted_hours,resolution_path,status,'
+                'fraud_score,pop_validated,razorpay_payment_id,payout_transaction_id,payout_channel,created_at,resolved_at'
+            ).eq('worker_id', worker_id).order('created_at', desc=True).execute()
+        except Exception:
+            res = supabase.table('claims').select(
+                'id,payout_amount,disrupted_hours,resolution_path,status,'
+                'fraud_score,pop_validated,razorpay_payment_id,created_at,resolved_at'
+            ).eq('worker_id', worker_id).order('created_at', desc=True).execute()
         return res.data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

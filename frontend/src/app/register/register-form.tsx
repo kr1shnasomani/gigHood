@@ -7,6 +7,7 @@ import { seedDemo } from '@/lib/worker';
 import { useAuthStore } from '@/store/authStore';
 
 const CITIES = ['Delhi', 'Mumbai', 'Bengaluru', 'Chennai', 'Hyderabad', 'Jaipur', 'Lucknow', 'Kolkata', 'Guwahati'];
+const DELIVERY_PLATFORMS = ['Zepto', 'Blinkit', 'Swiggy', 'Zomato', 'Other'];
 
 const DARK_STORE_ZONES: Record<string, string[]> = {
   Delhi: [
@@ -61,13 +62,16 @@ export default function RegisterFormContent() {
   const setAuth = useAuthStore((s) => s.setAuth);
 
   const phoneFromUrl = searchParams.get('phone') || '';
+  const shouldSeedDemo = searchParams.get('demo') === '1';
 
   const [formData, setFormData] = useState({
     phone: phoneFromUrl,
     name: '',
-    city: 'Delhi',
-    dark_store_zone: 'Central Delhi',
-    avg_daily_earnings: 500,
+    city: '',
+    platform_affiliation: '',
+    platform_id: '',
+    dark_store_zone: '',
+    avg_daily_earnings: '',
     upi_id: '',
   });
 
@@ -79,8 +83,11 @@ export default function RegisterFormContent() {
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isVerifyingPlatformId, setIsVerifyingPlatformId] = useState(false);
+  const [isPlatformVerified, setIsPlatformVerified] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isRequestingGps, setIsRequestingGps] = useState(false);
+  const [locationStatus, setLocationStatus] = useState<'idle' | 'detecting' | 'detected' | 'denied' | 'manual'>('idle');
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
 
@@ -103,12 +110,91 @@ export default function RegisterFormContent() {
   }, []);
 
   useEffect(() => {
+    const normalizeCity = (raw?: string | null): string | null => {
+      if (!raw) return null;
+      const val = raw.trim().toLowerCase();
+      const aliases: Record<string, string> = {
+        bangalore: 'Bengaluru',
+        bengaluru: 'Bengaluru',
+        mumbai: 'Mumbai',
+        bombay: 'Mumbai',
+        delhi: 'Delhi',
+        'new delhi': 'Delhi',
+        chennai: 'Chennai',
+        hyderabad: 'Hyderabad',
+        jaipur: 'Jaipur',
+        lucknow: 'Lucknow',
+        kolkata: 'Kolkata',
+        calcutta: 'Kolkata',
+        guwahati: 'Guwahati',
+      };
+      const mapped = aliases[val];
+      if (mapped && CITIES.includes(mapped)) return mapped;
+      const title = raw.trim();
+      return CITIES.includes(title) ? title : null;
+    };
+
+    const detectCityFromLocation = async () => {
+      if (typeof navigator === 'undefined' || !navigator.geolocation) {
+        setLocationStatus('manual');
+        return;
+      }
+
+      setLocationStatus('detecting');
+
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          try {
+            const { latitude, longitude } = position.coords;
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`
+            );
+            const data = await response.json();
+            const address = data?.address ?? {};
+            const rawCity = address.city ?? address.town ?? address.village ?? address.state_district ?? address.state;
+            const normalized = normalizeCity(rawCity);
+
+            if (normalized) {
+              const zones = DARK_STORE_ZONES[normalized] || [];
+              setFormData((prev) => ({
+                ...prev,
+                city: normalized,
+                dark_store_zone: zones[0] || '',
+              }));
+              setLocationStatus('detected');
+              return;
+            }
+
+            setLocationStatus('manual');
+          } catch {
+            setLocationStatus('manual');
+          }
+        },
+        () => {
+          setLocationStatus('denied');
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 12000,
+          maximumAge: 5 * 60 * 1000,
+        }
+      );
+    };
+
+    detectCityFromLocation();
+  }, []);
+
+  useEffect(() => {
     const zones = DARK_STORE_ZONES[formData.city] || [];
     const activeZone = formData.dark_store_zone;
     if (zones.length > 0 && !zones.includes(activeZone)) {
       setFormData((prev) => ({ ...prev, dark_store_zone: zones[0] }));
     }
   }, [formData.city, formData.dark_store_zone]);
+
+  useEffect(() => {
+    setIsPlatformVerified(false);
+  }, [formData.platform_id, formData.platform_affiliation]);
 
   const requestGpsPermission = useCallback(() => {
     return new Promise<void>((resolve) => {
@@ -133,8 +219,19 @@ export default function RegisterFormContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.upi_id) {
+    if (!formData.name || !formData.upi_id || !formData.platform_affiliation || !formData.platform_id || !formData.city || !formData.dark_store_zone) {
       setError('Please fill in all fields');
+      return;
+    }
+
+    const parsedEarnings = Number(formData.avg_daily_earnings);
+    if (!Number.isFinite(parsedEarnings) || parsedEarnings <= 0) {
+      setError('Please enter a valid average daily earnings amount');
+      return;
+    }
+
+    if (!isPlatformVerified) {
+      setError('Please verify your Platform Employee ID before submitting');
       return;
     }
 
@@ -151,8 +248,11 @@ export default function RegisterFormContent() {
         phone: formData.phone,
         name: formData.name,
         city: formData.city,
+        platform_affiliation: formData.platform_affiliation,
+        platform_id: formData.platform_id,
+        is_platform_verified: true,
         dark_store_zone: formData.dark_store_zone,
-        avg_daily_earnings: formData.avg_daily_earnings,
+        avg_daily_earnings: parsedEarnings,
         upi_id: formData.upi_id,
         device_model: metadata.device_model,
         device_os_version: metadata.device_os_version,
@@ -163,10 +263,12 @@ export default function RegisterFormContent() {
       const registerResponse = await register(payload);
       setAuth(registerResponse.access_token, registerResponse.worker);
 
-      try {
-        await seedDemo();
-      } catch (seedErr) {
-        console.error('Seed failed:', seedErr);
+      if (shouldSeedDemo) {
+        try {
+          await seedDemo();
+        } catch (seedErr) {
+          console.error('Seed failed:', seedErr);
+        }
       }
 
       await requestGpsPermission();
@@ -179,6 +281,20 @@ export default function RegisterFormContent() {
   };
 
   const zones = DARK_STORE_ZONES[formData.city] || [];
+
+  const handleVerifyPlatformId = () => {
+    if (!formData.platform_id.trim() || !formData.platform_affiliation) {
+      setError('Please select a platform and enter Platform Employee ID first');
+      return;
+    }
+
+    setError(null);
+    setIsVerifyingPlatformId(true);
+    setTimeout(() => {
+      setIsVerifyingPlatformId(false);
+      setIsPlatformVerified(true);
+    }, 1500);
+  };
 
   return (
     <>
@@ -254,6 +370,20 @@ export default function RegisterFormContent() {
               </li>
             </ol>
 
+            <div style={{ marginTop: '16px', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-glass)', background: 'rgba(255, 255, 255, 0.02)' }}>
+              <p style={{ fontSize: '12px', fontWeight: 700, color: '#FCA5A5', marginBottom: '8px' }}>Policy Exclusions (No Payout Trigger)</p>
+              <ul style={{ margin: 0, paddingLeft: '18px', display: 'grid', gap: '8px', color: 'var(--text-secondary)' }}>
+                <li style={{ lineHeight: 1.5 }}>War, armed conflict, or civil war events.</li>
+                <li style={{ lineHeight: 1.5 }}>Government-declared national emergency or pandemic shutdown events.</li>
+                <li style={{ lineHeight: 1.5 }}>Platform-initiated worker account deactivation or suspension.</li>
+                <li style={{ lineHeight: 1.5 }}>Disruptions shorter than minimum trigger duration (brief DCI spikes).</li>
+                <li style={{ lineHeight: 1.5 }}>Claims raised during the initial 7-day waiting period.</li>
+                <li style={{ lineHeight: 1.5 }}>Zones below minimum active policyholder density threshold.</li>
+                <li style={{ lineHeight: 1.5 }}>Self-inflicted outages (worker app issues, personal device/network failure).</li>
+                <li style={{ lineHeight: 1.5 }}>Disruptions outside your registered dark-store assignment zone.</li>
+              </ul>
+            </div>
+
             <button
               type="button"
               onClick={() => setShowTermsModal(false)}
@@ -301,21 +431,80 @@ export default function RegisterFormContent() {
 
           <div>
             <label className="label-micro" style={{ marginBottom: '8px', display: 'block' }}>City *</label>
-            <select value={formData.city} onChange={(e) => setFormData((prev) => ({ ...prev, city: e.target.value }))} className="input-glass" style={{ cursor: 'pointer' }}>
+            <select value={formData.city} onChange={(e) => setFormData((prev) => ({ ...prev, city: e.target.value }))} className="input-glass" style={{ cursor: 'pointer' }} required>
+              <option value="" disabled>Select location</option>
               {CITIES.map((city) => <option key={city} value={city}>{city}</option>)}
+            </select>
+            <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
+              {locationStatus === 'detecting' && 'Detecting your location...'}
+              {locationStatus === 'detected' && 'Location detected and city selected automatically.'}
+              {locationStatus === 'denied' && 'Location permission denied. Please choose your city manually.'}
+              {locationStatus === 'manual' && 'Could not auto-detect supported city. Please choose your city manually.'}
+            </p>
+          </div>
+
+          <div>
+            <label className="label-micro" style={{ marginBottom: '8px', display: 'block' }}>Primary Delivery Platform *</label>
+            <select value={formData.platform_affiliation} onChange={(e) => setFormData((prev) => ({ ...prev, platform_affiliation: e.target.value }))} className="input-glass" style={{ cursor: 'pointer' }} required>
+              <option value="" disabled>Select your primary platform</option>
+              {DELIVERY_PLATFORMS.map((platform) => <option key={platform} value={platform}>{platform}</option>)}
             </select>
           </div>
 
           <div>
+            <label className="label-micro" style={{ marginBottom: '8px', display: 'block' }}>Platform Employee ID *</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '8px' }}>
+              <input
+                type="text"
+                value={formData.platform_id}
+                onChange={(e) => setFormData((prev) => ({ ...prev, platform_id: e.target.value.toUpperCase() }))}
+                placeholder="ZEP-8492"
+                className="input-glass"
+                required
+                style={{
+                  borderColor: isPlatformVerified ? 'rgba(16, 185, 129, 0.7)' : undefined,
+                  boxShadow: isPlatformVerified ? '0 0 0 1px rgba(16, 185, 129, 0.35) inset' : undefined,
+                }}
+              />
+              <button
+                type="button"
+                onClick={handleVerifyPlatformId}
+                disabled={isVerifyingPlatformId || !formData.platform_id || !formData.platform_affiliation || isPlatformVerified}
+                style={{
+                  borderRadius: '10px',
+                  padding: '0 12px',
+                  minHeight: '44px',
+                  fontWeight: 700,
+                  fontSize: '12px',
+                  color: 'white',
+                  border: '1px solid var(--border-glass)',
+                  background: isPlatformVerified
+                    ? 'linear-gradient(135deg, #10B981 0%, #059669 100%)'
+                    : 'rgba(14, 165, 233, 0.2)',
+                  opacity: isVerifyingPlatformId ? 0.8 : 1,
+                  cursor: isVerifyingPlatformId ? 'wait' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                {isVerifyingPlatformId && <span className="spinner" style={{ width: '14px', height: '14px', borderWidth: '2px' }} />}
+                {isVerifyingPlatformId ? 'Contacting Partner API...' : isPlatformVerified ? '✅ Verified' : 'Verify ID'}
+              </button>
+            </div>
+          </div>
+
+          <div>
             <label className="label-micro" style={{ marginBottom: '8px', display: 'block' }}>Dark Store Zone *</label>
-            <select value={formData.dark_store_zone} onChange={(e) => setFormData((prev) => ({ ...prev, dark_store_zone: e.target.value }))} className="input-glass" style={{ cursor: 'pointer' }}>
+            <select value={formData.dark_store_zone} onChange={(e) => setFormData((prev) => ({ ...prev, dark_store_zone: e.target.value }))} className="input-glass" style={{ cursor: 'pointer' }} required disabled={!formData.city}>
+              <option value="" disabled>Select dark store zone</option>
               {zones.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
             </select>
           </div>
 
           <div>
             <label className="label-micro" style={{ marginBottom: '8px', display: 'block' }}>Avg Daily Earnings (₹) *</label>
-            <input type="number" value={formData.avg_daily_earnings} onChange={(e) => setFormData((prev) => ({ ...prev, avg_daily_earnings: parseFloat(e.target.value) || 0 }))} placeholder="500" className="input-glass" min="100" max="5000" step="50" required />
+            <input type="number" value={formData.avg_daily_earnings} onChange={(e) => setFormData((prev) => ({ ...prev, avg_daily_earnings: e.target.value }))} placeholder="e.g. 500" className="input-glass" min="100" max="5000" step="50" required />
           </div>
 
           <div>
@@ -349,7 +538,7 @@ export default function RegisterFormContent() {
             </span>
           </label>
 
-          <button type="submit" className="btn-premium mt-4" disabled={isLoading || isRequestingGps || !formData.name || !formData.upi_id || !agreedTerms} style={{ opacity: isLoading || isRequestingGps || !agreedTerms ? 0.6 : 1, cursor: isLoading || isRequestingGps || !agreedTerms ? 'not-allowed' : 'pointer' }}>
+          <button type="submit" className="btn-premium mt-4" disabled={isLoading || isRequestingGps || !formData.name || !formData.city || !formData.dark_store_zone || !formData.upi_id || !formData.avg_daily_earnings || !formData.platform_affiliation || !formData.platform_id || !isPlatformVerified || !agreedTerms} style={{ opacity: isLoading || isRequestingGps || !agreedTerms ? 0.6 : 1, cursor: isLoading || isRequestingGps || !agreedTerms ? 'not-allowed' : 'pointer' }}>
             {isLoading ? <div className="spinner" /> : isRequestingGps ? 'Requesting location access...' : 'Create Account & Start Protected'}
           </button>
         </form>

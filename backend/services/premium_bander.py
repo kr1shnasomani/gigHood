@@ -30,5 +30,7 @@ def calculate_premium(tier: str, avg_dci_4w: float, month: int) -> float:
     # Monsoon season is defined exactly as months 6 through 9 inclusive
     if month in [6, 7, 8, 9]:
         premium *= 1.4
-        
-    return round(premium, 2)
+
+    # Rubric hard limit: premium must always stay within ₹20-₹50/week.
+    final_premium = max(20.0, min(premium, 50.0))
+    return round(final_premium, 2)

@@ -343,23 +343,42 @@ def _run_process_claim(worker: dict[str, Any]) -> dict[str, Any]:
             reference_id=claim_id,
         )
         razorpay_payment_id = rzp.get("id")
+        payout_transaction_id = rzp.get("transaction_id") or razorpay_payment_id
+        payout_channel = rzp.get("channel", "UPI")
     except Exception:
         # Keep demo flow alive even if payout client fails.
         razorpay_payment_id = f"pout_demo_{claim_id}"
+        payout_transaction_id = razorpay_payment_id
+        payout_channel = "UPI"
 
     # Step 10: persist final claim state exactly like demo runner finalization.
     final_status = "paid"
-    supabase.table("claims").update(
-        {
-            "payout_amount": payout_amount,
-            "razorpay_payment_id": razorpay_payment_id,
-            "pop_validated": bool(pop_res.get("present", False)),
-            "fraud_score": fraud_score,
-            "resolution_path": path,
-            "status": final_status,
-            "resolved_at": datetime.now(timezone.utc).isoformat(),
-        }
-    ).eq("id", claim_id).execute()
+    try:
+        supabase.table("claims").update(
+            {
+                "payout_amount": payout_amount,
+                "razorpay_payment_id": razorpay_payment_id,
+                "payout_transaction_id": payout_transaction_id,
+                "payout_channel": payout_channel,
+                "pop_validated": bool(pop_res.get("present", False)),
+                "fraud_score": fraud_score,
+                "resolution_path": path,
+                "status": final_status,
+                "resolved_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).eq("id", claim_id).execute()
+    except Exception:
+        supabase.table("claims").update(
+            {
+                "payout_amount": payout_amount,
+                "razorpay_payment_id": razorpay_payment_id,
+                "pop_validated": bool(pop_res.get("present", False)),
+                "fraud_score": fraud_score,
+                "resolution_path": path,
+                "status": final_status,
+                "resolved_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).eq("id", claim_id).execute()
 
     return {
         "claim_id": claim_id,
@@ -371,6 +390,8 @@ def _run_process_claim(worker: dict[str, Any]) -> dict[str, Any]:
         "resolution_path": path,
         "payout_amount": payout_amount,
         "razorpay_payment_id": razorpay_payment_id,
+        "payout_transaction_id": payout_transaction_id,
+        "payout_channel": payout_channel,
         "pop_validated": bool(pop_res.get("present", False)),
         "status": final_status,
     }

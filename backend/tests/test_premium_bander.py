@@ -12,6 +12,6 @@ def test_tier_A_monsoon_low_dci():
     assert premium == 28.0
 
 def test_tier_C_monsoon_high_dci():
-    """Tier C, avg DCI 0.85, monsoon -> 59 * 1.4 = 82.6"""
+    """Tier C, avg DCI 0.85, monsoon -> capped to ₹50 per rubric."""
     premium = calculate_premium(tier='C', avg_dci_4w=0.85, month=8) # August
-    assert premium == 82.6
+    assert premium == 50.0

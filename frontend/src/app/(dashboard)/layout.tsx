@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Shield, Home, MessageSquare, User } from 'lucide-react';
+import { Wallet, Home, MessageSquare, User } from 'lucide-react';
 import { isAuthenticated } from '@/lib/auth';
 import { useLanguageStore } from '@/store/languageStore';
 import { t } from '@/lib/i18n';
@@ -29,7 +29,7 @@ export default function DashboardLayout({
 
   const navItems = [
     { href: '/worker-app/home', matchPath: '/home', label: t(language, 'nav_home'), icon: Home },
-    { href: '/worker-app/payouts', matchPath: '/payouts', label: t(language, 'nav_payouts'), icon: Shield },
+    { href: '/worker-app/payouts', matchPath: '/payouts', label: t(language, 'nav_payouts'), icon: Wallet },
     { href: '/worker-app/chat', matchPath: '/chat', label: t(language, 'nav_copilot'), icon: MessageSquare },
     { href: '/worker-app/profile', matchPath: '/profile', label: t(language, 'nav_profile'), icon: User },
   ];

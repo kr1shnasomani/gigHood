@@ -16,8 +16,6 @@
 <img src="https://readme-typing-svg.demolab.com?font=Syne&weight=700&size=18&pause=1200&color=38BDF8&center=true&vCenter=true&width=700&lines=Predict+disruptions+before+they+strike.;Automate+insurance.+Eliminate+paperwork.;Instant+payouts+when+gig+workers+need+it+most.;Built+for+India's+15M%2B+delivery+partners." alt="Typing SVG"/>
 <br/>
 
-![Status](https://img.shields.io/badge/Status-Active%20Development-22c55e?style=for-the-badge)
-
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?style=for-the-badge&logo=fastapi&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Data%20Layer-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
@@ -52,7 +50,7 @@
 
 <div align="center">
 
-### 🎥 [Phase One Pitch Video](https://youtu.be/xDvoUhNjD60)
+### 🎥 [Phase Two Pitch Video](https://youtu.be/xDvoUhNjD60)
 
 <a href="https://youtu.be/xDvoUhNjD60">
 <img width="450" height="320" alt="image" src="https://github.com/user-attachments/assets/1a02c217-c99c-4f12-808d-6ca1444abf7f" />
@@ -61,6 +59,18 @@
 </div>
 
 ---
+
+### 📄 Documentation Map
+
+| Markdown File | Purpose |
+|:--|:--|
+| `README.md` | Product overview, architecture story, and demo narrative. |
+| `SETUP.md` | Local and Docker setup instructions for contributors. |
+| `API.md` | Backend API contracts, payloads, and integration notes. |
+| `DATABASE.md` | Database schema, persistence model, and data flow references. |
+| `AGENTS.md` | Repository-level coding/agent workflow conventions. |
+| `frontend/README.md` | Frontend-specific run/build guidance and folder map. |
+| `frontend/AGENTS.md` | Frontend agent instructions and UI implementation constraints. |
 
 </div>
 
@@ -148,18 +158,6 @@
 </details>
 
 ---
-
-### 📄 Documentation Map
-
-| Markdown File | Purpose |
-|:--|:--|
-| `README.md` | Product overview, architecture story, and demo narrative. |
-| `SETUP.md` | Local and Docker setup instructions for contributors. |
-| `API.md` | Backend API contracts, payloads, and integration notes. |
-| `DATABASE.md` | Database schema, persistence model, and data flow references. |
-| `AGENTS.md` | Repository-level coding/agent workflow conventions. |
-| `frontend/README.md` | Frontend-specific run/build guidance and folder map. |
-| `frontend/AGENTS.md` | Frontend agent instructions and UI implementation constraints. |
 
 ### 📌 TL;DR
 

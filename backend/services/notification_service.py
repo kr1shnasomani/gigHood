@@ -1,5 +1,6 @@
 import os
 import logging
+import json
 from typing import Dict, Any, Optional
 
 logger = logging.getLogger("api")
@@ -19,6 +20,7 @@ class NotificationService:
         
         if FIREBASE_AVAILABLE:
             cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH", "")
+            cred_json = os.getenv("FIREBASE_CREDENTIALS_JSON", "")
             if cred_path and os.path.exists(cred_path):
                 try:
                     # Check if already initialized
@@ -29,6 +31,15 @@ class NotificationService:
                     logger.info("Firebase Cloud Messaging initialized successfully.")
                 except Exception as e:
                     logger.error(f"Failed to initialize Firebase: {e}")
+            elif cred_json:
+                try:
+                    if not firebase_admin._apps:
+                        cred = credentials.Certificate(json.loads(cred_json))
+                        firebase_admin.initialize_app(cred)
+                    self.enabled = True
+                    logger.info("Firebase Cloud Messaging initialized successfully via JSON env.")
+                except Exception as e:
+                    logger.error(f"Failed to initialize Firebase from FIREBASE_CREDENTIALS_JSON: {e}")
             else:
                 logger.warning(f"Firebase credentials not found at {cred_path}. Notifications disabled.")
     
