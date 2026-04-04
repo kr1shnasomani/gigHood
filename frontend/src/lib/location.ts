@@ -30,7 +30,18 @@ export async function getCurrentPosition(): Promise<GeolocationPosition> {
   return new Promise((resolve, reject) => {
     navigator.geolocation.getCurrentPosition(
       resolve,
-      reject,
+      (error) => {
+        // GeolocationPositionError is not always an Error instance.
+        const codeLabel =
+          error.code === error.PERMISSION_DENIED
+            ? 'permission denied'
+            : error.code === error.POSITION_UNAVAILABLE
+              ? 'position unavailable'
+              : error.code === error.TIMEOUT
+                ? 'location timeout'
+                : 'unknown location error';
+        reject(new Error(error.message || `Unable to read location (${codeLabel}).`));
+      },
       {
         enableHighAccuracy: true,
         timeout: 10000,

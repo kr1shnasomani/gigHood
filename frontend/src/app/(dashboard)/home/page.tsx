@@ -63,6 +63,18 @@ function SmsToast({ message }: { message: string }) {
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof (error as { message?: unknown }).message === 'string'
+  ) {
+    const msg = String((error as { message: string }).message).trim();
+    if (msg.length > 0) {
+      return msg;
+    }
+  }
+
   if (error instanceof Error && error.message) {
     return error.message;
   }
@@ -197,11 +209,29 @@ export default function DashboardPage() {
       }
 
       // Capture short burst of pings so backend guardrails can verify in-zone presence.
+      // If ping capture partially fails, surface a useful reason instead of generic claim failure.
+      let successfulPings = 0;
+      let lastPingError: unknown = null;
       for (let i = 0; i < 3; i += 1) {
-        await submitLocationPing();
+        try {
+          await submitLocationPing();
+          successfulPings += 1;
+        } catch (pingError: unknown) {
+          lastPingError = pingError;
+        }
+
         if (i < 2) {
           await wait(1200);
         }
+      }
+
+      if (successfulPings === 0) {
+        throw new Error(
+          getErrorMessage(
+            lastPingError,
+            'Could not capture your location. Please enable precise location and retry.'
+          )
+        );
       }
 
       const receipt = await processClaim();
