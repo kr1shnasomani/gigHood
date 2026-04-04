@@ -11,7 +11,8 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 60 * 1000,
+        staleTime: 5 * 60 * 1000,
+        gcTime: 10 * 60 * 1000,
         retry: 1,
       },
     },
@@ -28,17 +29,27 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isAuthRoute || !hasToken) return;
 
-    // Init push notifications
-    initNotifications().catch(console.error);
+    const runDeferredSetup = () => {
+      // Init push notifications
+      initNotifications().catch(console.error);
 
-    // Request location permission and start 15-min PoP pings only when explicitly enabled
-    if (!locationTrackingEnabled) return;
+      // Request location permission and start 15-min PoP pings only when explicitly enabled
+      if (!locationTrackingEnabled) return;
 
-    requestLocationPermission()
-      .then((granted) => {
-        if (granted) startLocationTracking(5 * 60 * 1000);
-      })
-      .catch(console.error);
+      requestLocationPermission()
+        .then((granted) => {
+          if (granted) startLocationTracking(15 * 60 * 1000);
+        })
+        .catch(console.error);
+    };
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      const id = window.requestIdleCallback(runDeferredSetup);
+      return () => window.cancelIdleCallback(id);
+    }
+
+    const timeoutId = window.setTimeout(runDeferredSetup, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [hasToken, isAuthenticated, isAuthRoute, locationTrackingEnabled]);
 
   return (

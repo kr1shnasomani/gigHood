@@ -10,7 +10,7 @@ import {
   Wallet, CheckCircle, ChevronLeft, ChevronRight,
   MessageSquare, FileText
 } from 'lucide-react';
-import { workerApi, simulateDisruption, processClaim, pollUntilDisrupted } from '@/lib/worker';
+import { workerApi, simulateDisruption, processClaim } from '@/lib/worker';
 import { useAuthStore } from '@/store/authStore';
 import { LANGUAGE_OPTIONS, useLanguageStore } from '@/store/languageStore';
 import { t } from '@/lib/i18n';
@@ -102,12 +102,58 @@ export default function DashboardPage() {
   const setLanguage = useLanguageStore((s) => s.setLanguage);
   const inferLanguageFromCity = useLanguageStore((s) => s.inferLanguageFromCity);
 
-  const { data: dashboard, isLoading, error, refetch } = useQuery({
-    queryKey: ['dashboard'],
-    queryFn: workerApi.getDashboard,
-    refetchInterval: 10000,
-    enabled: !!accessToken, // only fetch if we have a token
+  // Load worker profile
+  const { data: worker } = useQuery({
+    queryKey: ['worker'],
+    queryFn: workerApi.getMe,
+    staleTime: 5 * 60 * 1000,
+    enabled: !!accessToken,
   });
+
+  // Load policy independently
+  const { data: activePolicy } = useQuery({
+    queryKey: ['policy'],
+    queryFn: workerApi.getMyPolicy,
+    staleTime: 5 * 60 * 1000,
+    enabled: !!accessToken,
+  });
+
+  // Load DCI independently (refresh more often)
+  const { data: dciData } = useQuery({
+    queryKey: ['dci'],
+    queryFn: workerApi.getDci,
+    staleTime: 60 * 1000,
+    enabled: !!accessToken,
+  });
+
+  // Load claims independently
+  const { data: claims = [] } = useQuery({
+    queryKey: ['claims'],
+    queryFn: workerApi.getClaims,
+    staleTime: 3 * 60 * 1000,
+    enabled: !!accessToken,
+  });
+
+  // Composite dashboard for backward compatibility
+  const dashboard = worker && activePolicy && dciData
+    ? {
+        worker: { ...worker, dynamic_coverage_index: dciData.current_dci },
+        active_policy: activePolicy,
+        alerts: [],
+        weekly_summary: {
+          premium_paid: activePolicy?.weekly_premium || activePolicy?.premium_amount || 0,
+          disruptions: claims.filter((c) => new Date(c.created_at) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length,
+          total_paid_out: claims.filter((c) => c.status === 'paid').reduce((sum, c) => sum + (c.payout_amount ?? 0), 0),
+        },
+        dci_forecast: null,
+      }
+    : null;
+
+  const isLoading = !worker || !activePolicy;
+  const error = null;
+  const refetch = () => {
+    /* no-op */
+  };
 
   // Phase 2 & 3 State
   const [isSimulating, setIsSimulating] = useState(false);
@@ -163,23 +209,24 @@ export default function DashboardPage() {
     setSimulationError(null);
 
     try {
-      // Call simulate endpoint with exact weights
-      await simulateDisruption({
-        w: 2.5,
-        t: 1.2,
-        p: 1.8,
-        s: 1.0,
+      // Call simulate endpoint - returns FINAL DCI status immediately
+      // Weights: w=3.0 (weather), t=1.5 (traffic), p=2.0 (platform), s=1.2 (social)
+      // Formula: DCI = sigmoid(0.45*3.0 + 0.25*1.5 + 0.20*2.0 + 0.10*1.2) ≈ sigmoid(2.155) ≈ 0.896 (disrupted)
+      const result = await simulateDisruption({
+        w: 3.0,   // Increased from 2.5 for more reliable disruption
+        t: 1.5,   // Increased from 1.2
+        p: 2.0,   // Increased from 1.8
+        s: 1.2,   // Increased from 1.0
       });
 
-      // Poll until disrupted
-      const result = await pollUntilDisrupted(60, 1000);
+      // Use response directly instead of polling - backend already calculated final DCI
       if (result && result.dci_status === 'disrupted') {
         setDciScore(result.current_dci);
         setDciStatus('disrupted');
         // Refresh dashboard data
         await refetch();
       } else {
-        setSimulationError('Failed to reach disruption threshold. Try again.');
+        setSimulationError(`Simulation completed but did not reach disruption threshold (DCI: ${result?.current_dci?.toFixed(3) ?? 'N/A'}, Status: ${result?.dci_status ?? 'unknown'}). Try again with higher weights.`);
       }
     } catch (err: unknown) {
       console.error('Simulation error:', err);
@@ -320,9 +367,7 @@ export default function DashboardPage() {
     );
   }
 
-  const { worker, active_policy, weekly_summary } = dashboard;
-
-  const firstName = (worker.name || '').split(' ')[0] || 'Worker';
+  const firstName = (worker?.name || '').split(' ')[0] || 'Worker';
 
   // Determine DCI status based on score
   const hasDci = typeof dciScore === 'number' && Number.isFinite(dciScore);
@@ -349,8 +394,8 @@ export default function DashboardPage() {
   const strokeDashoffset = circumference - (circumference * normalizedDci);
 
   // Format dates
-  const startStr = active_policy?.week_start || active_policy?.start_date;
-  const endStr = active_policy?.week_end || active_policy?.end_date;
+  const startStr = dashboard?.active_policy?.week_start || dashboard?.active_policy?.start_date;
+  const endStr = dashboard?.active_policy?.week_end || dashboard?.active_policy?.end_date;
   const start = startStr ? new Date(startStr) : null;
   const end = endStr ? new Date(endStr) : null;
   const dateOptions: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
@@ -595,7 +640,7 @@ export default function DashboardPage() {
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <ShieldCheck size={18} color={statusColor} />
               <span style={{ fontSize: '15px', fontWeight: 600 }}>
-                {active_policy ? `Active Tier ${active_policy.tier}` : 'Tier Pending Calculation'}
+                {dashboard?.active_policy ? `Active Tier ${dashboard.active_policy.tier}` : 'Tier Pending Calculation'}
               </span>
             </div>
             <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{policyWeek}</span>
@@ -603,12 +648,12 @@ export default function DashboardPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
             <span style={{ color: 'var(--text-secondary)' }}>
               Weekly Premium: <strong style={{ color: 'white' }}>
-                {active_policy ? `₹${active_policy.weekly_premium ?? active_policy.premium_amount ?? '—'}` : '—'}
+                {dashboard?.active_policy ? `₹${dashboard.active_policy.weekly_premium ?? dashboard.active_policy.premium_amount ?? '—'}` : '—'}
               </strong>
             </span>
             <span style={{ color: 'var(--text-secondary)' }}>
               Cap: <strong style={{ color: 'white' }}>
-                {active_policy ? `₹${active_policy.coverage_cap_daily}/day` : '—'}
+                {dashboard?.active_policy ? `₹${dashboard.active_policy.coverage_cap_daily}/day` : '—'}
               </strong>
             </span>
           </div>
@@ -820,8 +865,8 @@ export default function DashboardPage() {
           <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Coverage Cap</span>
             <span style={{ fontSize: '22px', fontWeight: 700, color: 'var(--trust-emerald)' }}>
-              {active_policy ? `₹${active_policy.coverage_cap_daily}` : '—'}
-              {active_policy && <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted)' }}>/day</span>}
+              {dashboard?.active_policy ? `₹${dashboard.active_policy.coverage_cap_daily}` : '—'}
+              {dashboard?.active_policy && <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted)' }}>/day</span>}
             </span>
           </div>
         </div>
@@ -836,7 +881,7 @@ export default function DashboardPage() {
               <Wallet size={13} color="#94A3B8" />
               <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Premium</span>
             </div>
-            <span style={{ fontSize: '16px', fontWeight: 700 }}>₹{weekly_summary.premium_paid}</span>
+            <span style={{ fontSize: '16px', fontWeight: 700 }}>₹{dashboard?.weekly_summary.premium_paid ?? '—'}</span>
           </div>
 
           <div className="glass-panel" style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -844,7 +889,7 @@ export default function DashboardPage() {
               <AlertCircle size={13} color="#F59E0B" />
               <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Events</span>
             </div>
-            <span style={{ fontSize: '16px', fontWeight: 700 }}>{weekly_summary.disruptions}</span>
+            <span style={{ fontSize: '16px', fontWeight: 700 }}>{dashboard?.weekly_summary.disruptions ?? '—'}</span>
           </div>
 
           <div className="glass-panel" style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -852,7 +897,7 @@ export default function DashboardPage() {
               <CircleDollarSign size={13} color="#10B981" />
               <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Paid Out</span>
             </div>
-            <span style={{ fontSize: '16px', fontWeight: 700, color: '#10B981' }}>₹{weekly_summary.total_paid_out}</span>
+            <span style={{ fontSize: '16px', fontWeight: 700, color: '#10B981' }}>₹{dashboard?.weekly_summary.total_paid_out ?? '—'}</span>
           </div>
         </div>
       </section>

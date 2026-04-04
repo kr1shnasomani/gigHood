@@ -29,7 +29,7 @@ function withStatus(error: Error, status: number): ApiError {
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000,
+  timeout: process.env.NODE_ENV === 'development' ? 12000 : 30000,
   headers: { 'Content-Type': 'application/json' },
 });
 

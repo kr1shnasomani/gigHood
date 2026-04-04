@@ -147,13 +147,18 @@ export async function sendChatMessage(message: string, language = 'en') {
 
 // Composite dashboard function
 export async function getDashboard(): Promise<DashboardResponse> {
-  const worker = await getMe();
-
-  const [policyResult, dciResult, claimsResult] = await Promise.allSettled([
+  const [workerResult, policyResult, dciResult, claimsResult] = await Promise.allSettled([
+    getMe(),
     getMyPolicy(),
     getDci(),
     getClaims(),
   ]);
+
+  if (workerResult.status !== 'fulfilled') {
+    throw workerResult.reason;
+  }
+
+  const worker = workerResult.value;
 
   const policy = policyResult.status === 'fulfilled'
     ? policyResult.value

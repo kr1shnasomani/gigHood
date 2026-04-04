@@ -35,12 +35,16 @@ def _get_tier_cap(tier: str) -> float:
     if tier == 'C': return 800.0
     return 700.0
 
-def calculate_payout(avg_daily_earnings: float, disrupted_hours: float, tier: str, worker_id: str) -> float:
+def calculate_payout(avg_daily_earnings: float, disrupted_hours: float, tier: str, worker_id: str, cached_historical_avg: float = None) -> float:
     """
     Computes exact payout constraints sequentially.
     1. Base math (Earnings/8 * Hrs)
     2. Physical Tier Policy Caps (A: 600, B: 700, C: 800)
     3. Trailing 2.5x Maturation Max Cap mapping historical trust
+    
+    Args:
+        cached_historical_avg: Optional pre-computed 4-week average to skip database call.
+                               If None, will fetch from database (slower).
     """
     if disrupted_hours <= 0:
          return 0.0
@@ -53,7 +57,11 @@ def calculate_payout(avg_daily_earnings: float, disrupted_hours: float, tier: st
     capped_by_tier = min(raw_payout, tier_cap)
     
     # 3. Maturation Cap (2.5x 4-week average boundary)
-    historical_avg = get_4w_avg_payout(worker_id)
+    # Use cached value if provided, otherwise query database (slower path)
+    if cached_historical_avg is None:
+        historical_avg = get_4w_avg_payout(worker_id)
+    else:
+        historical_avg = cached_historical_avg
     maturation_cap = historical_avg * 2.5
     
     final_payout = min(capped_by_tier, maturation_cap)
