@@ -96,6 +96,25 @@ def explain_policy_decision(worker_id: str, tier: Optional[str] = None) -> dict:
 
     computed_tier = tier or predict_tier(history, season_flag, city, claim_freq)
 
+    dci_band = "low"
+    if avg_dci >= 0.65:
+        dci_band = "high"
+    elif avg_dci >= 0.5:
+        dci_band = "moderate"
+
+    claim_band = "low"
+    if claim_freq >= 0.7:
+        claim_band = "high"
+    elif claim_freq >= 0.35:
+        claim_band = "moderate"
+
+    seasonal_text = "monsoon risk period" if season_flag else "regular season"
+
+    plain_language = (
+        f"Your zone risk is {dci_band}, recent claim pattern is {claim_band}, and season is {seasonal_text}. "
+        f"So your plan is set to Tier {computed_tier}."
+    )
+
     reason_lines = [
         f"4-week DCI average: {avg_dci}",
         f"Recent claim frequency (28d): {round(claim_freq, 3)}",
@@ -106,10 +125,14 @@ def explain_policy_decision(worker_id: str, tier: Optional[str] = None) -> dict:
     return {
         "tier": computed_tier,
         "avg_dci_4w": avg_dci,
+        "avg_dci_band": dci_band,
         "claim_frequency_28d": round(claim_freq, 4),
+        "claim_frequency_band": claim_band,
         "seasonal_flag": season_flag,
+        "seasonal_text": seasonal_text,
         "city": city,
         "history_points_used": len(history),
+        "plain_language": plain_language,
         "reason": " | ".join(reason_lines),
     }
 

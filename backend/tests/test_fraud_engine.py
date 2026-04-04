@@ -30,7 +30,7 @@ def test_gate2_micro_delivery_exclusions():
 def test_full_pipeline_compound_score(mock_supabase):
     """
     Tests Layer accumulations strictly natively bounded:
-    GPS Static (+30) + OS Mock (+20) -> Score 50.
+    With short observation windows, static GPS should not trigger.
     """
     start_time = datetime.now(timezone.utc)
     evaluator = FraudEvaluator()
@@ -56,14 +56,14 @@ def test_full_pipeline_compound_score(mock_supabase):
     
     res = evaluator.evaluate('worker-cohort-ring', 'ev-1', start_time)
     
-    assert 'STATIC_DEVICE_FLAG' in res['flags']
+    assert 'STATIC_DEVICE_FLAG' not in res['flags']
     assert 'MOCK_LOCATION_FLAG' in res['flags']
     # Cohort and ring triggers Layer 5 natively via stub bounds: 10 + 10 = 20
     assert 'REGISTRATION_COHORT' in res['flags']
     assert 'MOCK_LOCATION_NETWORK' in res['flags']
     
-    # Total Score: Static(30) + Mock(20) + Cohort(10) + Network(10) = 70
-    assert res['fraud_score'] == 70
+    # Total Score: Mock(20) + Cohort(10) + Network(10) = 40
+    assert res['fraud_score'] == 40
 
 def test_evaluate_velocity():
     evaluator = FraudEvaluator()

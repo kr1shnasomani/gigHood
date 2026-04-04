@@ -7,6 +7,8 @@ import {
   RefreshCw, Umbrella
 } from 'lucide-react';
 import { workerApi, type Claim } from '@/lib/worker';
+import { useLanguageStore } from '@/store/languageStore';
+import { t } from '@/lib/i18n';
 
 // ── Helpers ────────────────────────────────────────────────
 
@@ -57,6 +59,7 @@ function formatDate(iso: string): string {
 // ── Component ──────────────────────────────────────────────
 
 export default function PayoutsPage() {
+  const language = useLanguageStore((s) => s.language);
   const { data: claims, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['claims'],
     queryFn: workerApi.getClaims,
@@ -82,8 +85,8 @@ export default function PayoutsPage() {
       {/* 1. Header */}
       <header className="stagger-1" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <h2 style={{ fontSize: '26px', fontWeight: 700, letterSpacing: '-0.5px', marginBottom: '4px' }}>Payouts</h2>
-          <p className="label-micro">Your claim settlements</p>
+          <h2 style={{ fontSize: '26px', fontWeight: 700, letterSpacing: '-0.5px', marginBottom: '4px' }}>{t(language, 'payouts_title')}</h2>
+          <p className="label-micro">{t(language, 'claim_settlements')}</p>
         </div>
         <button
           onClick={() => refetch()}
@@ -137,7 +140,7 @@ export default function PayoutsPage() {
 
       {/* 3. Claims List */}
       <section className="stagger-3">
-        <h3 className="label-micro" style={{ marginBottom: '14px' }}>Recent Claims</h3>
+        <h3 className="label-micro" style={{ marginBottom: '14px' }}>{t(language, 'recent_claims')}</h3>
 
         {isLoading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
@@ -152,9 +155,9 @@ export default function PayoutsPage() {
               <Umbrella size={30} color="#60A5FA" strokeWidth={1.5} />
             </div>
             <div>
-              <h4 style={{ fontSize: '17px', fontWeight: 600, color: 'white', marginBottom: '8px' }}>No payouts yet</h4>
+              <h4 style={{ fontSize: '17px', fontWeight: 600, color: 'white', marginBottom: '8px' }}>{t(language, 'no_payouts_yet')}</h4>
               <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.6, maxWidth: '240px' }}>
-                When a disruption hits your zone, gigHood pays you automatically. No action needed.
+                {t(language, 'no_payouts_desc')}
               </p>
             </div>
           </div>
@@ -162,6 +165,13 @@ export default function PayoutsPage() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {claims.map((claim, index) => {
+              const disruptedHours = Number.isFinite(claim.disrupted_hours as number)
+                ? Number(claim.disrupted_hours)
+                : 0;
+              const payoutAmount = Number.isFinite(claim.payout_amount as number)
+                ? Number(claim.payout_amount)
+                : 0;
+              const hasResolvedAmount = typeof claim.payout_amount === 'number' && Number.isFinite(claim.payout_amount);
               const amtColor = statusColor(claim.status);
               const resBg = `${resolutionColor(claim.resolution_path)}18`;
               const resBorder = `${resolutionColor(claim.resolution_path)}35`;
@@ -194,13 +204,13 @@ export default function PayoutsPage() {
                         {formatDate(claim.created_at)}
                       </p>
                       <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
-                        Disruption: <strong style={{ color: 'white' }}>{claim.disrupted_hours.toFixed(1)} hrs</strong>
+                        Disruption: <strong style={{ color: 'white' }}>{disruptedHours.toFixed(1)} hrs</strong>
                       </p>
                     </div>
 
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
                       <div className="tabular-nums" style={{ fontSize: '22px', fontWeight: 700, color: amtColor, lineHeight: 1 }}>
-                        ₹{claim.payout_amount.toLocaleString('en-IN')}
+                        {claim.status === 'pending' && !hasResolvedAmount ? 'TBD' : `₹${payoutAmount.toLocaleString('en-IN')}`}
                       </div>
                       <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
                         {claim.status.toUpperCase()}
@@ -233,6 +243,18 @@ export default function PayoutsPage() {
                   </div>
 
                   {/* Razorpay payment ID (muted, only when present) */}
+                  {claim.decision_explanation && (
+                    <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '10px' }}>
+                      <p style={{ fontSize: '12px', color: '#E2E8F0', fontWeight: 600 }}>{claim.decision_explanation.title}</p>
+                      <p style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.45, marginTop: '4px' }}>
+                        {claim.decision_explanation.message}
+                      </p>
+                      <p style={{ fontSize: '11px', color: '#93C5FD', lineHeight: 1.45, marginTop: '4px' }}>
+                        Tip: {claim.decision_explanation.worker_tip}
+                      </p>
+                    </div>
+                  )}
+
                   {claim.razorpay_payment_id && (
                     <p style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace', borderTop: '1px solid var(--border-glass)', paddingTop: '10px', letterSpacing: '0.3px' }}>
                       Ref: {claim.razorpay_payment_id}

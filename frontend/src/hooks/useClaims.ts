@@ -13,7 +13,7 @@ export function useClaims() {
   // Example derived stats
   const totalPaid = claims
     .filter(c => c.status === 'paid')
-    .reduce((sum, c) => sum + c.payout_amount, 0);
+    .reduce((sum, c) => sum + (typeof c.payout_amount === 'number' ? c.payout_amount : 0), 0);
 
   const pendingCount = claims.filter(c => c.status === 'pending').length;
 

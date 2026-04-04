@@ -20,13 +20,13 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const pathname = usePathname();
 
-  const locationTrackingEnabled = process.env.NEXT_PUBLIC_ENABLE_LOCATION_TRACKING === 'true';
+  const locationTrackingEnabled = process.env.NEXT_PUBLIC_ENABLE_LOCATION_TRACKING !== 'false';
   const isAuthRoute = pathname?.includes('/login') || pathname?.includes('/register');
   const hasToken = typeof window !== 'undefined' && Boolean(localStorage.getItem('gighood_jwt'));
 
   // Initialize notifications and location tracking when user is authenticated
   useEffect(() => {
-    if (!isAuthenticated || isAuthRoute || !hasToken) return;
+    if (isAuthRoute || !hasToken) return;
 
     // Init push notifications
     initNotifications().catch(console.error);
@@ -36,7 +36,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 
     requestLocationPermission()
       .then((granted) => {
-        if (granted) startLocationTracking(15 * 60 * 1000);
+        if (granted) startLocationTracking(5 * 60 * 1000);
       })
       .catch(console.error);
   }, [hasToken, isAuthenticated, isAuthRoute, locationTrackingEnabled]);

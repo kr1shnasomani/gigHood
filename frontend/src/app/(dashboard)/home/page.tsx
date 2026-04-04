@@ -14,12 +14,13 @@ import { workerApi, simulateDisruption, processClaim, pollUntilDisrupted } from 
 import { useAuthStore } from '@/store/authStore';
 import { LANGUAGE_OPTIONS, useLanguageStore } from '@/store/languageStore';
 import { t } from '@/lib/i18n';
+import { checkLocationPermission, requestLocationPermission, submitLocationPing } from '@/lib/location';
 
 interface ClaimReceipt {
   claim_id: string;
   fraud_score: number;
   resolution_path: string;
-  payout_amount: number;
+  payout_amount: number | null;
   status: string;
   razorpay_payment_id: string;
   payout_transaction_id?: string;
@@ -27,6 +28,12 @@ interface ClaimReceipt {
   pop_validated: boolean;
   gate2_result: string;
   fraud_flags: string[];
+  decision_explanation?: {
+    code: string;
+    title: string;
+    message: string;
+    worker_tip: string;
+  };
 }
 
 function SmsToast({ message }: { message: string }) {
@@ -71,6 +78,10 @@ function getResolutionPathColor(path: string): string {
   return '#94A3B8';
 }
 
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const hasHydrated = useAuthStore((s) => s._hasHydrated);
@@ -90,8 +101,8 @@ export default function DashboardPage() {
   const [isSimulating, setIsSimulating] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [claimReceipt, setClaimReceipt] = useState<ClaimReceipt | null>(null);
-  const [dciScore, setDciScore] = useState(0);
-  const [dciStatus, setDciStatus] = useState<'normal' | 'elevated' | 'disrupted'>('normal');
+  const [dciScore, setDciScore] = useState<number | null>(null);
+  const [dciStatus, setDciStatus] = useState<'normal' | 'elevated' | 'disrupted' | 'degraded'>('degraded');
   const [simulationError, setSimulationError] = useState<string | null>(null);
   const [processingError, setProcessingError] = useState<string | null>(null);
   const [smsToast, setSmsToast] = useState<string | null>(null);
@@ -101,8 +112,14 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!dashboard?.worker) return;
 
-    const nextDci = dashboard.worker.dynamic_coverage_index ?? 0;
+    const rawDci = dashboard.worker.dynamic_coverage_index;
+    const nextDci = typeof rawDci === 'number' && Number.isFinite(rawDci) ? rawDci : null;
     setDciScore(nextDci);
+
+    if (nextDci === null) {
+      setDciStatus('degraded');
+      return;
+    }
 
     if (nextDci > 0.85) {
       setDciStatus('disrupted');
@@ -166,14 +183,39 @@ export default function DashboardPage() {
     setProcessingError(null);
 
     try {
+      const currentPermission = await checkLocationPermission();
+      let hasLocationPermission = currentPermission === 'granted';
+
+      if (!hasLocationPermission) {
+        hasLocationPermission = await requestLocationPermission();
+      }
+
+      if (!hasLocationPermission) {
+        setProcessingError('Location permission is required for claim eligibility.');
+        setIsProcessing(false);
+        return;
+      }
+
+      // Capture short burst of pings so backend guardrails can verify in-zone presence.
+      for (let i = 0; i < 3; i += 1) {
+        await submitLocationPing();
+        if (i < 2) {
+          await wait(1200);
+        }
+      }
+
       const receipt = await processClaim();
       setClaimReceipt(receipt as ClaimReceipt);
 
       const channel = ((receipt as ClaimReceipt).payout_channel || 'UPI').toUpperCase();
       const phone = dashboard?.worker?.phone || '';
       const normalizedPhone = phone.startsWith('+91') ? phone : `+91 ${phone}`;
+      const payoutAmountRaw = (receipt as ClaimReceipt).payout_amount;
+      const payoutAmount: number = typeof payoutAmountRaw === 'number' && Number.isFinite(payoutAmountRaw)
+        ? payoutAmountRaw
+        : 0;
       if ((receipt as ClaimReceipt).status === 'paid') {
-        setSmsToast(`SMS sent to ${normalizedPhone}: ₹${(receipt as ClaimReceipt).payout_amount.toLocaleString('en-IN')} credited via ${channel}.`);
+        setSmsToast(`SMS sent to ${normalizedPhone}: ₹${payoutAmount.toLocaleString('en-IN')} credited via ${channel}.`);
       } else {
         setSmsToast(`Claim updated for ${normalizedPhone}: status is ${(receipt as ClaimReceipt).status.toUpperCase()}.`);
       }
@@ -190,7 +232,7 @@ export default function DashboardPage() {
     return (
       <div
         className="flex-col items-center justify-center"
-        style={{ display: 'flex', gap: '16px', minHeight: '100dvh', width: '100%' }}
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', minHeight: 'calc(100dvh - 84px)', width: '100%' }}
       >
         <div className="spinner" style={{ width: '40px', height: '40px', borderWidth: '3px' }} />
         <p className="text-muted" style={{ fontWeight: 500 }}>{t(language, 'initializing')}</p>
@@ -202,7 +244,7 @@ export default function DashboardPage() {
     return (
       <div
         className="flex-col items-center justify-center"
-        style={{ display: 'flex', gap: '16px', minHeight: '100dvh', width: '100%' }}
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', minHeight: 'calc(100dvh - 84px)', width: '100%' }}
       >
         <div className="spinner" style={{ width: '40px', height: '40px', borderWidth: '3px' }} />
         <p className="text-muted" style={{ fontWeight: 500 }}>{t(language, 'redirecting_login')}</p>
@@ -214,7 +256,7 @@ export default function DashboardPage() {
     return (
       <div
         className="flex-col items-center justify-center"
-        style={{ display: 'flex', gap: '16px', minHeight: '100dvh', width: '100%' }}
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', minHeight: 'calc(100dvh - 84px)', width: '100%' }}
       >
         <div className="spinner" style={{ width: '40px', height: '40px', borderWidth: '3px' }} />
         <p className="text-muted" style={{ fontWeight: 500 }}>{t(language, 'loading_dashboard')}</p>
@@ -253,20 +295,28 @@ export default function DashboardPage() {
   const firstName = (worker.name || '').split(' ')[0] || 'Worker';
 
   // Determine DCI status based on score
-  const isNormal = dciStatus === 'normal' || dciScore < 0.5;
-  const isElevated = dciStatus === 'elevated' || (dciScore >= 0.5 && dciScore <= 0.85);
-  const isDisrupted = dciStatus === 'disrupted' || dciScore > 0.85;
+  const hasDci = typeof dciScore === 'number' && Number.isFinite(dciScore);
+  const normalizedDci = hasDci ? dciScore : 0;
+  const isNormal = dciStatus === 'normal' || (hasDci && normalizedDci < 0.5);
+  const isElevated = dciStatus === 'elevated' || (hasDci && normalizedDci >= 0.5 && normalizedDci <= 0.85);
+  const isDisrupted = dciStatus === 'disrupted' || (hasDci && normalizedDci > 0.85);
 
-  const statusColor = isNormal ? 'var(--dci-normal)' : (isElevated ? 'var(--dci-elevated)' : 'var(--dci-disrupted)');
-  const statusBg = isNormal ? 'var(--dci-normal-bg)' : (isElevated ? 'var(--dci-elevated-bg)' : 'var(--dci-disrupted-bg)');
-  const statusLabel = isNormal ? 'NORMAL' : (isElevated ? 'ELEVATED' : 'DISRUPTED');
-  const dciText = isNormal ? 'Zone operates optimally.' : (isElevated ? 'Your zone is at risk. Stay alert.' : 'Disruption detected. Claim processing available.');
+  const statusColor = !hasDci
+    ? '#94A3B8'
+    : isNormal ? 'var(--dci-normal)' : (isElevated ? 'var(--dci-elevated)' : 'var(--dci-disrupted)');
+  const statusBg = !hasDci
+    ? 'rgba(148, 163, 184, 0.12)'
+    : isNormal ? 'var(--dci-normal-bg)' : (isElevated ? 'var(--dci-elevated-bg)' : 'var(--dci-disrupted-bg)');
+  const statusLabel = !hasDci ? 'NO DATA' : isNormal ? 'NORMAL' : (isElevated ? 'ELEVATED' : 'DISRUPTED');
+  const dciText = !hasDci
+    ? 'DCI telemetry is still syncing for your zone. Risk score will appear after enough live signals are ingested.'
+    : isNormal ? 'Zone operates optimally.' : (isElevated ? 'Your zone is at risk. Stay alert.' : 'Disruption detected. Claim processing available.');
 
   const lastUpdated = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   const radius = 60;
   const strokeWidth = 12;
   const circumference = Math.PI * radius;
-  const strokeDashoffset = circumference - (circumference * dciScore);
+  const strokeDashoffset = circumference - (circumference * normalizedDci);
 
   // Format dates
   const startStr = active_policy?.week_start || active_policy?.start_date;
@@ -336,7 +386,11 @@ export default function DashboardPage() {
               {/* Payout Amount - Prominent */}
               <div style={{ padding: '20px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(16, 185, 129, 0.05) 100%)', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.3)', textAlign: 'center' }}>
                 <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Payout Amount</p>
-                <p style={{ fontSize: '32px', fontWeight: 800, color: '#10B981' }}>₹{claimReceipt.payout_amount.toLocaleString('en-IN')}</p>
+                <p style={{ fontSize: '32px', fontWeight: 800, color: '#10B981' }}>
+                  {typeof claimReceipt.payout_amount === 'number' && Number.isFinite(claimReceipt.payout_amount)
+                    ? `₹${claimReceipt.payout_amount.toLocaleString('en-IN')}`
+                    : 'TBD'}
+                </p>
               </div>
 
               {/* Fraud Score */}
@@ -354,6 +408,21 @@ export default function DashboardPage() {
                   {claimReceipt.resolution_path.replace('_', ' ')}
                 </p>
               </div>
+
+              {claimReceipt.decision_explanation && (
+                <div style={{ padding: '16px', background: 'rgba(0, 0, 0, 0.3)', borderRadius: '12px' }}>
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Why this happened</p>
+                  <p style={{ fontSize: '15px', fontWeight: 700, color: 'white', marginBottom: '6px' }}>
+                    {claimReceipt.decision_explanation.title}
+                  </p>
+                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                    {claimReceipt.decision_explanation.message}
+                  </p>
+                  <p style={{ fontSize: '12px', color: '#93C5FD', lineHeight: 1.5, marginTop: '6px' }}>
+                    Tip: {claimReceipt.decision_explanation.worker_tip}
+                  </p>
+                </div>
+              )}
 
               {/* Payment ID */}
               <div style={{ padding: '16px', background: 'rgba(0, 0, 0, 0.3)', borderRadius: '12px' }}>
@@ -556,7 +625,7 @@ export default function DashboardPage() {
           
           <div className="risk-score">
             <div style={{ fontSize: '42px', fontWeight: 800, lineHeight: 1, letterSpacing: '-1px', textShadow: `0 4px 20px ${statusColor}60` }} className="tabular-nums">
-              {dciScore.toFixed(2)}
+              {hasDci ? normalizedDci.toFixed(2) : '--'}
             </div>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', letterSpacing: '0.5px' }}>DCI Score / 1.00</div>
             <div className="badge-pill" style={{ display: 'inline-flex', marginTop: '10px', background: statusBg, color: statusColor, borderColor: `${statusColor}40`, textTransform: 'uppercase', letterSpacing: '1px', fontSize: '11px' }}>

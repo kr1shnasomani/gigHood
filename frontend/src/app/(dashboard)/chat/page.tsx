@@ -70,9 +70,12 @@ export default function ChatPage() {
   });
 
   const lastPaidClaim = claims?.find((c) => c.status === 'paid' || c.status === 'approved');
+  const lastPaidAmount = typeof lastPaidClaim?.payout_amount === 'number'
+    ? lastPaidClaim.payout_amount
+    : null;
   const dynamicSuggestions = [
-    lastPaidClaim
-      ? `Why was my last payout ₹${lastPaidClaim.payout_amount.toLocaleString('en-IN')}?`
+    lastPaidAmount !== null
+      ? `Why was my last payout ₹${lastPaidAmount.toLocaleString('en-IN')}?`
       : 'How are my payouts calculated?',
     'What is my current zone risk?',
     'When does my policy renew?',

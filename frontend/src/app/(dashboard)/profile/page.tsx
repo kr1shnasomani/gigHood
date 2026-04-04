@@ -11,6 +11,8 @@ import {
 import { deleteToken } from '@/lib/auth';
 import { workerApi } from '@/lib/worker';
 import api from '@/lib/api';
+import { useLanguageStore } from '@/store/languageStore';
+import { t } from '@/lib/i18n';
 
 // ── Tiny toast ─────────────────────────────────────────────
 
@@ -36,9 +38,30 @@ function Toast({ msg }: { msg: string }) {
 // ── Trust score description ────────────────────────────────
 
 function trustLabel(score: number): string {
-  if (score >= 90) return 'Fast Track payouts enabled';
-  if (score >= 70) return 'Standard payout processing';
-  return 'Additional verification may apply';
+  if (score >= 90) return 'Fast-track payouts likely';
+  if (score >= 70) return 'Standard processing profile';
+  return 'Higher review checks may apply';
+}
+
+function normalizeRiskLabel(label?: string): 'High' | 'Moderate' | 'Low' {
+  const v = (label || '').toLowerCase();
+  if (v.includes('high')) return 'High';
+  if (v.includes('mod')) return 'Moderate';
+  return 'Low';
+}
+
+function parseFormulaString(formula?: string): Array<{ label: string; value: string; tone: 'pos' | 'neg' | 'neutral' }> {
+  if (!formula) return [];
+  const rows: Array<{ label: string; value: string; tone: 'pos' | 'neg' | 'neutral' }> = [];
+  for (const chunk of formula.split('|')) {
+    const [labelRaw, valueRaw] = chunk.split(':').map((s) => (s || '').trim());
+    if (!labelRaw || !valueRaw) continue;
+    let tone: 'pos' | 'neg' | 'neutral' = 'neutral';
+    if (valueRaw.includes('+')) tone = 'pos';
+    if (valueRaw.includes('-')) tone = 'neg';
+    rows.push({ label: labelRaw, value: valueRaw, tone });
+  }
+  return rows;
 }
 
 function trustColor(score: number): string {
@@ -113,6 +136,7 @@ function SettingsRow({
 export default function ProfilePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const language = useLanguageStore((s) => s.language);
 
   const [toast, setToast] = useState<string | null>(null);
   const [showEarningsSheet, setShowEarningsSheet] = useState(false);
@@ -184,6 +208,10 @@ export default function ProfilePage() {
   const tc = tierColor(tier);
   const ts = worker?.trust_score ?? 0;
   const tColor = trustColor(ts);
+  const zoneRisk = normalizeRiskLabel(policy?.tier_explanation?.avg_dci_band);
+  const claimRisk = normalizeRiskLabel(policy?.tier_explanation?.claim_frequency_band);
+  const formulaRows = parseFormulaString(worker?.trust_breakdown?.formula_string);
+  const totalTrust = ts;
 
   // Policy week dates
   const policyStart = policy?.week_start || policy?.start_date;
@@ -298,8 +326,8 @@ export default function ProfilePage() {
         {/* Header */}
         <header className="stagger-1" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h2 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.5px' }}>Profile</h2>
-            <p className="label-micro">Verified Member</p>
+            <h2 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.5px' }}>{t(language, 'profile_title')}</h2>
+            <p className="label-micro">{t(language, 'verified_member')}</p>
           </div>
           <button
             onClick={handleLogout}
@@ -386,7 +414,7 @@ export default function ProfilePage() {
         <section className="stagger-3 glass-panel" style={{ padding: '18px' }}>
           <div style={{ marginBottom: '14px' }}>
             <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'white', marginBottom: '8px' }}>
-              gigHood Protect: Active Coverage
+              {t(language, 'active_coverage')}
             </h3>
             <div style={{
               display: 'inline-flex',
@@ -427,7 +455,7 @@ export default function ProfilePage() {
           </div>
 
           <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '12px' }}>
-            <p style={{ fontSize: '12px', fontWeight: 700, color: '#67E8F9', marginBottom: '5px' }}>How it Works</p>
+            <p style={{ fontSize: '12px', fontWeight: 700, color: '#67E8F9', marginBottom: '5px' }}>{t(language, 'how_it_works')}</p>
             <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
               Payouts are automatic. No claims required. If the Dynamic Coverage Index (DCI) in your zone exceeds 0.85 due to severe weather or traffic, your coverage is triggered.
             </p>
@@ -439,45 +467,87 @@ export default function ProfilePage() {
             )}
             {policy?.tier_explanation && (
               <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed rgba(148,163,184,0.3)' }}>
-                <p style={{ fontSize: '11px', color: '#93C5FD', fontWeight: 700, marginBottom: '6px' }}>Tier Decision Factors</p>
-                <p style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                  4-week DCI avg: {policy.tier_explanation.avg_dci_4w} | Claim frequency (28d): {policy.tier_explanation.claim_frequency_28d} | Seasonal: {policy.tier_explanation.seasonal_flag ? 'Monsoon' : 'Regular'}
-                </p>
-                <p style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '6px', lineHeight: 1.5 }}>
-                  {policy.tier_explanation.reason}
-                </p>
+                <p style={{ fontSize: '12px', color: '#93C5FD', fontWeight: 700, marginBottom: '8px' }}>Tier Assignment Breakdown</p>
+
+                <div style={{ borderRadius: '12px', border: '1px solid rgba(96,165,250,0.3)', background: 'rgba(30,64,175,0.12)', padding: '10px' }}>
+                  <p style={{ fontSize: '12px', color: '#DBEAFE', lineHeight: 1.5 }}>
+                    Based on your zone risk and recent claim patterns, your coverage is set to Tier {tier}.
+                  </p>
+                </div>
+
+                <div style={{ marginTop: '10px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <div style={{ padding: '8px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(148,163,184,0.2)' }}>
+                    <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Zone Risk</p>
+                    <span style={{ display: 'inline-block', marginTop: '4px', padding: '4px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: 700, background: zoneRisk === 'High' ? 'rgba(245,158,11,0.2)' : zoneRisk === 'Moderate' ? 'rgba(96,165,250,0.2)' : 'rgba(52,211,153,0.18)', color: zoneRisk === 'High' ? '#FCD34D' : zoneRisk === 'Moderate' ? '#93C5FD' : '#6EE7B7' }}>
+                      {zoneRisk}
+                    </span>
+                    <p style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>raw: {policy.tier_explanation.avg_dci_4w}</p>
+                  </div>
+                  <div style={{ padding: '8px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(148,163,184,0.2)' }}>
+                    <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Recent Claims</p>
+                    <span style={{ display: 'inline-block', marginTop: '4px', padding: '4px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: 700, background: claimRisk === 'High' ? 'rgba(245,158,11,0.2)' : claimRisk === 'Moderate' ? 'rgba(96,165,250,0.2)' : 'rgba(52,211,153,0.18)', color: claimRisk === 'High' ? '#FCD34D' : claimRisk === 'Moderate' ? '#93C5FD' : '#6EE7B7' }}>
+                      {claimRisk}
+                    </span>
+                    <p style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>raw: {policy.tier_explanation.claim_frequency_28d}</p>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '8px' }}>
+                  <span style={{ display: 'inline-block', padding: '5px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 600, background: 'rgba(148,163,184,0.2)', color: '#CBD5E1' }}>
+                    {policy.tier_explanation.seasonal_text || (policy.tier_explanation.seasonal_flag ? 'Monsoon Season' : 'Regular Season')} • {policy.tier_explanation.city}
+                  </span>
+                </div>
               </div>
             )}
           </div>
         </section>
 
         {/* 3. Trust Score */}
-        <section className="stagger-4 glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <div style={{ position: 'relative', width: '64px', height: '64px', flexShrink: 0 }}>
-            <svg width="64" height="64" viewBox="0 0 40 40">
-              <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="4" />
-              <circle
-                cx="20" cy="20" r="16" fill="none"
-                stroke={tColor} strokeWidth="4"
-                strokeDasharray={`${circ}`}
-                strokeDashoffset={ringOffset}
-                strokeLinecap="round"
-                style={{ transform: 'rotate(-90deg)', transformOrigin: '50% 50%', transition: 'stroke-dashoffset 1s ease' }}
-              />
-            </svg>
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 700, color: tColor }}>
-              {ts}
+        <section className="stagger-4 glass-panel" style={{ padding: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+            <h4 style={{ fontSize: '16px', fontWeight: 700, color: 'white' }}>{t(language, 'trust_score')}</h4>
+            <span style={{ padding: '4px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: 700, border: '1px solid rgba(245,158,11,0.35)', background: 'rgba(120,53,15,0.35)', color: '#FCD34D' }}>
+              Higher review checks may apply
+            </span>
+          </div>
+
+          {worker?.trust_breakdown?.factors && (
+            <div style={{ marginTop: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{ padding: '4px 8px', borderRadius: '999px', border: '1px solid rgba(52,211,153,0.35)', background: 'rgba(6,78,59,0.4)', color: '#6EE7B7', fontSize: '11px', fontWeight: 700 }}>
+                Paid {worker.trust_breakdown.factors.paid_claims}
+              </span>
+              <span style={{ padding: '4px 8px', borderRadius: '999px', border: '1px solid rgba(248,113,113,0.35)', background: 'rgba(127,29,29,0.4)', color: '#FCA5A5', fontSize: '11px', fontWeight: 700 }}>
+                Denied {worker.trust_breakdown.factors.denied_claims}
+              </span>
+              <span style={{ padding: '4px 8px', borderRadius: '999px', border: '1px solid rgba(96,165,250,0.35)', background: 'rgba(30,58,138,0.4)', color: '#93C5FD', fontSize: '11px', fontWeight: 700 }}>
+                Avg Fraud {worker.trust_breakdown.factors.average_fraud_score}
+              </span>
             </div>
+          )}
+
+          {formulaRows.length > 0 && (
+            <div style={{ marginTop: '12px', display: 'grid', gap: '7px' }}>
+              {formulaRows.map((row) => (
+                <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '13px', color: '#CBD5E1' }}>{row.label}</span>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: row.tone === 'pos' ? '#22C55E' : row.tone === 'neg' ? '#EF4444' : '#E2E8F0' }}>
+                    {row.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid rgba(148,163,184,0.3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '14px', fontWeight: 700, color: 'white' }}>Total</span>
+            <span style={{ fontSize: '18px', fontWeight: 800, color: tColor }}>{totalTrust.toFixed(1)}</span>
           </div>
-          <div style={{ flex: 1 }}>
-            <h4 style={{ fontSize: '15px', fontWeight: 600, color: 'white', marginBottom: '4px' }}>Trust Score</h4>
-            <p style={{ fontSize: '13px', color: tColor, fontWeight: 500 }}>{trustLabel(ts)}</p>
-          </div>
+          <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>{trustLabel(ts)}</p>
         </section>
 
         {/* 4. Download Policy */}
         <section className="stagger-4" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <h3 className="label-micro" style={{ marginBottom: '4px', marginLeft: '4px' }}>Documents</h3>
+          <h3 className="label-micro" style={{ marginBottom: '4px', marginLeft: '4px' }}>{t(language, 'documents')}</h3>
           <button
             onClick={() => {
               if (!policyCertificateUrl) {
@@ -498,7 +568,7 @@ export default function ProfilePage() {
                 <Download size={17} color="#60A5FA" />
               </div>
               <div>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: '#E2E8F0' }}>Download Tier Policy Certificate</div>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: '#E2E8F0' }}>{t(language, 'download_tier_policy')}</div>
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '1px', fontFamily: 'monospace' }}>{policyCertificateFilename}</div>
               </div>
             </div>
@@ -508,19 +578,19 @@ export default function ProfilePage() {
 
         {/* 5. Account Settings */}
         <section className="stagger-5" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <h3 className="label-micro" style={{ marginBottom: '4px', marginLeft: '4px' }}>Account Settings</h3>
+          <h3 className="label-micro" style={{ marginBottom: '4px', marginLeft: '4px' }}>{t(language, 'account_settings')}</h3>
 
           <SettingsRow
             onClick={() => { setEarningsInput(''); setShowEarningsSheet(true); }}
             icon={<div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(52,211,153,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><TrendingUp size={17} color="#34D399" /></div>}
-            label="Update Earnings Declaration"
+            label={t(language, 'update_earnings_declaration')}
             sublabel={`Currently ₹${worker?.avg_daily_earnings ?? '—'}/day`}
           />
 
           <SettingsRow
             onClick={() => showToast('Notification Preferences coming soon')}
             icon={<div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(96,165,250,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Bell size={17} color="#60A5FA" /></div>}
-            label="Notification Preferences"
+            label={t(language, 'notification_preferences')}
           />
 
           <button
@@ -536,7 +606,7 @@ export default function ProfilePage() {
               <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(239,68,68,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <LogOut size={17} color="#EF4444" />
               </div>
-              <span style={{ fontSize: '14px', fontWeight: 600, color: '#EF4444' }}>Sign Out</span>
+              <span style={{ fontSize: '14px', fontWeight: 600, color: '#EF4444' }}>{t(language, 'sign_out')}</span>
             </div>
             <ChevronRight size={16} color="rgba(239,68,68,0.5)" />
           </button>

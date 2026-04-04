@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 import logging
 from backend.db.client import supabase
@@ -7,6 +7,59 @@ from backend.services.payout_calculator import calculate_payout
 from backend.services.payment_service import initiate_upi_payout
 
 logger = logging.getLogger("api")
+
+
+def evaluate_location_guardrails(worker_id: str, event_id: str, disruption_start: datetime) -> tuple[bool, str | None, int]:
+    """
+    Enforce hard location guardrails before any payout path is considered.
+    Returns (allowed, reason_code, in_zone_ping_count).
+    """
+    try:
+        event_res = supabase.table('disruption_events').select('hex_id').eq('id', event_id).limit(1).execute()
+        if not event_res.data:
+            return False, 'EVENT_NOT_FOUND', 0
+        event_hex = event_res.data[0].get('hex_id')
+
+        worker_city = None
+        worker_res = supabase.table('workers').select('city').eq('id', worker_id).limit(1).execute()
+        if worker_res.data:
+            worker_city = worker_res.data[0].get('city')
+
+        zone_city = None
+        for col in ('h3_index', 'hex_id'):
+            try:
+                z = supabase.table('hex_zones').select('city').eq(col, event_hex).limit(1).execute()
+                if z.data:
+                    zone_city = z.data[0].get('city')
+                    break
+            except Exception:
+                continue
+
+        if worker_city and zone_city and worker_city.strip().lower() != zone_city.strip().lower():
+            return False, 'CITY_ZONE_MISMATCH', 0
+
+        window_start = disruption_start - timedelta(minutes=90)
+        pings_res = (
+            supabase.table('location_pings')
+            .select('hex_id')
+            .eq('worker_id', worker_id)
+            .gte('pinged_at', window_start.isoformat())
+            .lte('pinged_at', disruption_start.isoformat())
+            .execute()
+        )
+        all_pings = pings_res.data or []
+        if not all_pings:
+            return False, 'LOCATION_SERVICE_OFF', 0
+
+        in_zone = [p for p in all_pings if p.get('hex_id') == event_hex]
+        if len(in_zone) == 0:
+            return False, 'OUT_OF_ZONE', 0
+        if len(in_zone) < 3:
+            return False, 'INSUFFICIENT_IN_ZONE_PINGS', len(in_zone)
+
+        return True, None, len(in_zone)
+    except Exception:
+        return False, 'LOCATION_VALIDATION_ERROR', 0
 
 def route_claim(fraud_score: int, gate2_result: str, flags: Optional[list[str]] = None) -> str:
     """
@@ -35,6 +88,96 @@ def route_claim(fraud_score: int, gate2_result: str, flags: Optional[list[str]] 
         return 'active_verify'
 
     return 'soft_queue'
+
+
+def explain_claim_decision(
+    fraud_score: int,
+    gate2_result: str,
+    path: str,
+    pop_validated: Optional[bool] = None,
+    flags: Optional[list[str]] = None,
+    reason_code: Optional[str] = None,
+) -> dict:
+    flags = flags or []
+
+    if reason_code == "CITY_ZONE_MISMATCH":
+        return {
+            "code": "CITY_ZONE_MISMATCH",
+            "title": "City and disruption zone do not match",
+            "message": "This claim was denied because the disruption zone city does not match your registered worker city.",
+            "worker_tip": "Update your profile city and location pings to the city where you currently work.",
+        }
+
+    if reason_code == "LOCATION_SERVICE_OFF":
+        return {
+            "code": "LOCATION_SERVICE_OFF",
+            "title": "Location service evidence is missing",
+            "message": "Your claim was denied because no location pings were found in the disruption window.",
+            "worker_tip": "Keep location service enabled and keep the app active during your shift.",
+        }
+
+    if reason_code == "OUT_OF_ZONE":
+        return {
+            "code": "OUT_OF_ZONE",
+            "title": "Current location did not match disruption zone",
+            "message": "Your claim was denied because your recent pings were outside the disrupted zone.",
+            "worker_tip": "Move into your registered work zone and keep location tracking on.",
+        }
+
+    if reason_code == "INSUFFICIENT_IN_ZONE_PINGS":
+        return {
+            "code": "INSUFFICIENT_IN_ZONE_PINGS",
+            "title": "Not enough in-zone location evidence",
+            "message": "Your claim was denied because fewer than 3 in-zone pings were recorded in the disruption window.",
+            "worker_tip": "Stay active in-zone longer so the app can record enough telemetry.",
+        }
+
+    if pop_validated is False:
+        return {
+            "code": "POP_FAILED",
+            "title": "Presence check failed",
+            "message": "We could not verify that you were in the disrupted zone during the event window.",
+            "worker_tip": "Keep location on and ensure your app records pings in your delivery zone.",
+        }
+
+    if path == 'denied':
+        if gate2_result == 'NONE':
+            return {
+                "code": "NO_PARTNER_ACTIVITY",
+                "title": "Partner activity could not be verified",
+                "message": "The system did not find sufficient delivery activity evidence for this disruption window. This denial is not based on your city.",
+                "worker_tip": "Wait for live deliveries and location pings before reattempting during an active disruption.",
+            }
+        if fraud_score >= 90:
+            return {
+                "code": "HIGH_FRAUD_RISK",
+                "title": "Claim risk score was too high",
+                "message": "Your claim crossed the denial risk threshold based on fraud checks.",
+                "worker_tip": "Avoid mock locations, ensure consistent movement, and keep partner activity valid.",
+            }
+
+    if path == 'active_verify':
+        return {
+            "code": "ACTIVE_REVIEW",
+            "title": "Additional review required",
+            "message": "Your claim is valid enough to continue, but risk signals require manual/extended verification.",
+            "worker_tip": "No action needed now. We will update once verification completes.",
+        }
+
+    if path == 'soft_queue':
+        return {
+            "code": "STANDARD_QUEUE",
+            "title": "Queued for standard settlement",
+            "message": "Your claim entered standard processing due to moderate risk checks.",
+            "worker_tip": "This is normal and usually resolves after queue processing.",
+        }
+
+    return {
+        "code": "FAST_TRACK",
+        "title": "Fast-track approved",
+        "message": "Your claim passed all automated checks based on your registered zone and verified in-zone telemetry.",
+        "worker_tip": "Keep your UPI active to avoid payout delays.",
+    }
 
 def execute_fast_track_payout(claim_id: str, worker_id: str):
     """
@@ -125,22 +268,34 @@ def process_claim(worker_id: str, event_id: str, policy_id: str) -> dict:
          hex_id = event['hex_id']
          disruption_start = datetime.fromisoformat(event['started_at'].replace("Z", "+00:00"))
          duration_hours = event.get('duration_hours', 4.0)
+
+         # Hard guardrails: deny claims when location service evidence is missing,
+         # out-of-zone, insufficient, or city/zone mismatch.
+         allowed, reason_code, in_zone_count = evaluate_location_guardrails(worker_id, event_id, disruption_start)
+         if not allowed:
+             supabase.table('claims').update({
+                 'status': 'denied',
+                 'resolution_path': 'denied',
+                 'payout_amount': 0,
+                 'pop_validated': False,
+                 'resolved_at': datetime.now(timezone.utc).isoformat(),
+             }).eq('id', claim_id).execute()
+             return {"path": "denied", "reason_code": reason_code}
          
          # Write disruption_hours directly to claim to allow calculation bounds
          supabase.table('claims').update({'disrupted_hours': duration_hours}).eq('id', claim_id).execute()
          
-         # 1. PoP Validation
+         # 1. PoP Validation (secondary consistency check)
          pop_result = validate_pop(worker_id, hex_id, disruption_start)
-         
          if not pop_result['present']:
-              logger.info(f"Claim {claim_id} denied. Failed Proof-of-Presence.")
+              logger.info(f"Claim {claim_id} denied after secondary PoP check.")
               supabase.table('claims').update({
                   'pop_validated': False,
                   'status': 'denied',
                   'resolution_path': 'denied',
                   'resolved_at': datetime.now(timezone.utc).isoformat()
               }).eq('id', claim_id).execute()
-              return {"path": "denied"}
+              return {"path": "denied", "reason_code": "INSUFFICIENT_IN_ZONE_PINGS"}
               
          # 2. Fraud Engine (Phase 11 7-Layer Defense)
          from backend.services.fraud_engine import FraudEvaluator

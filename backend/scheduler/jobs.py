@@ -9,6 +9,41 @@ from backend.config import settings
 logger = logging.getLogger("api")
 _hex_cursor = 0
 
+
+def _bootstrap_hexes_from_workers() -> list[str]:
+    try:
+        workers = supabase.table('workers').select('hex_id,city').execute().data or []
+    except Exception:
+        return []
+
+    recovered: list[str] = []
+    for row in workers:
+        hex_id = row.get('hex_id')
+        if not hex_id:
+            continue
+        city = row.get('city') or 'Unknown'
+        try:
+            supabase.table('hex_zones').upsert({
+                'h3_index': hex_id,
+                'city': city,
+                'current_dci': 0.0,
+                'dci_status': 'normal',
+                'active_worker_count': 0,
+            }, on_conflict='h3_index').execute()
+        except Exception:
+            try:
+                supabase.table('hex_zones').upsert({
+                    'hex_id': hex_id,
+                    'city': city,
+                    'current_dci': 0.0,
+                    'dci_status': 'normal',
+                    'active_worker_count': 0,
+                }, on_conflict='hex_id').execute()
+            except Exception:
+                continue
+        recovered.append(hex_id)
+    return list(dict.fromkeys(recovered))
+
 def fetch_all_hexes() -> list[str]:
     """Helper to get the current system hex IDs dynamically for the jobs."""
     global _hex_cursor
@@ -28,6 +63,9 @@ def fetch_all_hexes() -> list[str]:
 
         # Preserve order while removing duplicates.
         hexes = list(dict.fromkeys(hexes))
+
+        if not hexes:
+            hexes = _bootstrap_hexes_from_workers()
 
         limit = settings.SCHEDULER_HEX_LIMIT
         if limit > 0 and len(hexes) > limit:

@@ -11,7 +11,7 @@ from backend.services.signal_fetchers import (
 
 @patch("backend.services.signal_fetchers.requests.get")
 @patch("backend.services.signal_fetchers.cache_signal")
-def test_fetch_weather_normalization(mock_cache, mock_get):
+def test_fetch_weather_normalization(mock_cache, mock_get, monkeypatch):
     """
     Test that 40mm/hr rain normalizes to ~0.85 W score, as per the math rule:
     W = (rain_1h / 47.05) + (wind_kmh / 100.0)
@@ -22,6 +22,8 @@ def test_fetch_weather_normalization(mock_cache, mock_get):
         "wind": {"speed": 0.0} # 0 km/h wind
     }
     mock_get.return_value = mock_resp
+
+    monkeypatch.setattr("backend.services.signal_fetchers.settings.OPENWEATHER_API_KEY", "unit-test-key")
     
     # 40 / 47.05 ≈ 0.8501
     w_score = fetch_weather("89618c28133ffff", 12.0, 77.0)

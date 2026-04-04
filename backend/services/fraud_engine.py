@@ -38,8 +38,9 @@ class FraudEvaluator:
         try:
             # Context Bounds
             window_start = disruption_start - timedelta(minutes=90)
+            window_end = max(disruption_start, datetime.now(timezone.utc))
             start_iso = window_start.isoformat()
-            end_iso = disruption_start.isoformat()
+            end_iso = window_end.isoformat()
             
             # Fetch Hex context mapping
             event_res = supabase.table('disruption_events').select('hex_id').eq('id', event_id).execute()
@@ -65,12 +66,21 @@ class FraudEvaluator:
             
             # Layer 1: Static GPS (Variance analysis)
             hex_pings = [p for p in pings if p.get('hex_id') == hex_id]
-            if len(hex_pings) >= 3:
-                lats = [float(p['latitude']) for p in hex_pings]
-                lngs = [float(p['longitude']) for p in hex_pings]
-                if self._std_dev(lats) < 0.0001 and self._std_dev(lngs) < 0.0001:
-                    flags.append("STATIC_DEVICE_FLAG")
-                    score += 30
+            if len(hex_pings) >= 5:
+                try:
+                    first_ts = datetime.fromisoformat(str(hex_pings[0]['pinged_at']).replace('Z', '+00:00'))
+                    last_ts = datetime.fromisoformat(str(hex_pings[-1]['pinged_at']).replace('Z', '+00:00'))
+                    observed_minutes = (last_ts - first_ts).total_seconds() / 60.0
+                except Exception:
+                    observed_minutes = 0.0
+
+                # Avoid false positives from burst pings captured within a few seconds.
+                if observed_minutes >= 15.0:
+                    lats = [float(p['latitude']) for p in hex_pings]
+                    lngs = [float(p['longitude']) for p in hex_pings]
+                    if self._std_dev(lats) < 0.0001 and self._std_dev(lngs) < 0.0001:
+                        flags.append("STATIC_DEVICE_FLAG")
+                        score += 30
             
             # Layer 2: API Order Activity (Mocked bounding micro-deliveries)
             gate2_result = self._evaluate_gate2_orders(worker_id)

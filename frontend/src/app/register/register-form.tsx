@@ -10,6 +10,18 @@ import { useAuthStore } from '@/store/authStore';
 const CITIES = ['Delhi', 'Mumbai', 'Bengaluru', 'Chennai', 'Hyderabad', 'Jaipur', 'Lucknow', 'Kolkata', 'Guwahati'];
 const DELIVERY_PLATFORMS = ['Zepto', 'Blinkit', 'Swiggy', 'Zomato', 'Other'];
 
+const CITY_COORDINATES: Record<string, { lat: number; lon: number }> = {
+  Delhi: { lat: 28.6139, lon: 77.2090 },
+  Mumbai: { lat: 19.0760, lon: 72.8777 },
+  Bengaluru: { lat: 12.9716, lon: 77.5946 },
+  Chennai: { lat: 13.0827, lon: 80.2707 },
+  Hyderabad: { lat: 17.3850, lon: 78.4867 },
+  Jaipur: { lat: 26.9124, lon: 75.7873 },
+  Lucknow: { lat: 26.8467, lon: 80.9462 },
+  Kolkata: { lat: 22.5726, lon: 88.3639 },
+  Guwahati: { lat: 26.1445, lon: 91.7362 },
+};
+
 const DARK_STORE_ZONES: Record<string, string[]> = {
   Delhi: [
     'Connaught Place', 'Karol Bagh', 'Saket', 'Dwarka', 'Rohini',
@@ -33,6 +45,7 @@ const DARK_STORE_ZONES: Record<string, string[]> = {
 
   Chennai: [
     'Anna Nagar', 'Adyar', 'Sholinganallur', 'Tambaram', 'Velachery',
+    'Potheri', 'Kattankulathur',
     'T. Nagar', 'Porur', 'Perungudi', 'Nungambakkam', 'Mylapore',
   ],
 
@@ -88,7 +101,7 @@ export default function RegisterFormContent() {
   const [isPlatformVerified, setIsPlatformVerified] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isRequestingGps, setIsRequestingGps] = useState(false);
-  const [locationStatus, setLocationStatus] = useState<'idle' | 'detecting' | 'detected' | 'denied' | 'manual'>('idle');
+  const [locationStatus, setLocationStatus] = useState<'idle' | 'detecting' | 'detected' | 'denied' | 'manual' | 'unsupported'>('idle');
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
 
@@ -103,6 +116,38 @@ export default function RegisterFormContent() {
       return err.message;
     }
     return 'Registration failed';
+  };
+
+  const haversineKm = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const toRad = (v: number) => (v * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return 6371 * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+  };
+
+  const inferNearestSupportedCity = (lat: number, lon: number): string | null => {
+    let bestCity: string | null = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    for (const city of CITIES) {
+      const center = CITY_COORDINATES[city];
+      if (!center) continue;
+      const dist = haversineKm(lat, lon, center.lat, center.lon);
+      if (dist < bestDistance) {
+        bestDistance = dist;
+        bestCity = city;
+      }
+    }
+
+    // Do not infer when user is very far from supported regions.
+    if (bestDistance > 120) {
+      return null;
+    }
+    return bestCity;
   };
 
   useEffect(() => {
@@ -136,8 +181,8 @@ export default function RegisterFormContent() {
     };
 
     const detectCityFromLocation = async () => {
-      if (typeof navigator === 'undefined' || !navigator.geolocation) {
-        setLocationStatus('manual');
+      if (typeof navigator === 'undefined' || !navigator.geolocation || !window.isSecureContext) {
+        setLocationStatus('unsupported');
         return;
       }
 
@@ -147,13 +192,25 @@ export default function RegisterFormContent() {
         async (position) => {
           try {
             const { latitude, longitude } = position.coords;
-            const response = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`
-            );
-            const data = await response.json();
-            const address = data?.address ?? {};
-            const rawCity = address.city ?? address.town ?? address.village ?? address.state_district ?? address.state;
-            const normalized = normalizeCity(rawCity);
+            let normalized: string | null = null;
+
+            try {
+              const response = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`
+              );
+              if (response.ok) {
+                const data = await response.json();
+                const address = data?.address ?? {};
+                const rawCity = address.city ?? address.town ?? address.village ?? address.state_district ?? address.state;
+                normalized = normalizeCity(rawCity);
+              }
+            } catch {
+              normalized = null;
+            }
+
+            if (!normalized) {
+              normalized = inferNearestSupportedCity(latitude, longitude);
+            }
 
             if (normalized) {
               const zones = DARK_STORE_ZONES[normalized] || [];
@@ -438,7 +495,8 @@ export default function RegisterFormContent() {
               {locationStatus === 'detecting' && 'Detecting your location...'}
               {locationStatus === 'detected' && 'Location detected and city selected automatically.'}
               {locationStatus === 'denied' && 'Location permission denied. Please choose your city manually.'}
-              {locationStatus === 'manual' && 'Could not auto-detect supported city. Please choose your city manually.'}
+              {locationStatus === 'manual' && 'Could not auto-detect city from maps. We tried nearest-city fallback, but still need manual selection.'}
+              {locationStatus === 'unsupported' && 'Auto-detect needs HTTPS and browser geolocation support. Please choose your city manually.'}
             </p>
           </div>
 

@@ -12,6 +12,10 @@ from backend.services.dci_engine import get_dci_status
 from backend.services.signal_fetchers import run_signal_ingestion_cycle
 from backend.services.dci_engine import run_dci_cycle
 from backend.services.policy_manager import create_policy, explain_policy_decision
+from backend.services.trust_score import calculate_dynamic_trust
+from backend.services.claim_approver import explain_claim_decision
+from backend.services.claim_approver import evaluate_location_guardrails
+from backend.services.payout_calculator import calculate_payout
 
 router = APIRouter()
 
@@ -89,6 +93,15 @@ def hash_dark_store_to_coords(dark_store_name: str) -> tuple[float, float]:
 
 
 def ensure_hex_zone_exists(hex_id: str, city: Optional[str] = None) -> None:
+    # Never overwrite live DCI snapshots for existing zones.
+    for where_col in ("h3_index", "hex_id"):
+        try:
+            existing = supabase.table('hex_zones').select(where_col).eq(where_col, hex_id).limit(1).execute()
+            if existing.data:
+                return
+        except Exception:
+            continue
+
     payload_base = {
         "city": city or "Unknown",
         "current_dci": 0.0,
@@ -97,19 +110,19 @@ def ensure_hex_zone_exists(hex_id: str, city: Optional[str] = None) -> None:
     }
 
     try:
-        supabase.table('hex_zones').upsert({
+        supabase.table('hex_zones').insert({
             **payload_base,
             "h3_index": hex_id,
-        }, on_conflict='h3_index').execute()
+        }).execute()
         return
     except Exception:
         pass
 
     try:
-        supabase.table('hex_zones').upsert({
+        supabase.table('hex_zones').insert({
             **payload_base,
             "hex_id": hex_id,
-        }, on_conflict='hex_id').execute()
+        }).execute()
     except Exception:
         pass
 
@@ -203,7 +216,19 @@ def register_worker(req: WorkerRegisterRequest):
 
 @router.get("/me")
 def get_me(worker: dict = Depends(get_current_worker)):
-    return worker
+    worker_id = worker.get("id")
+    if not worker_id:
+        return worker
+
+    try:
+        trust = calculate_dynamic_trust(worker_id)
+        return {
+            **worker,
+            "trust_score": trust.get("score", worker.get("trust_score", 50)),
+            "trust_breakdown": trust,
+        }
+    except Exception:
+        return worker
 
 class WorkerUpdateRequest(BaseModel):
     avg_daily_earnings: Optional[float] = None
@@ -321,17 +346,21 @@ def get_my_hex_dci(worker: dict = Depends(get_current_worker)):
             ensure_hex_zone_exists(hex_id, worker.get('city'))
             return {
                 "hex_id": hex_id,
-                "current_dci": 0.0,
-                "dci_status": "normal",
+                "current_dci": None,
+                "dci_status": "degraded",
                 "city": worker.get("city"),
                 "dark_store_zone": worker.get("dark_store_zone"),
-                "note": "Hex zone not yet seeded."
+                "note": "Hex zone is not seeded with live DCI yet."
             }
 
-        # If the snapshot is stale or missing, refresh this zone once on-demand.
+        # If the snapshot is stale, refresh once on-demand.
+        # Do not refresh immediately when a valid snapshot exists but has no timestamp yet
+        # (common right after demo simulation writes).
         last_computed = _parse_iso_timestamp(zone.get('last_computed_at'))
         stale_cutoff = datetime.now(timezone.utc) - timedelta(minutes=25)
-        if last_computed is None or last_computed < stale_cutoff:
+        has_snapshot = zone.get('current_dci') is not None
+        should_refresh = (last_computed is not None and last_computed < stale_cutoff) or (last_computed is None and not has_snapshot)
+        if should_refresh:
             run_signal_ingestion_cycle([hex_id], city=(worker.get('city') or 'Bengaluru'))
             run_dci_cycle([hex_id])
 
@@ -344,7 +373,33 @@ def get_my_hex_dci(worker: dict = Depends(get_current_worker)):
                 except Exception:
                     continue
 
-        dci_val = float(zone.get('current_dci') or 0.0)
+        dci_raw = zone.get('current_dci')
+        if dci_raw is None:
+            try:
+                hist = (
+                    supabase.table('dci_history')
+                    .select('dci_score')
+                    .eq('hex_id', hex_id)
+                    .order('computed_at', desc=True)
+                    .limit(1)
+                    .execute()
+                )
+                if hist.data and hist.data[0].get('dci_score') is not None:
+                    dci_raw = hist.data[0].get('dci_score')
+            except Exception:
+                pass
+
+        if dci_raw is None:
+            return {
+                "hex_id": hex_id,
+                "current_dci": None,
+                "dci_status": "degraded",
+                "city": zone.get('city') or worker.get('city'),
+                "dark_store_zone": worker.get('dark_store_zone'),
+                "note": "Insufficient live signals to compute DCI right now.",
+            }
+
+        dci_val = float(dci_raw)
         return {
             "hex_id": hex_id,
             "current_dci": round(dci_val, 4),
@@ -369,14 +424,179 @@ def get_my_claims(worker: dict = Depends(get_current_worker)):
     try:
         try:
             res = supabase.table('claims').select(
-                'id,payout_amount,disrupted_hours,resolution_path,status,'
-                'fraud_score,pop_validated,razorpay_payment_id,payout_transaction_id,payout_channel,created_at,resolved_at'
+                'id,policy_id,payout_amount,disrupted_hours,resolution_path,status,'
+                'fraud_score,pop_validated,event_id,razorpay_payment_id,payout_transaction_id,payout_channel,created_at,resolved_at'
             ).eq('worker_id', worker_id).order('created_at', desc=True).execute()
         except Exception:
             res = supabase.table('claims').select(
-                'id,payout_amount,disrupted_hours,resolution_path,status,'
-                'fraud_score,pop_validated,razorpay_payment_id,created_at,resolved_at'
+                'id,policy_id,payout_amount,disrupted_hours,resolution_path,status,'
+                'fraud_score,pop_validated,event_id,razorpay_payment_id,created_at,resolved_at'
             ).eq('worker_id', worker_id).order('created_at', desc=True).execute()
-        return res.data
+        claims = res.data or []
+        enriched = []
+
+        worker_city = (worker.get('city') or '').strip().lower()
+        worker_avg_earnings = float(worker.get('avg_daily_earnings') or 500.0)
+
+        event_city_cache: dict[str, str] = {}
+        event_duration_cache: dict[str, float] = {}
+        policy_tier_cache: dict[str, str] = {}
+
+        def _event_duration(event_id: Optional[str]) -> float:
+            if not event_id:
+                return 0.0
+            if event_id in event_duration_cache:
+                return event_duration_cache[event_id]
+            event_duration_cache[event_id] = 0.0
+            try:
+                ev = supabase.table('disruption_events').select('duration_hours').eq('id', event_id).limit(1).execute()
+                if ev.data:
+                    duration_raw = ev.data[0].get('duration_hours')
+                    if duration_raw is not None:
+                        event_duration_cache[event_id] = max(0.0, float(duration_raw))
+            except Exception:
+                pass
+            return event_duration_cache[event_id]
+
+        def _policy_tier(policy_id: Optional[str]) -> str:
+            if not policy_id:
+                return 'B'
+            if policy_id in policy_tier_cache:
+                return policy_tier_cache[policy_id]
+            policy_tier_cache[policy_id] = 'B'
+            try:
+                pol = supabase.table('policies').select('tier').eq('id', policy_id).limit(1).execute()
+                if pol.data and pol.data[0].get('tier'):
+                    policy_tier_cache[policy_id] = pol.data[0].get('tier')
+            except Exception:
+                pass
+            return policy_tier_cache[policy_id]
+
+        def _event_city(event_id: Optional[str]) -> str:
+            if not event_id:
+                return ''
+            if event_id in event_city_cache:
+                return event_city_cache[event_id]
+            event_city_cache[event_id] = ''
+            try:
+                ev = supabase.table('disruption_events').select('hex_id').eq('id', event_id).limit(1).execute()
+                if not ev.data:
+                    return ''
+                hex_id = ev.data[0].get('hex_id')
+                if not hex_id:
+                    return ''
+                for col in ('h3_index', 'hex_id'):
+                    try:
+                        zone = supabase.table('hex_zones').select('city').eq(col, hex_id).limit(1).execute()
+                        if zone.data and zone.data[0].get('city'):
+                            event_city_cache[event_id] = (zone.data[0].get('city') or '').strip().lower()
+                            return event_city_cache[event_id]
+                    except Exception:
+                        continue
+            except Exception:
+                return ''
+            return ''
+
+        for claim in claims:
+            path = claim.get('resolution_path') or 'soft_queue'
+            fraud_score = int(claim.get('fraud_score') or 0)
+            pop_validated = claim.get('pop_validated')
+            normalized_status = claim.get('status')
+            normalized_path = path
+            normalized_payout = claim.get('payout_amount')
+            reason_code = None
+
+            # Defensive consistency: impossible combination should not be shown as paid.
+            if pop_validated is False and normalized_status in {'paid', 'approved'}:
+                normalized_status = 'denied'
+                normalized_path = 'denied'
+                normalized_payout = 0
+
+            # Denied claims should never retain a non-denied route label.
+            if normalized_status == 'denied' and normalized_path != 'denied':
+                normalized_path = 'denied'
+                normalized_payout = 0
+
+            # Pending claims should keep unresolved payouts as null so UI can display TBD.
+            if normalized_status == 'pending' and normalized_payout is None:
+                normalized_payout = None
+
+            # Legacy cleanup at read time: unresolved pending rows were historically stored as 0.
+            if (
+                normalized_status == 'pending'
+                and normalized_payout == 0
+                and not claim.get('razorpay_payment_id')
+                and not claim.get('payout_transaction_id')
+            ):
+                normalized_payout = None
+
+            normalized_disrupted_hours = claim.get('disrupted_hours')
+            resolved_hours = 0.0
+            try:
+                if normalized_disrupted_hours is not None:
+                    resolved_hours = max(0.0, float(normalized_disrupted_hours))
+            except Exception:
+                resolved_hours = 0.0
+
+            if resolved_hours <= 0:
+                event_hours = _event_duration(claim.get('event_id'))
+                if event_hours > 0:
+                    resolved_hours = event_hours
+                    normalized_disrupted_hours = event_hours
+
+            # Heal legacy paid rows where payout/disrupted_hours were stored as 0 due to old demo path bugs.
+            if normalized_status in {'paid', 'approved'}:
+                if resolved_hours <= 0:
+                    resolved_hours = 4.0
+                    normalized_disrupted_hours = 4.0
+
+                payout_missing_or_zero = normalized_payout is None or float(normalized_payout) <= 0
+                if payout_missing_or_zero and resolved_hours > 0:
+                    recomputed = calculate_payout(
+                        avg_daily_earnings=worker_avg_earnings,
+                        disrupted_hours=resolved_hours,
+                        tier=_policy_tier(claim.get('policy_id')),
+                        worker_id=worker_id,
+                    )
+                    if recomputed > 0:
+                        normalized_payout = recomputed
+
+            gate2_result = 'NONE' if path == 'denied' and fraud_score < 90 else 'WEAK'
+
+            event_city = _event_city(claim.get('event_id'))
+            if normalized_path == 'denied' and worker_city and event_city and worker_city != event_city:
+                reason_code = 'CITY_ZONE_MISMATCH'
+
+            if normalized_path == 'denied' and reason_code is None and claim.get('event_id'):
+                try:
+                    event_res = supabase.table('disruption_events').select('started_at').eq('id', claim.get('event_id')).limit(1).execute()
+                    if event_res.data:
+                        started_at = event_res.data[0].get('started_at')
+                        disruption_start = datetime.fromisoformat(started_at.replace('Z', '+00:00')) if started_at else datetime.now(timezone.utc)
+                        allowed, inferred_code, _ = evaluate_location_guardrails(worker_id, claim.get('event_id'), disruption_start)
+                        if not allowed:
+                            reason_code = inferred_code
+                except Exception:
+                    pass
+
+            explanation = explain_claim_decision(
+                fraud_score=fraud_score,
+                gate2_result=gate2_result,
+                path=normalized_path,
+                pop_validated=pop_validated,
+                flags=[],
+                reason_code=reason_code,
+            )
+
+            enriched.append({
+                **claim,
+                'status': normalized_status,
+                'resolution_path': normalized_path,
+                'disrupted_hours': normalized_disrupted_hours,
+                'payout_amount': normalized_payout,
+                'decision_explanation': explanation,
+            })
+
+        return enriched
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

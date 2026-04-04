@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from backend.db.client import supabase
 from backend.services.auth_service import get_current_worker
 from backend.services.claim_approver import route_claim
+from backend.services.claim_approver import explain_claim_decision
 from backend.services.dci_engine import get_dci_status, sigmoid
 from backend.services.fraud_engine import FraudEvaluator
 from backend.services.payment_service import initiate_upi_payout
@@ -60,24 +61,57 @@ def _require_worker_fields(worker: dict[str, Any]) -> tuple[str, str]:
 
 def _ensure_hex_zone_exists(hex_id: str, city: str | None = None) -> None:
     """Ensure a hex row exists so signal_cache FK inserts do not fail."""
-    try:
-        existing = supabase.table("hex_zones").select("h3_index").eq("h3_index", hex_id).limit(1).execute()
-        if existing.data:
-            return
-    except Exception:
-        # If select fails for transient reasons, continue to upsert attempt below.
-        pass
+    for where_col in ("h3_index", "hex_id"):
+        try:
+            existing = supabase.table("hex_zones").select(where_col).eq(where_col, hex_id).limit(1).execute()
+            if existing.data:
+                return
+        except Exception:
+            continue
 
-    payload = {
-        "h3_index": hex_id,
+    payload_base = {
         "city": city or "Unknown",
         "current_dci": 0.0,
         "dci_status": "normal",
         "active_worker_count": 0,
-        "consecutive_normal_cycles": 0,
-        "is_disrupted": False,
     }
-    supabase.table("hex_zones").upsert(payload, on_conflict="h3_index").execute()
+
+    try:
+        supabase.table("hex_zones").upsert(
+            {
+                **payload_base,
+                "h3_index": hex_id,
+            },
+            on_conflict="h3_index",
+        ).execute()
+        return
+    except Exception:
+        pass
+
+    try:
+        supabase.table("hex_zones").upsert(
+            {
+                **payload_base,
+                "hex_id": hex_id,
+            },
+            on_conflict="hex_id",
+        ).execute()
+    except Exception:
+        pass
+
+
+def _update_hex_zone_snapshot(hex_id: str, dci: float, status: str) -> None:
+    snapshot = {
+        "current_dci": dci,
+        "dci_status": status,
+        "last_computed_at": datetime.now(timezone.utc).isoformat(),
+    }
+    for where_col in ("h3_index", "hex_id"):
+        try:
+            supabase.table("hex_zones").update(snapshot).eq(where_col, hex_id).execute()
+            return
+        except Exception:
+            continue
 
 
 def _run_seed(worker: dict[str, Any]) -> dict[str, Any]:
@@ -181,8 +215,6 @@ def _run_simulate_disruption(worker: dict[str, Any], payload: SimulateDisruption
         SIG_SOCIAL: (payload.s, "Manual social disruption signal"),
     }
 
-    supabase.table("signal_cache").delete().eq("hex_id", hex_id).execute()
-
     rows = []
     for signal_type, (score, description) in signals.items():
         rows.append(
@@ -195,15 +227,21 @@ def _run_simulate_disruption(worker: dict[str, Any], payload: SimulateDisruption
                 "fetched_at": datetime.now(timezone.utc).isoformat(),
             }
         )
-    supabase.table("signal_cache").insert(rows).execute()
+
+    # This cache write is auxiliary for demo visibility; never fail simulation because of it.
+    try:
+        supabase.table("signal_cache").delete().eq("hex_id", hex_id).execute()
+        supabase.table("signal_cache").insert(rows).execute()
+    except Exception:
+        pass
 
     # Step-5 parity math: sigma(0.45W + 0.25T + 0.20P + 0.10S)
     raw = (0.45 * payload.w) + (0.25 * payload.t) + (0.20 * payload.p) + (0.10 * payload.s)
     dci = sigmoid(raw)
     status = get_dci_status(dci)
 
-    # Keep compatibility with both column names seen across environments.
-    supabase.table("hex_zones").update({"current_dci": dci, "dci_status": status}).eq("h3_index", hex_id).execute()
+    # Persist snapshot timestamp so downstream DCI reads don't force-refresh immediately.
+    _update_hex_zone_snapshot(hex_id, dci, status)
 
     return {
         "hex_id": hex_id,
@@ -239,7 +277,7 @@ def _ensure_active_event(hex_id: str, force_new: bool = False) -> dict[str, Any]
 
     active = (
         supabase.table("disruption_events")
-        .select("id,started_at,dci_peak")
+        .select("id,started_at,dci_peak,duration_hours")
         .eq("hex_id", hex_id)
         .is_("ended_at", "null")
         .execute()
@@ -268,19 +306,27 @@ def _ensure_active_event(hex_id: str, force_new: bool = False) -> dict[str, Any]
     if zone.data:
         dci_peak = float(zone.data[0].get("current_dci") or dci_peak)
 
-    created = (
-        supabase.table("disruption_events")
-        .insert(
-            {
-                "hex_id": hex_id,
-                "h3_index": hex_id,
-                "dci_peak": dci_peak,
-                "started_at": datetime.now(timezone.utc).isoformat(),
-                "trigger_signals": {"demo": True},
-            }
+    event_payload = {
+        "hex_id": hex_id,
+        "dci_peak": dci_peak,
+        "duration_hours": 4.0,
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "trigger_signals": {"demo": True},
+    }
+
+    try:
+        created = (
+            supabase.table("disruption_events")
+            .insert(
+                {
+                    **event_payload,
+                    "h3_index": hex_id,
+                }
+            )
+            .execute()
         )
-        .execute()
-    )
+    except Exception:
+        created = supabase.table("disruption_events").insert(event_payload).execute()
     return created.data[0]
 
 
@@ -303,7 +349,6 @@ def _ensure_pending_claim(worker_id: str, policy_id: str, event_id: str) -> dict
                 "policy_id": policy_id,
                 "event_id": event_id,
                 "status": "pending",
-                "disrupted_hours": 4.0,
             }
         )
         .execute()
@@ -321,8 +366,66 @@ def _run_process_claim(worker: dict[str, Any]) -> dict[str, Any]:
     claim_id = claim.get("id")
     disruption_start = _parse_iso_timestamp(event.get("started_at"))
 
-    # Step 6: PoP validation and gate-2 preview.
-    pop_res = validate_pop(worker_id, hex_id, disruption_start)
+    # Temporary simplified guardrail requested by product:
+    # allow claim processing only when worker city matches disruption zone city.
+    zone_city = None
+    for col in ("h3_index", "hex_id"):
+        try:
+            zone_res = supabase.table("hex_zones").select("city").eq(col, hex_id).limit(1).execute()
+            if zone_res.data:
+                zone_city = zone_res.data[0].get("city")
+                break
+        except Exception:
+            continue
+
+    worker_city = worker.get("city")
+    city_match = (
+        bool(worker_city)
+        and bool(zone_city)
+        and worker_city.strip().lower() == zone_city.strip().lower()
+    )
+
+    if not city_match:
+        decision_explanation = explain_claim_decision(
+            fraud_score=0,
+            gate2_result="NONE",
+            path="denied",
+            pop_validated=False,
+            flags=[],
+            reason_code="CITY_ZONE_MISMATCH",
+        )
+
+        supabase.table("claims").update(
+            {
+                "payout_amount": 0,
+                "pop_validated": False,
+                "fraud_score": 0,
+                "resolution_path": "denied",
+                "status": "denied",
+                "resolved_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).eq("id", claim_id).execute()
+
+        return {
+            "claim_id": claim_id,
+            "event_id": event.get("id"),
+            "policy_id": policy.get("id"),
+            "fraud_score": 0,
+            "fraud_flags": [],
+            "gate2_result": "NONE",
+            "resolution_path": "denied",
+            "payout_amount": 0,
+            "razorpay_payment_id": None,
+            "payout_transaction_id": None,
+            "payout_channel": None,
+            "pop_validated": False,
+            "status": "denied",
+            "decision_explanation": decision_explanation,
+        }
+
+    # For temporary mode, city match acts as eligibility gate for PoP.
+    pop_res = {"present": True}
+
     evaluator = FraudEvaluator()
     gate2_preview = evaluator._evaluate_gate2_orders(worker_id)
 
@@ -331,10 +434,19 @@ def _run_process_claim(worker: dict[str, Any]) -> dict[str, Any]:
     fraud_score = int(fraud_res.get("fraud_score", 0))
     gate2_result = fraud_res.get("gate2_result", gate2_preview)
     flags = fraud_res.get("flags", [])
-    path = route_claim(fraud_score, gate2_result)
+    path = route_claim(fraud_score, gate2_result, flags)
 
-    # Step 8: payout math copied from demo_runner.step8_payout.
-    disrupted_hours = float(claim.get("disrupted_hours") or 4.0)
+    # Step 8: payout math using real event duration context.
+    event_duration = event.get("duration_hours")
+    if event_duration is not None:
+        disrupted_hours = max(0.0, float(event_duration))
+    else:
+        elapsed = (datetime.now(timezone.utc) - disruption_start).total_seconds() / 3600.0
+        disrupted_hours = max(0.0, round(elapsed, 2))
+
+    # Persist computed disruption hours for UI consistency.
+    supabase.table("claims").update({"disrupted_hours": disrupted_hours}).eq("id", claim_id).execute()
+
     avg_daily_earnings = float(worker.get("avg_daily_earnings") or 500.0)
     tier = policy.get("tier") or "B"
 
@@ -345,9 +457,15 @@ def _run_process_claim(worker: dict[str, Any]) -> dict[str, Any]:
     maturation_cap = hist_avg * 2.5
     payout_amount = round(min(capped, maturation_cap), 2)
 
+    # Safety net: a paid fast-track claim should not carry a zero payout due to missing duration metadata.
+    if path == "fast_track" and payout_amount <= 0:
+        fallback_hours = disrupted_hours if disrupted_hours > 0 else 4.0
+        fallback_raw = (avg_daily_earnings / 8.0) * fallback_hours
+        payout_amount = round(min(fallback_raw, tier_cap, maturation_cap), 2)
+
     # Step 9: payout is only executed for valid fast-track claims.
     pop_validated = bool(pop_res.get("present", False))
-    final_status = "processing"
+    final_status = "pending"
     razorpay_payment_id = None
     payout_transaction_id = None
     payout_channel = None
@@ -372,12 +490,24 @@ def _run_process_claim(worker: dict[str, Any]) -> dict[str, Any]:
             payout_transaction_id = razorpay_payment_id
             payout_channel = "UPI"
             final_status = "paid"
+    else:
+        # soft_queue / active_verify remain pending within enum-safe statuses.
+        final_status = "pending"
+
+    decision_explanation = explain_claim_decision(
+        fraud_score=fraud_score,
+        gate2_result=gate2_result,
+        path=path,
+        pop_validated=pop_validated,
+        flags=flags,
+    )
 
     # Step 10: persist final claim state with realistic status transitions.
     try:
+        db_payout_amount = payout_amount if final_status == "paid" else None
         supabase.table("claims").update(
             {
-                "payout_amount": payout_amount,
+                "payout_amount": db_payout_amount,
                 "razorpay_payment_id": razorpay_payment_id,
                 "payout_transaction_id": payout_transaction_id,
                 "payout_channel": payout_channel,
@@ -409,12 +539,13 @@ def _run_process_claim(worker: dict[str, Any]) -> dict[str, Any]:
         "fraud_flags": flags,
         "gate2_result": gate2_result,
         "resolution_path": path,
-        "payout_amount": payout_amount,
+        "payout_amount": payout_amount if final_status == "paid" else None,
         "razorpay_payment_id": razorpay_payment_id,
         "payout_transaction_id": payout_transaction_id,
         "payout_channel": payout_channel,
         "pop_validated": pop_validated,
         "status": final_status,
+        "decision_explanation": decision_explanation,
     }
 
 

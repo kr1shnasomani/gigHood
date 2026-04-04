@@ -8,6 +8,28 @@ export interface WorkerProfile {
   platform_id?: string;
   is_platform_verified?: boolean;
   trust_score: number; status: string; device_model?: string;
+  trust_breakdown?: {
+    score: number;
+    summary: string;
+    lookback_days: number;
+    factors: {
+      claims_considered: number;
+      paid_claims: number;
+      denied_claims: number;
+      pop_failures: number;
+      average_fraud_score: number;
+      paid_ratio: number;
+      denied_ratio: number;
+    };
+    formula: {
+      base: number;
+      paid_component: number;
+      denial_penalty: number;
+      fraud_penalty: number;
+      pop_penalty: number;
+    };
+    formula_string?: string;
+  };
   tier?: string;
   dynamic_coverage_index?: number;
 }
@@ -25,23 +47,27 @@ export interface PolicyData {
   tier_explanation?: {
     tier: string;
     avg_dci_4w: number;
+    avg_dci_band?: string;
     claim_frequency_28d: number;
+    claim_frequency_band?: string;
     seasonal_flag: boolean;
+    seasonal_text?: string;
     city: string;
     history_points_used: number;
+    plain_language?: string;
     reason: string;
   };
 }
 
 export interface DciData {
-  hex_id: string; current_dci: number;
-  dci_status: 'normal' | 'elevated' | 'disrupted';
+  hex_id: string; current_dci: number | null;
+  dci_status: 'normal' | 'elevated' | 'disrupted' | 'degraded';
   city: string; dark_store_zone: string; note?: string;
 }
 
 export interface Claim {
   id: string;
-  payout_amount: number;
+  payout_amount: number | null;
   disrupted_hours: number;
   resolution_path: 'fast_track' | 'soft_queue' | 'active_verify' | 'denied' | string;
   status: 'pending' | 'approved' | 'paid' | 'processing' | 'denied' | 'appealed' | string;
@@ -51,6 +77,12 @@ export interface Claim {
   razorpay_payout_id?: string;
   payout_transaction_id?: string;
   payout_channel?: string;
+  decision_explanation?: {
+    code: string;
+    title: string;
+    message: string;
+    worker_tip: string;
+  };
   created_at: string;
   resolved_at?: string;
 }
@@ -148,12 +180,10 @@ export async function getDashboard(): Promise<DashboardResponse> {
     worker: {
       ...worker,
       tier: policy?.tier,
-      dynamic_coverage_index: dciResponse?.current_dci ?? 0.0,
+      dynamic_coverage_index: dciResponse?.current_dci ?? undefined,
     },
     active_policy: policy,
-    alerts: (dciResponse?.current_dci ?? 0) > 0.5
-      ? [{ id: 'a1', title: 'High Disruption Area', message: 'Proceed with caution. Claims process is expedited.' }]
-      : [],
+    alerts: [],
     weekly_summary: {
       premium_paid: policy?.weekly_premium || policy?.premium_amount || 0,
       disruptions: disruptionsThisWeek,
@@ -194,12 +224,18 @@ export interface ProcessClaimResponse {
   fraud_flags: string[];
   gate2_result: string;
   resolution_path: string;
-  payout_amount: number;
+  payout_amount: number | null;
   razorpay_payment_id: string;
   payout_transaction_id?: string;
   payout_channel?: string;
   pop_validated: boolean;
   status: string;
+  decision_explanation?: {
+    code: string;
+    title: string;
+    message: string;
+    worker_tip: string;
+  };
 }
 
 // Demo trigger endpoints

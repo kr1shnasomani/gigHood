@@ -45,7 +45,7 @@ def fetch_weather(hex_id: str, lat: float, lng: float) -> float:
     """
     if not settings.OPENWEATHER_API_KEY or settings.OPENWEATHER_API_KEY.startswith("your_"):
         raise ValueError("Missing or invalid OPENWEATHER_API_KEY")
-        
+
     url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lng}&appid={settings.OPENWEATHER_API_KEY}&units=metric"
     resp = requests.get(url, timeout=5)
     resp.raise_for_status()
