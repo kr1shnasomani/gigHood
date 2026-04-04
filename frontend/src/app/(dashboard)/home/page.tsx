@@ -150,7 +150,7 @@ export default function DashboardPage() {
     : null;
 
   const isLoading = !worker || !activePolicy;
-  const error = null;
+  const error: Error | null = null;
   const refetch = () => {
     /* no-op */
   };
