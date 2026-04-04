@@ -150,7 +150,7 @@ export default function DashboardPage() {
     : null;
 
   const isLoading = !worker || !activePolicy;
-  const error: Error | null = null;
+  const error: unknown = null;
   const refetch = () => {
     /* no-op */
   };
@@ -347,7 +347,7 @@ export default function DashboardPage() {
         <AlertCircle size={48} color="#EF4444" />
         <p className="text-muted" style={{ fontWeight: 500, textAlign: 'center' }}>Failed to load dashboard</p>
         <p style={{ fontSize: '14px', color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '16px' }}>
-          {error?.message || 'Please check your connection and try again'}
+          {getErrorMessage(error, 'Please check your connection and try again')}
         </p>
         <button
           onClick={() => refetch()}

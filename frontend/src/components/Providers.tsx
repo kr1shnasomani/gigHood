@@ -48,8 +48,8 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       return () => window.cancelIdleCallback(id);
     }
 
-    const timeoutId = window.setTimeout(runDeferredSetup, 0);
-    return () => window.clearTimeout(timeoutId);
+    const timeoutId = setTimeout(runDeferredSetup, 0);
+    return () => clearTimeout(timeoutId);
   }, [hasToken, isAuthenticated, isAuthRoute, locationTrackingEnabled]);
 
   return (
