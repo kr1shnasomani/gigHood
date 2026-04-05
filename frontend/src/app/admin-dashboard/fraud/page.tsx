@@ -255,9 +255,9 @@ export default function FraudMonitor() {
       </div>
 
       {/* NETWORK GRAPH */}
-      <div>
+      {/*  <div>
         <FraudNetworkGraph data={networkGraph} />
-      </div>
+      </div> */}
 
       {/* TABLE */}
       <div className="bg-white rounded-xl shadow-sm">
