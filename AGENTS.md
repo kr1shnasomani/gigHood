@@ -42,6 +42,7 @@ It combines zone disruption indexing, policy logic, claim routing, fraud control
 2. Preview frontend may use `NEXT_PUBLIC_API_URL_PREVIEW` for isolated backend testing.
 3. Admin frontend previews should target backend builds that mount `/admin/*`.
 4. Do not modify production infrastructure while debugging preview branches unless explicitly requested.
+5. Keep root `.python-version` pinned (`3.11.9`) unless Render service-level runtime pinning is explicitly configured and verified.
 
 ## Engineering Rules
 

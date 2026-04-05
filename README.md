@@ -130,7 +130,7 @@ docker compose down
 1. Production frontend should use `NEXT_PUBLIC_API_URL`.
 2. Preview frontend can use `NEXT_PUBLIC_API_URL_PREVIEW` to target an isolated backend.
 3. Admin frontend previews require a backend that mounts `/admin/*`.
-4. Root runtime pin files are intentionally not tracked to match original repo conventions.
+4. Render backend deploys in this repo require root `.python-version` pinned to `3.11.9` to avoid Python 3.14 package build failures (`pydantic-core` source build errors).
 
 ## UI Surface Contract
 

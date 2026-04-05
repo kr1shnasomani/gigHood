@@ -111,6 +111,7 @@ Representative outputs include:
 1. preview frontend builds (Vercel) may use `NEXT_PUBLIC_API_URL_PREVIEW`
 2. this allows admin-branch previews to target an isolated backend
 3. avoids mutating production frontend API base
+4. backend Render deploys should run on Python 3.11.9 (root `.python-version`) for dependency compatibility in this repo
 
 Runtime selection is implemented in `frontend/src/lib/api.ts`:
 
@@ -122,6 +123,18 @@ Runtime selection is implemented in `frontend/src/lib/api.ts`:
 
 This branch includes admin router mounting in backend and preview safety in frontend.
 Historically, admin preview frontends can show 404 if pointed to a backend that does not mount `/admin/*`.
+
+Recent deployment failure root cause (Render admin backend):
+
+1. build used Python 3.14 (`cp314` wheels)
+2. `pydantic-core==2.27.2` fell back to source build via `maturin/cargo`
+3. metadata generation failed during cargo registry/cache operations
+4. deploy ended with `metadata-generation-failed` and `Build failed`
+
+Mitigation in this branch:
+
+1. keep root `.python-version` set to `3.11.9`
+2. retain existing backend dependency set without forcing pydantic-core source compile path
 
 To keep preview UX usable during backend mismatch/outage,
 `frontend/src/lib/admin/adminClient.ts` includes controlled fallback datasets for:
