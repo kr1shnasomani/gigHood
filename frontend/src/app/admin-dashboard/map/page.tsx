@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import DeckGL from '@deck.gl/react'
 import { H3HexagonLayer } from '@deck.gl/geo-layers'
+import type { PickingInfo } from '@deck.gl/core'
 import { Map } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
@@ -48,7 +49,6 @@ function buildBarData(zones: HexZone[]) {
 export default function MapPage() {
   const [zones, setZones] = useState<HexZone[]>([])
   const [loading, setLoading] = useState(true)
-  const [hoverInfo, setHoverInfo] = useState<any>(null)
   const [alertZone, setAlertZone] = useState<HexZone | null>(null)
   const [timeframe, setTimeframe] = useState('Real-time')
   const [hasMounted, setHasMounted] = useState(false)
@@ -129,8 +129,9 @@ export default function MapPage() {
     getLineColor: [255, 255, 255, 30],
     lineWidthMinPixels: 1,
 
-    onHover: (info: any) => setHoverInfo(info.object ? info : null),
-    onClick: (info: any) => info.object && setAlertZone(info.object),
+    onClick: (info: PickingInfo<HexZone>) => {
+      if (info.object) setAlertZone(info.object)
+    },
   })
 
   return (

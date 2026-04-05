@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 export interface FraudNode {
   id: string;
@@ -28,13 +28,9 @@ interface Position {
 
 export default function FraudNetworkGraph({ data }: { data: NetworkGraph }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [positions, setPositions] = useState<Map<string, Position>>(new Map());
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
-  // Force-directed layout simulation
-  useEffect(() => {
-    if (data.nodes.length === 0) return;
-
+  const positions = useMemo(() => {
     const newPositions = new Map<string, Position>();
     const radius = 150;
 
@@ -47,7 +43,7 @@ export default function FraudNetworkGraph({ data }: { data: NetworkGraph }) {
       });
     });
 
-    setPositions(newPositions);
+    return newPositions;
   }, [data.nodes]);
 
   // Render canvas

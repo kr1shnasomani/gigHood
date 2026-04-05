@@ -23,6 +23,7 @@ export default function LiveZoneMonitor() {
           const isAlert = zone.dci_score >= 0.65 && zone.dci_score < 0.85;
           const statusColor = isDisrupted ? 'border-[#EF4444]' : (isAlert ? 'border-amber-500' : 'border-slate-700');
           const dciTextColor = isDisrupted ? 'text-[#EF4444]' : (isAlert ? 'text-amber-500' : 'text-slate-300');
+          const durationMinutes = 5 + ((idx * 7) % 20);
 
           return (
             <div key={`${zone.h3_index}-${idx}`} className={`p-3 bg-white/5 rounded-lg border-l-2 ${statusColor} transition-all hover:bg-white/10 cursor-default`}>
@@ -31,7 +32,7 @@ export default function LiveZoneMonitor() {
                 <span>ID: {zone.h3_index}</span>
               </div>
               <p className="text-[11px] font-bold text-white">
-                DCI Peak: <span className={dciTextColor}>{zone.dci_score.toFixed(2)}</span> · Dur: {Math.floor(Math.random() * 20 + 5)}m
+                DCI Peak: <span className={dciTextColor}>{zone.dci_score.toFixed(2)}</span> · Dur: {durationMinutes}m
               </p>
               <p className="text-[10px] text-slate-500 mt-1">
                 {isDisrupted ? `Critical disruption signals in ${zone.city}.` : 

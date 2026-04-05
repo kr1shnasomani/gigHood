@@ -109,7 +109,7 @@ const Sidebar = () => {
 ========================= */
 
 const Header = () => {
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<{ name?: string } | null>(null)
   const [alerts, setAlerts] = useState(0)
   const [search, setSearch] = useState('')
 

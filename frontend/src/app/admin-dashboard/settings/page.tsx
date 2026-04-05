@@ -243,7 +243,7 @@ export default function Settings() {
 
           <div className="flex justify-between">
             <span>Throughput</span>
-            <span>~{(Math.random() * 3 + 1).toFixed(1)}k txn/s</span>
+            <span>~2.4k txn/s</span>
           </div>
         </div>
       </div>
