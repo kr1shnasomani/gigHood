@@ -109,7 +109,22 @@ def _update_hex_zone_snapshot(hex_id: str, dci: float, status: str) -> None:
     }
     for where_col in ("h3_index", "hex_id"):
         try:
-            supabase.table("hex_zones").update(snapshot).eq(where_col, hex_id).execute()
+            updated = supabase.table("hex_zones").update(snapshot).eq(where_col, hex_id).execute()
+            if getattr(updated, "data", None):
+                return
+        except Exception:
+            continue
+
+    # If no existing row matched, create/update a snapshot row using either schema variant.
+    for conflict_col, value_col in (("h3_index", "h3_index"), ("hex_id", "hex_id")):
+        try:
+            supabase.table("hex_zones").upsert(
+                {
+                    **snapshot,
+                    value_col: hex_id,
+                },
+                on_conflict=conflict_col,
+            ).execute()
             return
         except Exception:
             continue
@@ -303,7 +318,7 @@ def _ensure_active_event(hex_id: str, force_new: bool = False) -> dict[str, Any]
             )
         except Exception:
             pass
-    dci_peak = 0.91
+    dci_peak = 0.0
     if zone.data:
         dci_peak = float(zone.data[0].get("current_dci") or dci_peak)
 
@@ -360,6 +375,36 @@ def _ensure_pending_claim(worker_id: str, policy_id: str, event_id: str) -> dict
 def _run_process_claim(worker: dict[str, Any]) -> dict[str, Any]:
     worker_id, hex_id = _require_worker_fields(worker)
     _ensure_hex_zone_exists(hex_id, worker.get("city"))
+
+    # Process-claim must run only after a real disruption simulation / elevated live state.
+    zone_snapshot = None
+    for where_col in ("h3_index", "hex_id"):
+        try:
+            zone_res = supabase.table("hex_zones").select("current_dci,dci_status,last_computed_at").eq(where_col, hex_id).limit(1).execute()
+            if zone_res.data:
+                zone_snapshot = zone_res.data[0]
+                break
+        except Exception:
+            continue
+
+    current_dci = None
+    current_status = None
+    if zone_snapshot:
+        current_status = zone_snapshot.get("dci_status")
+        try:
+            raw_dci = zone_snapshot.get("current_dci")
+            if raw_dci is not None:
+                current_dci = float(raw_dci)
+        except Exception:
+            current_dci = None
+
+    is_disrupted = current_status == "disrupted" or (current_dci is not None and current_dci > 0.85)
+    if not is_disrupted:
+        raise HTTPException(
+            status_code=409,
+            detail="DCI is not in disrupted state yet. Simulate extreme weather first, then process claim."
+        )
+
     policy = _ensure_active_policy(worker_id)
     event = _ensure_active_event(hex_id, force_new=True)
     claim = _ensure_pending_claim(worker_id, policy.get("id"), event.get("id"))

@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -97,3 +98,31 @@ def test_process_claim_endpoint(mock_run_process_claim):
     assert payload["resolution_path"] == "fast_track"
     assert payload["payout_amount"] == 275.0
     assert payload["razorpay_payment_id"].startswith("pout_")
+
+
+@patch("backend.api.demo.supabase")
+def test_update_hex_zone_snapshot_retries_when_first_update_matches_no_row(mock_supabase):
+    from backend.api.demo import _update_hex_zone_snapshot
+
+    # First variant (h3_index) executes but updates nothing, second variant (hex_id) updates one row.
+    empty_update = SimpleNamespace(data=[])
+    successful_update = SimpleNamespace(data=[{"hex_id": MOCK_WORKER["hex_id"]}])
+
+    mock_table = mock_supabase.table.return_value
+    mock_update_query = mock_table.update.return_value
+
+    eq_calls = []
+
+    def eq_side_effect(where_col, hex_id):
+        eq_calls.append((where_col, hex_id))
+        response = empty_update if where_col == "h3_index" else successful_update
+        execute_mock = SimpleNamespace(execute=lambda: response)
+        return execute_mock
+
+    mock_update_query.eq.side_effect = eq_side_effect
+
+    _update_hex_zone_snapshot(MOCK_WORKER["hex_id"], 0.91, "disrupted")
+
+    assert ("h3_index", MOCK_WORKER["hex_id"]) in eq_calls
+    assert ("hex_id", MOCK_WORKER["hex_id"]) in eq_calls
+    assert mock_table.upsert.call_count == 0

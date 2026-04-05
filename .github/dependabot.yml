@@ -1,0 +1,60 @@
+# To get started with Dependabot version updates, you'll need to specify which
+# package ecosystems to update and where the package manifests are located.
+# Please see the documentation for all configuration options:
+# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: monthly
+      day: monday
+      time: "05:00"
+      timezone: "Asia/Kolkata"
+    open-pull-requests-limit: 1
+    groups:
+      backend-dependencies:
+        patterns:
+          - "*"
+    labels:
+      - dependencies
+      - backend
+    commit-message:
+      prefix: "deps(backend)"
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: monthly
+      day: monday
+      time: "05:15"
+      timezone: "Asia/Kolkata"
+    open-pull-requests-limit: 1
+    groups:
+      frontend-dependencies:
+        patterns:
+          - "*"
+    labels:
+      - dependencies
+      - frontend
+    commit-message:
+      prefix: "deps(frontend)"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+      day: monday
+      time: "05:30"
+      timezone: "Asia/Kolkata"
+    open-pull-requests-limit: 1
+    groups:
+      ci-dependencies:
+        patterns:
+          - "*"
+    labels:
+      - dependencies
+      - ci
+    commit-message:
+      prefix: "deps(ci)"

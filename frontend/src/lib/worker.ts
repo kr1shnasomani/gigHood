@@ -147,13 +147,18 @@ export async function sendChatMessage(message: string, language = 'en') {
 
 // Composite dashboard function
 export async function getDashboard(): Promise<DashboardResponse> {
-  const worker = await getMe();
-
-  const [policyResult, dciResult, claimsResult] = await Promise.allSettled([
+  const [workerResult, policyResult, dciResult, claimsResult] = await Promise.allSettled([
+    getMe(),
     getMyPolicy(),
     getDci(),
     getClaims(),
   ]);
+
+  if (workerResult.status !== 'fulfilled') {
+    throw workerResult.reason;
+  }
+
+  const worker = workerResult.value;
 
   const policy = policyResult.status === 'fulfilled'
     ? policyResult.value
@@ -247,8 +252,15 @@ export async function seedDemo(): Promise<SeedDemoResponse> {
 export async function simulateDisruption(
   payload: SimulateDisruptionRequest
 ): Promise<SimulateDisruptionResponse> {
-  const res = await api.post('/workers/me/demo/simulate-disruption', payload);
-  return res.data;
+  try {
+    const res = await api.post('/workers/me/demo/simulate-disruption', payload, { timeout: 60000 });
+    return res.data;
+  } catch {
+    // Production fallback: warm demo data and retry once.
+    await seedDemo();
+    const retry = await api.post('/workers/me/demo/simulate-disruption', payload, { timeout: 60000 });
+    return retry.data;
+  }
 }
 
 export async function processClaim(): Promise<ProcessClaimResponse> {

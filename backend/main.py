@@ -18,15 +18,8 @@ logger = logging.getLogger("startup")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if settings.AUTO_TRAIN_RISK_MODEL_ON_STARTUP:
-        try:
-            from backend.services.risk_profiler import load_model
-            load_model()
-            logger.info("Risk profiler model loaded at startup.")
-        except Exception as exc:
-            logger.exception(f"Risk profiler startup preload failed: {exc}")
-
     jobs.start_scheduler()
+    logger.info("Scheduler started. Risk profiler will lazy-load on first request.")
     yield
     jobs.shutdown_scheduler()
 
@@ -42,6 +35,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def add_cache_headers(request, call_next):
+    response = await call_next(request)
+    if request.method == "GET" and response.status_code == 200:
+        path = request.url.path
+        if "/workers/me" in path or "/policies" in path or "/claims" in path:
+            response.headers["Cache-Control"] = "public, max-age=60"
+    return response
 
 app.include_router(workers.router, prefix="/workers", tags=["workers"])
 app.include_router(demo.router, prefix="/workers", tags=["demo"])

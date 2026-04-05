@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -10,7 +10,7 @@ import {
   Wallet, CheckCircle, ChevronLeft, ChevronRight,
   MessageSquare, FileText
 } from 'lucide-react';
-import { workerApi, simulateDisruption, processClaim, pollUntilDisrupted } from '@/lib/worker';
+import { workerApi, simulateDisruption, processClaim } from '@/lib/worker';
 import { useAuthStore } from '@/store/authStore';
 import { LANGUAGE_OPTIONS, useLanguageStore } from '@/store/languageStore';
 import { t } from '@/lib/i18n';
@@ -95,6 +95,7 @@ function wait(ms: number): Promise<void> {
 }
 
 export default function DashboardPage() {
+  const queryClient = useQueryClient();
   const router = useRouter();
   const hasHydrated = useAuthStore((s) => s._hasHydrated);
   const accessToken = useAuthStore((s) => s.accessToken);
@@ -102,12 +103,58 @@ export default function DashboardPage() {
   const setLanguage = useLanguageStore((s) => s.setLanguage);
   const inferLanguageFromCity = useLanguageStore((s) => s.inferLanguageFromCity);
 
-  const { data: dashboard, isLoading, error, refetch } = useQuery({
-    queryKey: ['dashboard'],
-    queryFn: workerApi.getDashboard,
-    refetchInterval: 10000,
-    enabled: !!accessToken, // only fetch if we have a token
+  // Load worker profile
+  const { data: worker, refetch: refetchWorker } = useQuery({
+    queryKey: ['worker'],
+    queryFn: workerApi.getMe,
+    staleTime: 5 * 60 * 1000,
+    enabled: !!accessToken,
   });
+
+  // Load policy independently
+  const { data: activePolicy, refetch: refetchPolicy } = useQuery({
+    queryKey: ['policy'],
+    queryFn: workerApi.getMyPolicy,
+    staleTime: 5 * 60 * 1000,
+    enabled: !!accessToken,
+  });
+
+  // Load DCI independently (refresh more often)
+  const { data: dciData, refetch: refetchDci } = useQuery({
+    queryKey: ['dci'],
+    queryFn: workerApi.getDci,
+    staleTime: 60 * 1000,
+    enabled: !!accessToken,
+  });
+
+  // Load claims independently
+  const { data: claims = [], refetch: refetchClaims } = useQuery({
+    queryKey: ['claims'],
+    queryFn: workerApi.getClaims,
+    staleTime: 3 * 60 * 1000,
+    enabled: !!accessToken,
+  });
+
+  // Composite dashboard for backward compatibility
+  const dashboard = worker && activePolicy && dciData
+    ? {
+        worker: { ...worker, dynamic_coverage_index: dciData.current_dci },
+        active_policy: activePolicy,
+        alerts: [],
+        weekly_summary: {
+          premium_paid: activePolicy?.weekly_premium || activePolicy?.premium_amount || 0,
+          disruptions: claims.filter((c) => new Date(c.created_at) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length,
+          total_paid_out: claims.filter((c) => c.status === 'paid').reduce((sum, c) => sum + (c.payout_amount ?? 0), 0),
+        },
+        dci_forecast: null,
+      }
+    : null;
+
+  const isLoading = !worker || !activePolicy;
+  const error: unknown = null;
+  const refetch = useCallback(async () => {
+    await Promise.allSettled([refetchWorker(), refetchPolicy(), refetchDci(), refetchClaims()]);
+  }, [refetchWorker, refetchPolicy, refetchDci, refetchClaims]);
 
   // Phase 2 & 3 State
   const [isSimulating, setIsSimulating] = useState(false);
@@ -120,16 +167,20 @@ export default function DashboardPage() {
   const [smsToast, setSmsToast] = useState<string | null>(null);
   const coverageCarouselRef = useRef<HTMLDivElement | null>(null);
 
-  // Initialize DCI/status from dashboard payload.
+  // Initialize DCI/status from live DCI query payload.
+  // Use primitive dependencies to avoid re-running on every render.
   useEffect(() => {
-    if (!dashboard?.worker) return;
-
-    const rawDci = dashboard.worker.dynamic_coverage_index;
+    const rawDci = dciData?.current_dci;
     const nextDci = typeof rawDci === 'number' && Number.isFinite(rawDci) ? rawDci : null;
     setDciScore(nextDci);
 
     if (nextDci === null) {
       setDciStatus('degraded');
+      return;
+    }
+
+    if (dciData?.dci_status) {
+      setDciStatus(dciData.dci_status);
       return;
     }
 
@@ -140,7 +191,7 @@ export default function DashboardPage() {
     } else {
       setDciStatus('normal');
     }
-  }, [dashboard]);
+  }, [dciData?.current_dci, dciData?.dci_status]);
 
   useEffect(() => {
     if (!dashboard?.worker?.city) {
@@ -163,31 +214,43 @@ export default function DashboardPage() {
     setSimulationError(null);
 
     try {
-      // Call simulate endpoint with exact weights
-      await simulateDisruption({
-        w: 2.5,
-        t: 1.2,
-        p: 1.8,
-        s: 1.0,
+      // Use bounded jitter so each simulation is realistic and not a fixed hard-coded score.
+      const jitter = (base: number, spread: number) => {
+        const next = base + (Math.random() * 2 - 1) * spread;
+        return Math.max(0, Number(next.toFixed(3)));
+      };
+
+      const result = await simulateDisruption({
+        w: jitter(2.9, 0.35),
+        t: jitter(1.45, 0.25),
+        p: jitter(1.95, 0.30),
+        s: jitter(1.10, 0.20),
       });
 
-      // Poll until disrupted
-      const result = await pollUntilDisrupted(60, 1000);
-      if (result && result.dci_status === 'disrupted') {
+      // Apply response immediately so UI does not wait for stale query refresh.
+      if (result) {
         setDciScore(result.current_dci);
-        setDciStatus('disrupted');
-        // Refresh dashboard data
-        await refetch();
-      } else {
-        setSimulationError('Failed to reach disruption threshold. Try again.');
+        setDciStatus(result.dci_status);
+        queryClient.setQueryData(['dci'], {
+          ...(dciData ?? {}),
+          current_dci: result.current_dci,
+          dci_status: result.dci_status,
+        });
       }
+
+      if (result && result.dci_status !== 'disrupted') {
+        setSimulationError(`Simulation completed (DCI: ${result.current_dci.toFixed(3)}, Status: ${result.dci_status}). Raise signals to cross disruption threshold.`);
+      }
+
+      // Refresh non-DCI panels in background; DCI is already updated from simulation response.
+      await Promise.allSettled([refetchWorker(), refetchPolicy(), refetchClaims()]);
     } catch (err: unknown) {
       console.error('Simulation error:', err);
       setSimulationError(getErrorMessage(err, 'Simulation failed. Please try again.'));
     } finally {
       setIsSimulating(false);
     }
-  }, [refetch]);
+  }, [queryClient, dciData, refetchWorker, refetchPolicy, refetchClaims]);
 
   // Phase 3: Process Claim
   const handleProcessClaim = useCallback(async () => {
@@ -300,7 +363,7 @@ export default function DashboardPage() {
         <AlertCircle size={48} color="#EF4444" />
         <p className="text-muted" style={{ fontWeight: 500, textAlign: 'center' }}>Failed to load dashboard</p>
         <p style={{ fontSize: '14px', color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '16px' }}>
-          {error?.message || 'Please check your connection and try again'}
+          {getErrorMessage(error, 'Please check your connection and try again')}
         </p>
         <button
           onClick={() => refetch()}
@@ -320,9 +383,7 @@ export default function DashboardPage() {
     );
   }
 
-  const { worker, active_policy, weekly_summary } = dashboard;
-
-  const firstName = (worker.name || '').split(' ')[0] || 'Worker';
+  const firstName = (worker?.name || '').split(' ')[0] || 'Worker';
 
   // Determine DCI status based on score
   const hasDci = typeof dciScore === 'number' && Number.isFinite(dciScore);
@@ -349,8 +410,8 @@ export default function DashboardPage() {
   const strokeDashoffset = circumference - (circumference * normalizedDci);
 
   // Format dates
-  const startStr = active_policy?.week_start || active_policy?.start_date;
-  const endStr = active_policy?.week_end || active_policy?.end_date;
+  const startStr = dashboard?.active_policy?.week_start || dashboard?.active_policy?.start_date;
+  const endStr = dashboard?.active_policy?.week_end || dashboard?.active_policy?.end_date;
   const start = startStr ? new Date(startStr) : null;
   const end = endStr ? new Date(endStr) : null;
   const dateOptions: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
@@ -595,7 +656,7 @@ export default function DashboardPage() {
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <ShieldCheck size={18} color={statusColor} />
               <span style={{ fontSize: '15px', fontWeight: 600 }}>
-                {active_policy ? `Active Tier ${active_policy.tier}` : 'Tier Pending Calculation'}
+                {dashboard?.active_policy ? `Active Tier ${dashboard.active_policy.tier}` : 'Tier Pending Calculation'}
               </span>
             </div>
             <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{policyWeek}</span>
@@ -603,12 +664,12 @@ export default function DashboardPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
             <span style={{ color: 'var(--text-secondary)' }}>
               Weekly Premium: <strong style={{ color: 'white' }}>
-                {active_policy ? `₹${active_policy.weekly_premium ?? active_policy.premium_amount ?? '—'}` : '—'}
+                {dashboard?.active_policy ? `₹${dashboard.active_policy.weekly_premium ?? dashboard.active_policy.premium_amount ?? '—'}` : '—'}
               </strong>
             </span>
             <span style={{ color: 'var(--text-secondary)' }}>
               Cap: <strong style={{ color: 'white' }}>
-                {active_policy ? `₹${active_policy.coverage_cap_daily}/day` : '—'}
+                {dashboard?.active_policy ? `₹${dashboard.active_policy.coverage_cap_daily}/day` : '—'}
               </strong>
             </span>
           </div>
@@ -820,8 +881,8 @@ export default function DashboardPage() {
           <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Coverage Cap</span>
             <span style={{ fontSize: '22px', fontWeight: 700, color: 'var(--trust-emerald)' }}>
-              {active_policy ? `₹${active_policy.coverage_cap_daily}` : '—'}
-              {active_policy && <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted)' }}>/day</span>}
+              {dashboard?.active_policy ? `₹${dashboard.active_policy.coverage_cap_daily}` : '—'}
+              {dashboard?.active_policy && <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-muted)' }}>/day</span>}
             </span>
           </div>
         </div>
@@ -836,7 +897,7 @@ export default function DashboardPage() {
               <Wallet size={13} color="#94A3B8" />
               <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Premium</span>
             </div>
-            <span style={{ fontSize: '16px', fontWeight: 700 }}>₹{weekly_summary.premium_paid}</span>
+            <span style={{ fontSize: '16px', fontWeight: 700 }}>₹{dashboard?.weekly_summary.premium_paid ?? '—'}</span>
           </div>
 
           <div className="glass-panel" style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -844,7 +905,7 @@ export default function DashboardPage() {
               <AlertCircle size={13} color="#F59E0B" />
               <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Events</span>
             </div>
-            <span style={{ fontSize: '16px', fontWeight: 700 }}>{weekly_summary.disruptions}</span>
+            <span style={{ fontSize: '16px', fontWeight: 700 }}>{dashboard?.weekly_summary.disruptions ?? '—'}</span>
           </div>
 
           <div className="glass-panel" style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -852,7 +913,7 @@ export default function DashboardPage() {
               <CircleDollarSign size={13} color="#10B981" />
               <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Paid Out</span>
             </div>
-            <span style={{ fontSize: '16px', fontWeight: 700, color: '#10B981' }}>₹{weekly_summary.total_paid_out}</span>
+            <span style={{ fontSize: '16px', fontWeight: 700, color: '#10B981' }}>₹{dashboard?.weekly_summary.total_paid_out ?? '—'}</span>
           </div>
         </div>
       </section>
