@@ -1,28 +1,27 @@
 # gigHood API
 
-This document reflects currently mounted FastAPI routers from `backend/main.py`.
+This document reflects the routers mounted in `backend/main.py` for this branch.
 
-Base URLs:
+## Base URLs
 
 1. Local backend: `http://127.0.0.1:8001`
 2. OpenAPI docs: `http://127.0.0.1:8001/docs`
 
-Authentication:
+## Authentication
 
 1. Protected routes require `Authorization: Bearer <access_token>`.
-2. JWT subject is worker ID (`sub` claim).
+2. JWT `sub` claim maps to `workers.id`.
 
 ## Mounted Router Prefixes
 
 1. `/workers`
-2. `/workers/me/demo/*` (mounted from demo router)
+2. `/workers/me/demo/*`
 3. `/policies`
 4. `/claims`
 5. `/location-pings`
 6. `/notifications`
 7. `/chat`
-
-`/admin` is currently not mounted.
+8. `/admin`
 
 ## Health
 
@@ -40,7 +39,7 @@ Response:
 
 ### `POST /workers/auth/otp/send`
 
-Sends mock OTP in development.
+Sends OTP in development/test flow.
 
 Request:
 
@@ -48,109 +47,49 @@ Request:
 { "phone": "9876543210" }
 ```
 
-Response:
-
-```json
-{ "message": "OTP sent successfully." }
-```
-
 ### `POST /workers/auth/otp/verify`
 
 Verifies OTP and returns access token for existing worker.
 
-Request:
-
-```json
-{ "phone": "9876543210", "otp": "123456" }
-```
-
-Returns `404` if worker does not exist.
-
 ### `POST /workers/auth/register`
 
-Registers a worker and immediately returns JWT.
-
-Required fields:
-
-1. `phone`
-2. `name`
-3. `city`
-4. `platform_affiliation`
-5. `platform_id`
-6. `dark_store_zone`
-7. `avg_daily_earnings`
-8. `upi_id`
-9. `device_model`
-10. `device_os_version`
-11. `sim_carrier`
-12. `sim_registration_date`
-
-Optional field:
-
-1. `is_platform_verified` (defaults to `false`)
+Registers worker and returns JWT.
 
 ### `GET /workers/me`
 
-Returns current worker profile.
+Returns authenticated worker profile.
 
 ### `PATCH /workers/me`
 
-Updates current worker profile.
-
-Supported field today:
-
-1. `avg_daily_earnings` (must be positive)
+Updates profile fields (currently earnings-focused updates).
 
 ### `GET /workers/me/policy`
 
-Returns active policy for current worker.
+Returns active policy for authenticated worker.
 
 ### `POST /workers/me/device-token`
 
-Stores Firebase device token.
-
-Request:
-
-```json
-{ "device_token": "<fcm-token>" }
-```
+Stores FCM token for push notifications.
 
 ### `POST /workers/me/location/hex`
 
-Converts lat/lng to H3 hex and updates worker `hex_id`.
-
-Request:
-
-```json
-{ "latitude": 12.9716, "longitude": 77.5946 }
-```
-
-Response:
-
-```json
-{ "hex_id": "..." }
-```
+Maps lat/lng to H3 and updates worker hex assignment.
 
 ### `GET /workers/me/hex/dci`
 
-Returns current DCI snapshot for worker's assigned hex.
+Returns current DCI snapshot for worker hex.
 
 ### `GET /workers/me/claims`
 
-Returns current worker claim history (newest first).
-
-Each claim can include payout execution metadata:
-
-1. `payout_channel`
-2. `payout_transaction_id`
+Returns worker claim history.
 
 ## Demo Endpoints
 
-All demo endpoints are mounted under `/workers/me/demo/*` and require auth.
+All require auth and are mounted under `/workers/me/demo/*`.
 
 ### `POST /workers/me/demo/seed`
 
-Seeds deterministic demo telemetry and DCI history.
+Seeds deterministic demo telemetry + DCI history.
 
 ### `POST /workers/me/demo/simulate-disruption`
 
@@ -164,15 +103,13 @@ Request:
 
 ### `POST /workers/me/demo/process-claim`
 
-Runs end-to-end demo claim processing and returns settlement receipt payload.
+Runs demo claim pipeline and returns settlement-style payload.
 
 ## Policies
 
 ### `POST /policies/create`
 
-Creates active policy for current worker if none exists.
-
-Returns `400` when worker already has an active policy.
+Creates active policy for current worker if one does not exist.
 
 ## Claims
 
@@ -182,35 +119,19 @@ Returns claims for current worker.
 
 ### `POST /claims/webhooks/razorpay`
 
-Razorpay webhook ingestion.
-
-Header:
-
-1. `X-Razorpay-Signature`
-
-Validates signature then mutates payout status.
+Razorpay webhook ingestion endpoint.
 
 ## Location Pings
 
 ### `POST /location-pings`
 
-Ingests worker telemetry for Proof-of-Presence.
-
-Request fields:
-
-1. `hex_id` (required)
-2. `h3_index` (optional alias)
-3. `latitude`
-4. `longitude`
-5. `accuracy_radius`
-6. `network_signal_strength`
-7. `mock_location_flag`
+Ingests worker telemetry for proof-of-presence checks.
 
 ## Chat
 
 ### `POST /chat`
 
-Context-aware worker assistant endpoint.
+Worker support assistant endpoint.
 
 Request:
 
@@ -218,37 +139,43 @@ Request:
 { "message": "What is my current zone risk?", "language": "en" }
 ```
 
-Response shape:
-
-```json
-{
-  "reply": "...",
-  "language": "en",
-  "worker_name": "..."
-}
-```
-
-Supported languages:
-
-1. `en`
-2. `hi`
-3. `ta`
-4. `te`
-5. `kn`
-6. `mr`
-7. `bn`
-8. `as`
-
-Unsupported language values fallback to `en`.
-
 ## Notifications
 
 ### `GET /notifications/`
 
 Placeholder route.
 
-Response:
+## Admin Endpoints
 
-```json
-{ "message": "Notifications API" }
-```
+These routes are mounted in this branch under `/admin/*`.
+
+### Dashboard
+
+1. `GET /admin/dashboard/kpis`
+2. `GET /admin/dashboard/zones`
+3. `GET /admin/dashboard/risk-forecast`
+4. `GET /admin/dashboard/payout-trends`
+5. `GET /admin/dashboard/fraud-queue`
+
+### Payouts
+
+1. `GET /admin/payouts/summary`
+2. `GET /admin/payouts/recent`
+
+### Policies
+
+1. `GET /admin/policies/stats`
+2. `GET /admin/policies/tiers`
+
+### Fraud
+
+1. `GET /admin/fraud/metrics`
+2. `GET /admin/fraud/signals`
+3. `GET /admin/fraud/workers`
+4. `GET /admin/fraud/events`
+
+## Branch Compatibility Note
+
+1. Frontend admin previews must target a backend where `/admin/*` is mounted.
+2. If preview frontend calls a backend without admin routes, `/admin/*` returns 404.
+3. This branch includes frontend fallback behavior for 404/network during admin preview, but production-grade validation should use a real admin-capable backend.

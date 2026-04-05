@@ -1,117 +1,86 @@
-# AGENTS.md — gigHood
+# AGENTS.md - gigHood
 
 ## Project Context
 
 gigHood is a parametric income-protection platform for gig workers.
-The system detects zone-level disruption, validates worker eligibility and trust constraints,
-and routes claims to payout or verification flows.
-
-Primary outcomes:
-
-1. Worker protection during disruption windows
-2. Fast and auditable payout routing
-3. Strong fraud and policy guardrails
+It combines zone disruption indexing, policy logic, claim routing, fraud controls, and payout orchestration.
 
 ## Runtime Architecture
 
 ### Backend
 
-1. FastAPI app entrypoint: `backend/main.py`
-2. HTTP routes: `backend/api/*`
-3. Domain logic: `backend/services/*`
-4. Scheduler jobs: `backend/scheduler/jobs.py`
+1. Entry: `backend/main.py`
+2. Routers: `backend/api/*`
+3. Business logic: `backend/services/*`
+4. Scheduled jobs: `backend/scheduler/jobs.py`
 
 ### Frontend
 
-1. Canonical app root: `frontend/`
-2. Next.js App Router code: `frontend/src/app/`
-3. Worker app routes are under `/worker-app/*`
-4. Legacy alias routes should redirect to `/worker-app/*`
+1. Root: `frontend/`
+2. App Router: `frontend/src/app/`
+3. Worker experience: dark, phone-style shell via route-scoped wrapper.
+4. Admin/public surfaces: light theme, full-width layout.
 
 ### Data Layer
 
-1. Supabase/Postgres client: `backend/db/client.py`
-2. Migration source of truth: `supabase/migrations/`
-3. Spatial extension: PostGIS enabled via `000_init_postgis.sql`
+1. Supabase client: `backend/db/client.py`
+2. Migrations: `supabase/migrations/`
+3. Spatial support: PostGIS
 
 ## Product Flows To Preserve
 
-1. OTP auth -> worker profile -> active policy
-2. Signal ingestion -> DCI update -> disruption status
-3. PoP + fraud evaluation -> route claim path
-4. Fast-track payout execution -> webhook reconciliation
-5. Copilot chat uses worker context and selected app language
+1. OTP auth -> profile completion -> policy lifecycle
+2. Signals -> DCI update -> disruption state
+3. Proof-of-presence + fraud checks -> claim decision path
+4. Payout execution -> webhook reconciliation
+5. Worker chat uses worker context and selected language
+6. Admin metrics remain read-heavy and resilient to partial data
 
-## Documentation Source Of Truth
+## Multi-Environment Rules
 
-Use and update these docs in tandem with code:
-
-1. [README.md](README.md) for architecture intent
-2. [API.md](API.md) for route contracts and payloads
-3. [DATABASE.md](DATABASE.md) for schema and migration-backed fields
-4. [SOLUTION.md](SOLUTION.md) for extended technical narrative
-
-If there is a conflict:
-
-1. Running code in `backend/` and `frontend/` wins
-2. Migrations in `supabase/migrations/` win for schema
-3. Then align docs immediately to code
+1. Production frontend must continue using `NEXT_PUBLIC_API_URL`.
+2. Preview frontend may use `NEXT_PUBLIC_API_URL_PREVIEW` for isolated backend testing.
+3. Admin frontend previews should target backend builds that mount `/admin/*`.
+4. Do not modify production infrastructure while debugging preview branches unless explicitly requested.
 
 ## Engineering Rules
 
-1. Keep route handlers thin in `backend/api/`.
-2. Keep business rules in `backend/services/`.
+1. Keep API handlers thin in `backend/api/`.
+2. Keep domain logic in `backend/services/`.
 3. Keep schema changes migration-first in `supabase/migrations/`.
-4. Keep language default English unless changed by user preference.
-5. Keep worker-facing routing under `/worker-app/*`.
-6. Avoid hardcoded environment assumptions in frontend/backend URLs.
+4. Preserve worker route behavior under `/worker-app/*` and supported legacy aliases.
+5. Avoid theme bleed between worker and admin/public surfaces.
+6. Avoid hardcoded assumptions about environment URLs in frontend/backend.
 
-## Local Run Conventions
+## Documentation Source of Truth
 
-Run commands from repository root unless explicitly stated:
+Always keep these docs aligned with code changes in the same branch:
 
-1. Backend: `uvicorn backend.main:app --reload --host 0.0.0.0 --port 8001`
-2. Frontend: `cd frontend && npm run dev`
-3. Backend tests: `pytest`
-4. Frontend build validation: `cd frontend && npm run build`
+1. `README.md`
+2. `API.md`
+3. `DATABASE.md`
+4. `CONTEXT.md`
+5. `SOLUTION.md`
 
-## Validation Checklist Before Completion
+Conflict resolution order:
 
-1. Backend tests pass.
-2. Frontend compiles and builds.
-3. Auth, dashboard, claims, and chat critical flows still work.
-4. API and DB docs match actual behavior.
-5. No stale references to removed paths/files remain.
+1. Running code (`backend/`, `frontend/`)
+2. Applied migrations (`supabase/migrations/`)
+3. Then docs must be updated immediately.
 
-## Canonical Repository Shape
+## Local Validation Checklist
 
-```text
-gigHood/
-  backend/
-    api/
-    services/
-    scheduler/
-    tests/
-  frontend/
-    src/
-      app/
-      components/
-      hooks/
-      lib/
-      store/
-  supabase/
-    migrations/
-  .github/
-    workflows/
-  README.md
-  API.md
-  DATABASE.md
-  AGENTS.md
-```
+Before closing implementation work:
 
-## Safety and Reliability Guardrails
+1. `pytest` passes for backend.
+2. `npm run build` passes in `frontend/`.
+3. Worker auth/dashboard/chat/payout/profile flows still render.
+4. Admin dashboard routes return expected shape, or documented fallback behavior is active for preview.
+5. Docs reflect real behavior of mounted routes and schema.
 
-1. Never commit secrets or service credentials.
-2. Never bypass migration flow for schema mutations.
-3. Keep claim routing behavior aligned with existing tests and contracts.
-4. Prefer explicit compatibility handling over silent breaking changes.
+## Safety Guardrails
+
+1. Never commit secrets.
+2. Never bypass migrations for schema changes.
+3. Never silently break claim routing behavior.
+4. If unexpected unrelated repo changes appear, stop and confirm with the user before proceeding.

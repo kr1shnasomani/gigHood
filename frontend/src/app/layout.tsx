@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import Providers from '@/components/Providers';
+import AppRouteShell from '@/components/AppRouteShell';
 
 export const metadata: Metadata = {
   title: 'gigHood | AI Income Protection for Gig Workers',
@@ -34,7 +35,7 @@ export default function RootLayout({
       </head>
       <body>
         <Providers>
-          {children}
+          <AppRouteShell>{children}</AppRouteShell>
         </Providers>
       </body>
     </html>
