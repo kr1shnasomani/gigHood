@@ -28,6 +28,7 @@ export interface FraudQueueItem {
   resolution_path: string | null;
   fraud_score: number;
   dci_score: number;
+  payout: number;
   flags: string[];
 }
 

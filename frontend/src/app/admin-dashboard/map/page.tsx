@@ -184,7 +184,7 @@ export default function MapPage() {
             <div className="text-xs text-slate-400 flex justify-between">
               <span>Peak</span>
               <span className="text-red-400 font-bold">
-                {peakZone.zone_name} ({peakZone.dci_score?.toFixed(2)})
+                {peakZone.city} ({peakZone.dci_score?.toFixed(2)})
               </span>
             </div>
           )}
@@ -223,7 +223,7 @@ export default function MapPage() {
           {sortedZones.map((z, i) => (
             <div key={i}>
               <div className="flex justify-between text-xs text-slate-300">
-                <span>{z.zone_name}</span>
+                <span>{z.city}</span>
                 <span style={{ color: dciHex(z.dci_score ?? 0) }}>
                   {(z.dci_score ?? 0).toFixed(2)}
                 </span>
@@ -248,7 +248,7 @@ export default function MapPage() {
                style={{ left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }}>
             <div className="bg-slate-900/90 p-5 rounded-2xl border border-red-400/40 backdrop-blur-xl">
               <p className="text-xs text-slate-400 uppercase">Critical Alert</p>
-              <p className="text-sm text-white font-bold mt-1">{alertZone.zone_name}</p>
+              <p className="text-sm text-white font-bold mt-1">{alertZone.city}</p>
 
               <p className="text-3xl font-black mt-2"
                  style={{ color: dciHex(alertZone.dci_score ?? 0) }}>

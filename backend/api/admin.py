@@ -154,7 +154,7 @@ def get_fraud_queue():
     try:
         # Join logic from claims, workers, and fraud_flags
         claims_res = supabase.table('claims').select(
-            'id, created_at, status, resolution_path, fraud_score, worker_id'
+            'id, created_at, status, resolution_path, fraud_score, worker_id, payout_amount'
         ).order('created_at', desc=True).limit(50).execute()
         
         claims_data = claims_res.data or []
@@ -204,6 +204,7 @@ def get_fraud_queue():
                 "resolution_path": c.get('resolution_path', 'unknown'),
                 "fraud_score": c.get('fraud_score', 0),
                 "dci_score": zone_dci_map.get(event_hex, 0.0),
+                "payout": float(c.get('payout_amount') or 0.0),
                 "flags": flags_dict.get(c['id'], [])
             })
         return result
