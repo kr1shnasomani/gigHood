@@ -2,6 +2,8 @@
 
 This document tracks migration-backed schema in `supabase/migrations/` and runtime contracts used by backend/admin dashboards.
 
+Migration catalog and ordering policy: `supabase/MIGRATIONS.md`.
+
 ## Platform
 
 1. Engine: Supabase Postgres
@@ -116,6 +118,17 @@ Premium collection records and Razorpay references.
 ## Row-Level Security
 
 `013_enable_rls.sql` enables RLS on core operational tables, including workers, zones, policies, signals, DCI history, pings, events, claims, and payment/fraud tables.
+
+## Performance and Cleanup Migrations
+
+1. `017_add_performance_indexes.sql` adds operational query indexes.
+2. `019_drop_redundant_pk_indexes.sql` removes duplicate PK-column indexes (`disruption_events.id`, `policies.id`) because PK constraints already provide indexed access.
+
+Cleanup policy:
+
+1. historical migrations are immutable,
+2. overlapping or redundant changes are fixed by forward migrations,
+3. avoid squashing/deleting already-applied files to prevent environment drift.
 
 ## Compatibility Fields Used by Runtime
 
