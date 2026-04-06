@@ -104,7 +104,7 @@ export default function DashboardPage() {
   const inferLanguageFromCity = useLanguageStore((s) => s.inferLanguageFromCity);
 
   // Load worker profile
-  const { data: worker, refetch: refetchWorker } = useQuery({
+  const { data: worker, refetch: refetchWorker, isPending: isWorkerPending, error: workerError } = useQuery({
     queryKey: ['worker'],
     queryFn: workerApi.getMe,
     staleTime: 5 * 60 * 1000,
@@ -112,7 +112,7 @@ export default function DashboardPage() {
   });
 
   // Load policy independently
-  const { data: activePolicy, refetch: refetchPolicy } = useQuery({
+  const { data: activePolicy, refetch: refetchPolicy, isPending: isPolicyPending, error: policyError } = useQuery({
     queryKey: ['policy'],
     queryFn: workerApi.getMyPolicy,
     staleTime: 5 * 60 * 1000,
@@ -124,6 +124,8 @@ export default function DashboardPage() {
     queryKey: ['dci'],
     queryFn: workerApi.getDci,
     staleTime: 60 * 1000,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1200 * 2 ** attempt, 5000),
     enabled: !!accessToken,
   });
 
@@ -136,9 +138,9 @@ export default function DashboardPage() {
   });
 
   // Composite dashboard for backward compatibility
-  const dashboard = worker && activePolicy && dciData
+  const dashboard = worker && activePolicy
     ? {
-        worker: { ...worker, dynamic_coverage_index: dciData.current_dci },
+        worker: { ...worker, dynamic_coverage_index: dciData?.current_dci ?? null },
         active_policy: activePolicy,
         alerts: [],
         weekly_summary: {
@@ -150,8 +152,8 @@ export default function DashboardPage() {
       }
     : null;
 
-  const isLoading = !worker || !activePolicy;
-  const error: unknown = null;
+  const isLoading = isWorkerPending || isPolicyPending || !worker || !activePolicy;
+  const error: unknown = workerError || policyError || null;
   const refetch = useCallback(async () => {
     await Promise.allSettled([refetchWorker(), refetchPolicy(), refetchDci(), refetchClaims()]);
   }, [refetchWorker, refetchPolicy, refetchDci, refetchClaims]);
@@ -204,7 +206,7 @@ export default function DashboardPage() {
     if (!hasHydrated) return; // Wait for store to hydrate from localStorage
     
     if (!accessToken) {
-      router.replace('/worker-app/login');
+      router.replace('/');
     }
   }, [hasHydrated, accessToken, router]);
 

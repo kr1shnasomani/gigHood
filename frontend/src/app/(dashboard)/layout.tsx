@@ -23,7 +23,7 @@ export default function DashboardLayout({
 
   useEffect(() => {
     if (!isAuthenticated()) {
-      router.replace('/worker-app/login');
+      router.replace('/');
     }
   }, [pathname, router]);
 
@@ -33,6 +33,13 @@ export default function DashboardLayout({
     { href: '/worker-app/chat', matchPath: '/chat', label: t(language, 'nav_copilot'), icon: MessageSquare },
     { href: '/worker-app/profile', matchPath: '/profile', label: t(language, 'nav_profile'), icon: User },
   ];
+
+  useEffect(() => {
+    router.prefetch('/worker-app/home');
+    router.prefetch('/worker-app/payouts');
+    router.prefetch('/worker-app/chat');
+    router.prefetch('/worker-app/profile');
+  }, [router]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>

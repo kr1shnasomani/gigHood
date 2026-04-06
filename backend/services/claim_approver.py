@@ -353,4 +353,16 @@ def process_claim(worker_id: str, event_id: str, policy_id: str) -> dict:
          
     except Exception as e:
          logger.error(f"Error orchestrating Claim Approver for {worker_id} / {event_id}: {e}")
+         try:
+             # Keep claim visible and scored even if processing fails mid-flight.
+             claim_res = supabase.table('claims').select('id,status').eq('worker_id', worker_id).eq('event_id', event_id).limit(1).execute()
+             if claim_res.data:
+                 claim_id = claim_res.data[0]['id']
+                 supabase.table('claims').update({
+                     'fraud_score': 30,
+                     'resolution_path': 'soft_queue',
+                     'status': 'pending',
+                 }).eq('id', claim_id).execute()
+         except Exception as recovery_error:
+             logger.error(f"Claim recovery write failed for {worker_id}/{event_id}: {recovery_error}")
          return {}

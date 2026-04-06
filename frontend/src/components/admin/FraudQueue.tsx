@@ -3,6 +3,27 @@
 import { useEffect, useState } from 'react';
 import { fetchFraudQueue, FraudQueueItem } from '@/lib/admin/adminClient';
 
+function normalizePathLabel(path: string | null | undefined, flags: string[] | undefined, fraudScore: number | null | undefined): string {
+  const normalized = (path || '').toLowerCase();
+  if (normalized === 'fast_track') return 'Fast Track';
+  if (normalized === 'soft_queue') return 'Soft Queue';
+  if (normalized === 'active_verify') return 'Active Verify';
+
+  if ((flags?.length ?? 0) === 0) return 'Fast Track';
+  if ((fraudScore ?? 0) > 70) return 'Active Verify';
+  return 'Soft Queue';
+}
+
+function formatDciScore(value: number | null | undefined): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '--';
+  return value.toFixed(2);
+}
+
+function formatFraudScore(value: number | null | undefined): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '--';
+  return Math.round(value).toString().padStart(2, '0');
+}
+
 export default function FraudQueue() {
   const [queue, setQueue] = useState<FraudQueueItem[]>([]);
 
@@ -51,13 +72,7 @@ export default function FraudQueue() {
               let fraudScoreColor = 'text-emerald-500';
               if ((item.fraud_score ?? 0) > 70) fraudScoreColor = 'text-rose-500';
               else if ((item.fraud_score ?? 0) > 30) fraudScoreColor = 'text-amber-500';
-
-              const pathLabel =
-                (item.flags?.length ?? 0) === 0
-                  ? 'Fast Track'
-                  : (item.fraud_score ?? 0) > 70
-                    ? 'Active Verify'
-                    : 'Soft Queue';
+              const pathLabel = normalizePathLabel(item.resolution_path, item.flags, item.fraud_score);
 
               return (
                 <tr key={item.claim_id} className="hover:bg-slate-50 transition-all cursor-pointer">
@@ -65,13 +80,13 @@ export default function FraudQueue() {
                   <td className="px-5 py-3 text-sm text-slate-700">{item.worker_name}</td>
                   <td className="px-5 py-3 text-sm text-slate-500">{item.city}</td>
                   <td className="px-5 py-3 text-sm font-semibold text-slate-900 text-center">
-                    {item.dci_score.toFixed(2)}
+                    {formatDciScore(item.dci_score)}
                   </td>
                   <td className={`px-5 py-3 text-sm font-semibold text-center ${fraudScoreColor}`}>
-                    {(item.fraud_score ?? 0).toString().padStart(2, '0')}
+                    {formatFraudScore(item.fraud_score)}
                   </td>
                   <td className="px-5 py-3 text-[11px] uppercase tracking-wider text-slate-500 font-semibold">{pathLabel}</td>
-                  <td className="px-5 py-3 text-sm font-semibold">₹{((item.fraud_score ?? 0) * 17 + 300).toLocaleString()}</td>
+                  <td className="px-5 py-3 text-sm font-semibold">₹{Math.round(item.payout ?? 0).toLocaleString()}</td>
                 </tr>
               );
             })}

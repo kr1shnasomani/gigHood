@@ -113,6 +113,13 @@ Representative outputs include:
 3. runtime resolver prefers preview variable for preview deployments and falls back safely to production variable
 4. backend Render deploys should run on Python 3.11.9 (root `.python-version`) for dependency compatibility in this repo
 
+Why `.python-version` exists in this branch:
+
+1. Render/Nixpacks can auto-select a newer Python runtime when no explicit version file exists.
+2. This branch hit Python 3.14 build failures while installing `pydantic-core` from source.
+3. Pinning `3.11.9` keeps dependency resolution stable and avoids `maturin/cargo` build failures.
+4. During merge to production branch, include `.python-version` in the merge set to avoid runtime drift.
+
 Runtime selection is implemented in `frontend/src/lib/api.ts`:
 
 1. localhost -> local backend
@@ -142,6 +149,7 @@ Important:
 
 1. If both variables are set globally without environment scope, production can be routed incorrectly; keep values separated by Vercel env scope.
 2. If preview frontend points at a missing Render URL, users see the network error raised by `frontend/src/lib/api.ts`.
+3. Admin data fallback in `frontend/src/lib/admin/adminClient.ts` is intentionally limited to preview runtime + HTTP 404.
 
 ## 5. Known Branch-Specific Context
 
@@ -160,7 +168,7 @@ Mitigation in this branch:
 1. keep root `.python-version` set to `3.11.9`
 2. retain existing backend dependency set without forcing pydantic-core source compile path
 
-To keep preview UX usable during backend mismatch/outage,
+To keep preview UX usable during missing admin routes,
 `frontend/src/lib/admin/adminClient.ts` includes controlled fallback datasets for:
 
 1. KPI cards
@@ -169,7 +177,16 @@ To keep preview UX usable during backend mismatch/outage,
 4. policy stats/tiers
 5. fraud metrics/signals/workers/events/queue
 
-Fallback activates for status 404 and network-unreachable scenarios.
+Fallback activates only for preview runtime status 404.
+
+## 5.2 Queue and Score Guarantees
+
+Recent hardening added these guarantees:
+
+1. `claims.fraud_score` is non-null (default `30`).
+2. New pending claims are created with provisional `resolution_path=soft_queue` and `fraud_score=30`.
+3. Admin queue `dci_score` resolves from event `dci_peak`, then weighted-sigmoid signal compute, then zone fallback.
+4. Claim approver recovery path writes fallback values if processing throws.
 
 ## 5.1 Release-Candidate Production Notes
 
@@ -201,6 +218,8 @@ This prevents style leakage across surfaces and preserves expected role-based UX
 1. worker routes (`/worker-app/*`, and legacy aliases) remain dark and phone-shell constrained.
 2. admin routes remain light and desktop-width.
 3. route transitions do not leak shell or theme classes between surfaces.
+4. sign-out from admin and worker app returns to `/` (main website).
+5. unauthenticated worker dashboard access redirects to `/`.
 
 ## 7. Operational Guardrails for Future Work
 
@@ -232,12 +251,13 @@ This prevents style leakage across surfaces and preserves expected role-based UX
 ## 8.1 Push-Readiness Checklist (Admin Branch)
 
 1. `git status` clean except intentional docs/code updates.
-2. `frontend/src/lib/api.ts` uses `NEXT_PUBLIC_API_URL` strategy.
-3. docs updated to reflect single env key strategy (`README.md`, `docs/CONTEXT.md`, `AGENTS.md`).
+2. `frontend/src/lib/api.ts` uses preview-aware dual-key strategy (`NEXT_PUBLIC_API_URL_PREVIEW` + `NEXT_PUBLIC_API_URL`).
+3. docs updated to reflect runtime/env strategy and queue guarantees (`README.md`, `docs/API.md`, `docs/DATABASE.md`, `docs/CONTEXT.md`).
 4. `npm run build` succeeds in `frontend/`.
 5. backend tests succeed (`pytest`).
 6. Render latest admin backend deploy is `live`.
 7. Vercel preview environment has correct `NEXT_PUBLIC_API_URL` value.
+8. root `.python-version` is present and set to `3.11.9`.
 
 ## 8.2 Recommended Cutover Sequence
 

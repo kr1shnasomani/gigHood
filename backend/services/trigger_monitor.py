@@ -134,7 +134,10 @@ def _open_disruption_event(hex_id: str, dci_peak: float):
                         'worker_id': pol['worker_id'],
                         'policy_id': pol['id'],
                         'event_id': event_id,
-                        'status': 'pending'
+                        'status': 'pending',
+                        # Provisional defaults; claim approver will overwrite with final path/score.
+                        'resolution_path': 'soft_queue',
+                        'fraud_score': 30,
                     }).execute(),
                     op_name=f"trigger_monitor:create_claim:{pol['worker_id']}",
                 )

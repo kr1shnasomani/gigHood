@@ -1,6 +1,6 @@
 # gigHood Database Schema
 
-This document tracks migration-backed schema in `supabase/migrations/`.
+This document tracks migration-backed schema in `supabase/migrations/` and runtime contracts used by backend/admin dashboards.
 
 ## Platform
 
@@ -30,7 +30,7 @@ Important fields:
 3. profile and identity fields (`name`, `city`, `platform_affiliation`, `platform_id`, `is_platform_verified`)
 4. earnings + payout fields (`avg_daily_earnings`, `upi_id`)
 5. device and trust fields (`device_model`, `sim_*`, `device_token`, `trust_score`, `status`)
-6. zone binding field `hex_id`
+6. zone binding fields may appear as `hex_id` and/or `h3_index` depending on environment history
 
 ### `hex_zones`
 
@@ -38,7 +38,7 @@ Migrations: `002_create_hex_zones.sql`, `011_add_hysteresis_tracking.sql`
 
 Important fields:
 
-1. `hex_id` PK
+1. primary zone key is `hex_id` in early migration, with compatibility support for `h3_index` in runtime environments
 2. geospatial fields (`centroid`, `boundary`)
 3. disruption state (`current_dci`, `dci_status`, `last_computed_at`)
 4. hysteresis helper (`consecutive_normal_cycles`)
@@ -78,9 +78,14 @@ Migration: `007_create_disruption_events.sql`
 
 Tracks disruption lifecycle windows per hex.
 
+Runtime note:
+
+1. `dci_peak` is used as admin queue DCI snapshot.
+2. If absent, runtime can compute DCI using weighted sigmoid from event `trigger_signals`.
+
 ### `claims`
 
-Migrations: `008_create_claims.sql`, `016_add_payout_channel_transaction_to_claims.sql`
+Migrations: `008_create_claims.sql`, `016_add_payout_channel_transaction_to_claims.sql`, `018_backfill_claim_scores_and_event_dci_defaults.sql`
 
 Important fields:
 
@@ -88,6 +93,13 @@ Important fields:
 2. fraud and resolution fields (`fraud_score`, `resolution_path`)
 3. payout fields (`payout_amount`, `status`, `payout_channel`, `payout_transaction_id`)
 4. unique key on (`worker_id`, `event_id`)
+
+Post-018 guarantees:
+
+1. `claims.fraud_score` has default `30`.
+2. `claims.fraud_score` is `NOT NULL`.
+3. pending rows with null `resolution_path` are normalized to `soft_queue`.
+4. denied rows with null `resolution_path` are normalized to `denied`.
 
 ### `fraud_flags`
 
@@ -115,6 +127,7 @@ Known compatibility fields:
 2. `hex_zones.is_disrupted` (environment-dependent)
 3. `location_pings.h3_index`
 4. component aliases in `dci_history`
+5. `disruption_events.h3_index` may coexist with `hex_id` depending on environment
 
 ## Operational Note for Admin Analytics
 
@@ -125,4 +138,8 @@ Admin endpoints rely on:
 3. `workers` for identity/city joins
 4. `hex_zones` and `disruption_events` for zone risk context
 
-If admin dashboards appear empty, first validate these tables contain data in the targeted backend environment.
+If admin dashboards appear empty or show repeated `0.00` DCI, validate:
+
+1. `claims.event_id` is populated.
+2. `disruption_events.dci_peak` is populated for recent events.
+3. migration `018_backfill_claim_scores_and_event_dci_defaults.sql` has been applied.

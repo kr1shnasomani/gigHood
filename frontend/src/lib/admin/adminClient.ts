@@ -67,10 +67,24 @@ export interface MonthlyTrend {
 
 type StatusError = Error & { status?: number };
 
+function isPreviewRuntime(): boolean {
+  const env = process.env.NEXT_PUBLIC_VERCEL_ENV;
+  if (env === 'preview') return true;
+  if (env === 'production') return false;
+
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    return host.endsWith('.vercel.app') && !host.includes('gighood.vercel.app');
+  }
+
+  return false;
+}
+
 function shouldUsePreviewFallback(error: unknown): boolean {
   const maybe = error as StatusError;
   const status = maybe?.status;
-  return status === 404 || status === 0;
+  // Fallback demo data should be used only for missing admin routes on preview backends.
+  return isPreviewRuntime() && status === 404;
 }
 
 async function getWithFallback<T>(url: string, fallbackFactory: () => T): Promise<T> {

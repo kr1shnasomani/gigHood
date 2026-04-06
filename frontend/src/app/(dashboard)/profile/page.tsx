@@ -171,8 +171,11 @@ export default function ProfilePage() {
   // ── Logout ──────────────────────────────────────────────
   const handleLogout = () => {
     deleteToken();
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('gighood-auth-store');
+    }
     queryClient.clear(); // wipe all react-query cache
-    router.replace('/worker-app/login');
+    router.replace('/');
   };
 
   // ── Update earnings ─────────────────────────────────────

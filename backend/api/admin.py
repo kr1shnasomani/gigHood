@@ -1,9 +1,65 @@
 import traceback
+import math
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from backend.db.client import supabase
 
 router = APIRouter()
+
+def _clamp01(value: float) -> float:
+    return max(0.0, min(1.0, value))
+
+def _compute_dci_from_signals(trigger_signals: dict | None) -> float | None:
+    if not isinstance(trigger_signals, dict):
+        return None
+
+    # SOLUTION.md formula: DCI = sigmoid(0.45*W + 0.25*T + 0.20*P + 0.10*S)
+    weights = {'W': 0.45, 'T': 0.25, 'P': 0.20, 'S': 0.10}
+    weighted_sum = 0.0
+    seen = False
+
+    for key, weight in weights.items():
+        raw = trigger_signals.get(key)
+        if raw is None:
+            continue
+        try:
+            val = float(raw)
+        except (TypeError, ValueError):
+            continue
+        weighted_sum += weight * val
+        seen = True
+
+    if not seen:
+        return None
+
+    sigmoid = 1.0 / (1.0 + math.exp(-weighted_sum))
+    return _clamp01(sigmoid)
+
+def _derive_fraud_score(claim: dict, flag_contributions: list[int]) -> int:
+    raw = claim.get('fraud_score')
+    if raw is not None:
+        try:
+            return max(0, min(100, int(float(raw))))
+        except (TypeError, ValueError):
+            pass
+
+    if flag_contributions:
+        return max(0, min(100, int(sum(flag_contributions))))
+
+    path = str(claim.get('resolution_path') or '').lower()
+    status = str(claim.get('status') or '').lower()
+
+    # Path bands aligned to SOLUTION.md:
+    # <30 fast_track, 30-59 soft_queue, 60-79 active_verify, >=80 denied.
+    if status == 'denied' or path == 'denied':
+        return 80
+    if path == 'active_verify':
+        return 65
+    if path == 'soft_queue':
+        return 35
+    if path == 'fast_track':
+        return 15
+    return 30
 
 @router.get("/dashboard/kpis")
 def get_kpis():
@@ -154,7 +210,7 @@ def get_fraud_queue():
     try:
         # Join logic from claims, workers, and fraud_flags
         claims_res = supabase.table('claims').select(
-            'id, created_at, status, resolution_path, fraud_score, worker_id, payout_amount'
+            'id, created_at, status, resolution_path, fraud_score, worker_id, payout_amount, event_id'
         ).order('created_at', desc=True).limit(50).execute()
         
         claims_data = claims_res.data or []
@@ -170,31 +226,63 @@ def get_fraud_queue():
         event_ids = [c['event_id'] for c in claims_data if c.get('event_id')]
         event_hex_map: dict[str, str] = {}
         zone_dci_map: dict[str, float] = {}
+        event_dci_map: dict[str, float] = {}
 
         if event_ids:
-            event_res = supabase.table('disruption_events').select('id,hex_id').in_('id', event_ids).execute()
+            event_res = supabase.table('disruption_events').select('id,hex_id,dci_peak,trigger_signals').in_('id', event_ids).execute()
             for e in (event_res.data or []):
                 if e.get('id') and e.get('hex_id'):
                     event_hex_map[e['id']] = e['hex_id']
 
+                if e.get('id'):
+                    dci_peak = e.get('dci_peak')
+                    dci_value = None
+                    try:
+                        if dci_peak is not None:
+                            dci_value = _clamp01(float(dci_peak))
+                    except (TypeError, ValueError):
+                        dci_value = None
+
+                    if dci_value is None:
+                        dci_value = _compute_dci_from_signals(e.get('trigger_signals'))
+
+                    if dci_value is not None:
+                        event_dci_map[e['id']] = dci_value
+
         if event_hex_map:
             hex_ids = list(set(event_hex_map.values()))
-            zone_res = supabase.table('hex_zones').select('hex_id,current_dci').in_('hex_id', hex_ids).execute()
+            zone_res = supabase.table('hex_zones').select('h3_index,current_dci').in_('h3_index', hex_ids).execute()
             for z in (zone_res.data or []):
-                if z.get('hex_id'):
-                    zone_dci_map[z['hex_id']] = float(z.get('current_dci') or 0.0)
+                if z.get('h3_index'):
+                    zone_dci_map[z['h3_index']] = float(z.get('current_dci') or 0.0)
 
         flags_dict = {cid: [] for cid in claim_ids}
+        flag_score_dict: dict[str, list[int]] = {cid: [] for cid in claim_ids}
         if claim_ids:
-            flags_res = supabase.table('fraud_flags').select('claim_id, flag_type').in_('claim_id', claim_ids).execute()
+            flags_res = supabase.table('fraud_flags').select('claim_id, flag_type, score_contribution').in_('claim_id', claim_ids).execute()
             for f in (flags_res.data or []):
                 if f['claim_id'] in flags_dict:
                     flags_dict[f['claim_id']].append(f['flag_type'])
+                    score = f.get('score_contribution')
+                    if score is not None:
+                        try:
+                            flag_score_dict[f['claim_id']].append(int(score))
+                        except (TypeError, ValueError):
+                            pass
                     
         result = []
         for c in claims_data:
             c_worker = workers_dict.get(c['worker_id'], {})
-            event_hex = event_hex_map.get(c.get('event_id'))
+            event_id = c.get('event_id')
+            event_hex = event_hex_map.get(event_id)
+            fraud_score = _derive_fraud_score(c, flag_score_dict.get(c['id'], []))
+
+            dci_score = event_dci_map.get(event_id) if event_id else None
+            if dci_score is None and event_hex:
+                dci_score = zone_dci_map.get(event_hex)
+            if dci_score is None:
+                dci_score = 0.0
+
             result.append({
                 "claim_id": c['id'],
                 "created_at": c['created_at'],
@@ -202,8 +290,8 @@ def get_fraud_queue():
                 "city": c_worker.get('city', 'Unknown City'),
                 "status": c.get('status', 'unknown'),
                 "resolution_path": c.get('resolution_path', 'unknown'),
-                "fraud_score": c.get('fraud_score', 0),
-                "dci_score": zone_dci_map.get(event_hex, 0.0),
+                "fraud_score": fraud_score,
+                "dci_score": round(float(dci_score), 3),
                 "payout": float(c.get('payout_amount') or 0.0),
                 "flags": flags_dict.get(c['id'], [])
             })

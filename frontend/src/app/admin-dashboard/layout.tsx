@@ -3,7 +3,7 @@
 import { ReactNode, useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   Grid3x3,
   Map,
@@ -13,6 +13,7 @@ import {
   DollarSign,
   Settings,
   HelpCircle,
+  LogOut,
   Bell,
   Search,
 } from 'lucide-react'
@@ -20,24 +21,39 @@ import {
 import api from '@/lib/api'
 import icon from '@/app/icon.jpg'
 
+const SIDEBAR_NAV_ITEMS = [
+  { icon: Grid3x3, label: 'Overview', href: '/admin-dashboard' },
+  { icon: Map, label: 'H3 Hex Map', href: '/admin-dashboard/map' },
+  { icon: FileText, label: 'Claims', href: '/admin-dashboard/claims' },
+  { icon: AlertTriangle, label: 'Fraud Monitor', href: '/admin-dashboard/fraud' },
+  { icon: Shield, label: 'Active Policies', href: '/admin-dashboard/policies' },
+  { icon: DollarSign, label: 'Payout Summary', href: '/admin-dashboard/payouts' },
+]
+
 /* =========================
    SIDEBAR
 ========================= */
 
 const Sidebar = () => {
   const pathname = usePathname()
+  const router = useRouter()
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + '/')
 
-  const navItems = [
-    { icon: Grid3x3, label: 'Overview', href: '/admin-dashboard' },
-    { icon: Map, label: 'H3 Hex Map', href: '/admin-dashboard/map' },
-    { icon: FileText, label: 'Claims', href: '/admin-dashboard/claims' },
-    { icon: AlertTriangle, label: 'Fraud Monitor', href: '/admin-dashboard/fraud' },
-    { icon: Shield, label: 'Active Policies', href: '/admin-dashboard/policies' },
-    { icon: DollarSign, label: 'Payout Summary', href: '/admin-dashboard/payouts' },
-  ]
+  useEffect(() => {
+    SIDEBAR_NAV_ITEMS.forEach((item) => router.prefetch(item.href))
+    router.prefetch('/admin-dashboard/settings')
+  }, [router])
+
+  const handleSignOut = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('gighood_jwt')
+      localStorage.removeItem('gighood-auth-store')
+      localStorage.removeItem('gighood-language-store')
+    }
+    router.replace('/')
+  }
 
   return (
     <div className="w-56 bg-[#0B1220] text-gray-300 flex flex-col h-screen fixed left-0 top-0 border-r border-white/5">
@@ -61,7 +77,7 @@ const Sidebar = () => {
 
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-        {navItems.map((item) => {
+        {SIDEBAR_NAV_ITEMS.map((item) => {
           const Icon = item.icon
           const active = isActive(item.href)
 
@@ -99,6 +115,14 @@ const Sidebar = () => {
           <HelpCircle size={20} />
           <span className="text-sm">Support</span>
         </Link>
+
+        <button
+          onClick={handleSignOut}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-red-500/10 text-gray-400 hover:text-red-300 transition-colors"
+        >
+          <LogOut size={20} />
+          <span className="text-sm">Sign Out</span>
+        </button>
       </div>
     </div>
   )

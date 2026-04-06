@@ -35,22 +35,22 @@ export default function FraudMonitor() {
         setWorkers(workersData);
         setEvents(eventsData);
 
-        // Generate mock Neo4j network graph from workers data
+        // Build deterministic graph nodes for stable rendering.
         const nodes = workersData.map((w) => ({
           id: w.id,
           label: w.id.slice(0, 8),
           riskLevel: w.risk as 'CRITICAL' | 'HIGH' | 'MEDIUM',
-          fraudScore: Math.floor(Math.random() * 100),
+          fraudScore: deriveFraudScoreFromWorker(w),
         }));
 
-        // Mock edges: create connections between high-risk workers
         const edges = [];
-        for (let i = 0; i < Math.min(workersData.length - 1, 3); i++) {
+        for (let i = 0; i < Math.min(workersData.length - 1, 4); i++) {
+          const edgeLabel = signalsData[i % Math.max(signalsData.length, 1)]?.label || 'signal_overlap';
           edges.push({
             source: workersData[i].id,
             target: workersData[i + 1].id,
-            label: 'shared_device',
-            weight: Math.random() * 0.8 + 0.2,
+            label: edgeLabel,
+            weight: deriveEdgeWeight(workersData[i], workersData[i + 1]),
           });
         }
 
@@ -63,7 +63,10 @@ export default function FraudMonitor() {
     };
 
     loadData();
-    const interval = setInterval(loadData, 30000); // Refresh every 30 seconds
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      loadData();
+    }, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -255,9 +258,9 @@ export default function FraudMonitor() {
       </div>
 
       {/* NETWORK GRAPH */}
-      {/*  <div>
+      <div>
         <FraudNetworkGraph data={networkGraph} />
-      </div> */}
+      </div>
 
       {/* TABLE */}
       <div className="bg-white rounded-xl shadow-sm">
@@ -343,6 +346,29 @@ export default function FraudMonitor() {
       </div>
     </div>
   );
+}
+
+function deriveFraudScoreFromWorker(worker: FraudWorker): number {
+  const baseByRisk = {
+    CRITICAL: 84,
+    HIGH: 68,
+    MEDIUM: 44,
+  } as const;
+
+  const base = baseByRisk[worker.risk] ?? 36;
+  const variation = worker.id
+    .split('')
+    .reduce((sum, ch) => sum + ch.charCodeAt(0), 0) % 12;
+
+  return Math.min(99, Math.max(0, base + variation));
+}
+
+function deriveEdgeWeight(source: FraudWorker, target: FraudWorker): number {
+  const distance = Math.abs(
+    source.id.split('').reduce((sum, ch) => sum + ch.charCodeAt(0), 0) -
+    target.id.split('').reduce((sum, ch) => sum + ch.charCodeAt(0), 0)
+  );
+  return Math.max(0.2, Math.min(1, 1 - (distance % 60) / 100));
 }
 
 function getRiskStyle(risk: string): string {

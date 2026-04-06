@@ -99,7 +99,11 @@ setup.bat
 ### Backend
 
 ```bash
+# one-time setup (if venv is missing)
+python3.11 -m venv venv
+
 source venv/bin/activate
+pip install -r backend/requirements.txt
 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8001
 ```
 
@@ -139,6 +143,19 @@ docker compose down
 3. Recommended: always set both values in Vercel (`Preview` + `Production`) to avoid accidental routing drift.
 4. Admin frontend previews require a backend that mounts `/admin/*`.
 5. Render backend deploys in this repo require root `.python-version` pinned to `3.11.9` to avoid Python 3.14 package build failures (`pydantic-core` source build errors).
+
+## Python Runtime Pinning
+
+1. This branch intentionally includes root `.python-version` set to `3.11.9`.
+2. This repo does not rely on `pyproject.toml` or `runtime.txt` for Render Python selection.
+3. If this file is omitted during merge, Render may auto-upgrade Python and break dependency builds.
+4. When merging admin/staging into main, include `.python-version` in the merge commit to keep production runtime stable.
+
+## Sign-Out and Redirect Behavior
+
+1. Admin sign-out returns users to `/` (main website).
+2. Worker app sign-out returns users to `/` (main website).
+3. Unauthenticated worker dashboard access redirects to `/`.
 
 ## Pre-Merge Release Checklist
 

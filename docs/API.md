@@ -157,6 +157,34 @@ These routes are mounted in this branch under `/admin/*`.
 4. `GET /admin/dashboard/payout-trends`
 5. `GET /admin/dashboard/fraud-queue`
 
+`GET /admin/dashboard/fraud-queue` behavior details:
+
+1. Joins claims, workers, disruption events, and fraud flags.
+2. Always returns a render-safe `fraud_score` (non-null integer).
+3. Returns `dci_score` using this priority:
+	 - `disruption_events.dci_peak`
+	 - computed DCI from event `trigger_signals` using `sigma(0.45W + 0.25T + 0.20P + 0.10S)`
+	 - `hex_zones.current_dci`
+	 - `0.0` fallback only if all data is unavailable
+4. Returns `resolution_path` and `status` for path-chip rendering.
+
+Example response item:
+
+```json
+{
+	"claim_id": "f1990ed6-e01a-4ad9-b49f-f8ebb42b8b00",
+	"created_at": "2026-04-06T07:35:48.243759+00:00",
+	"worker_name": "Khusbu Raj",
+	"city": "Chennai",
+	"status": "pending",
+	"resolution_path": "soft_queue",
+	"fraud_score": 25,
+	"dci_score": 0.885,
+	"payout": 0.0,
+	"flags": []
+}
+```
+
 ### Payouts
 
 1. `GET /admin/payouts/summary`
@@ -178,4 +206,10 @@ These routes are mounted in this branch under `/admin/*`.
 
 1. Frontend admin previews must target a backend where `/admin/*` is mounted.
 2. If preview frontend calls a backend without admin routes, `/admin/*` returns 404.
-3. This branch includes frontend fallback behavior for 404/network during admin preview, but production-grade validation should use a real admin-capable backend.
+3. This branch includes preview fallback behavior for admin endpoints on preview runtime 404s only. Production-grade validation should use a real admin-capable backend.
+
+## Frontend Session Behavior
+
+1. Admin sign-out clears local auth/session keys and redirects to `/` (main website).
+2. Worker sign-out clears token/cache and redirects to `/`.
+3. Protected worker routes redirect unauthenticated sessions to `/`.

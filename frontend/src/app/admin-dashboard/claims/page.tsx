@@ -7,6 +7,18 @@ import {
   FraudQueueItem,
 } from '@/lib/admin/adminClient';
 
+function normalizePath(path: string | null | undefined): 'FAST TRACK' | 'SOFT QUEUE' | 'ACTIVE VERIFY' {
+  const normalized = (path || '').toLowerCase();
+  if (normalized === 'fast_track') return 'FAST TRACK';
+  if (normalized === 'soft_queue') return 'SOFT QUEUE';
+  return 'ACTIVE VERIFY';
+}
+
+function formatScore(value: number | null | undefined, digits = 0): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
+  return digits > 0 ? value.toFixed(digits) : String(Math.round(value)).padStart(2, '0');
+}
+
 export default function Claims() {
   const [claimsData, setClaimsData]     = useState<FraudQueueItem[]>([]);
   const [loading, setLoading]           = useState(true);
@@ -19,7 +31,9 @@ export default function Claims() {
       try {
         const data = await fetchFraudQueue();
         setClaimsData(data);
-        if (!selectedClaim && data.length) setSelectedClaim(data[0]);
+        if (data.length) {
+          setSelectedClaim((prev) => prev ?? data[0]);
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -27,7 +41,10 @@ export default function Claims() {
       }
     };
     loadData();
-    const interval = setInterval(loadData, 5000);
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      loadData();
+    }, 15000);
     return () => clearInterval(interval);
   }, []);
 
@@ -38,19 +55,23 @@ export default function Claims() {
   };
 
   const getPathConfig = (path: string | null) => {
-    if (path === 'FAST_TRACK') return { color: '#22c55e', label: 'FAST TRACK',    barWidth: '80%', dotColor: '#22c55e' };
-    if (path === 'SOFT_QUEUE') return { color: '#f97316', label: 'SOFT QUEUE',    barWidth: '50%', dotColor: '#f97316' };
-    return                            { color: '#a855f7', label: 'ACTIVE VERIFY', barWidth: '30%', dotColor: '#a855f7' };
+    const normalized = normalizePath(path);
+    if (normalized === 'FAST TRACK') return { color: '#22c55e', label: 'FAST TRACK', barWidth: '80%', dotColor: '#22c55e' };
+    if (normalized === 'SOFT QUEUE') return { color: '#f97316', label: 'SOFT QUEUE', barWidth: '50%', dotColor: '#f97316' };
+    return { color: '#a855f7', label: 'ACTIVE VERIFY', barWidth: '30%', dotColor: '#a855f7' };
   };
 
   const isSafe = (claim: FraudQueueItem) => claim.fraud_score < 20;
 
   const getAuditNarrative = (claim: FraudQueueItem) => {
-    if (claim.resolution_path === 'FAST_TRACK')
-      return `Path 1: Fast Track — DCI ${claim.dci_score ?? '—'} confirmed. High spatial-temporal correlation found in Zone ${claim.city}. Payout executed at T+24ms via Ledger Node 4.`;
-    if (claim.resolution_path === 'SOFT_QUEUE')
-      return `Path 2: Soft Queue — DCI ${claim.dci_score ?? '—'} flagged for secondary review. Fraud score ${claim.fraud_score} exceeds threshold. Awaiting manual clearance before payout release.`;
-    return `Path 3: Active Verify — DCI ${claim.dci_score ?? '—'} requires active verification. Fraud score ${claim.fraud_score} elevated. Escalated for investigator review in Zone ${claim.city}.`;
+    const path = normalizePath(claim.resolution_path);
+    if (path === 'FAST TRACK') {
+      return `Path 1: Fast Track — DCI ${formatScore(claim.dci_score, 2)} confirmed. High spatial-temporal correlation found in Zone ${claim.city}. Payout executed at T+24ms via Ledger Node 4.`;
+    }
+    if (path === 'SOFT QUEUE') {
+      return `Path 2: Soft Queue — DCI ${formatScore(claim.dci_score, 2)} flagged for secondary review. Fraud score ${formatScore(claim.fraud_score)} exceeds threshold. Awaiting manual clearance before payout release.`;
+    }
+    return `Path 3: Active Verify — DCI ${formatScore(claim.dci_score, 2)} requires active verification. Fraud score ${formatScore(claim.fraud_score)} elevated. Escalated for investigator review in Zone ${claim.city}.`;
   };
 
   // ── Working CSV Export ──────────────────────────────────────────────────────
@@ -79,8 +100,12 @@ export default function Claims() {
 
   // ── Filtering ────────────────────────────────────────────────────────────────
   const filteredData = claimsData.filter((c) => {
-    const pathLabel = (c.resolution_path ?? 'UNKNOWN').replace('_', ' ');
-    return pathFilter === 'All Paths' || pathLabel === pathFilter;
+    const pathLabel = normalizePath(c.resolution_path);
+    const statusLabel = c.fraud_score < 20 ? 'Verified Safe' : 'Under Review';
+
+    const statusMatches = statusFilter === 'All Statuses' || statusLabel === statusFilter;
+    const pathMatches = pathFilter === 'All Paths' || pathLabel === pathFilter;
+    return statusMatches && pathMatches;
   });
 
   if (loading) {
@@ -166,8 +191,8 @@ export default function Claims() {
                     <td style={{ padding: '14px 18px', fontWeight: 700, color: '#0f172a' }}>{claim.claim_id}</td>
                     <td style={{ padding: '14px 18px', color: '#334155' }}>{claim.worker_name}</td>
                     <td style={{ padding: '14px 18px', color: '#94a3b8', fontFamily: 'monospace', fontSize: 12 }}>{claim.city}</td>
-                    <td style={{ padding: '14px 18px', fontWeight: 600, color: '#0f172a' }}>{claim.dci_score ?? '—'}</td>
-                    <td style={{ padding: '14px 18px', fontWeight: 700, fontSize: 15, color: getFraudColor(claim.fraud_score) }}>{String(claim.fraud_score).padStart(2, '0')}</td>
+                    <td style={{ padding: '14px 18px', fontWeight: 600, color: '#0f172a' }}>{formatScore(claim.dci_score, 2)}</td>
+                    <td style={{ padding: '14px 18px', fontWeight: 700, fontSize: 15, color: getFraudColor(claim.fraud_score) }}>{formatScore(claim.fraud_score)}</td>
                     <td style={{ padding: '14px 18px', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', color: cpc.color }}>{cpc.label}</td>
                     <td style={{ padding: '14px 18px', fontWeight: 500, color: '#334155' }}>₹{claim.payout ?? 0}</td>
                     <td style={{ padding: '14px 18px' }}>
@@ -212,12 +237,12 @@ export default function Claims() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div style={S.miniCard}>
                 <div style={S.label}>DCI Score</div>
-                <div style={{ fontSize: 26, fontWeight: 800, color: '#f1f5f9' }}>{sel.dci_score ?? '—'}</div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: '#f1f5f9' }}>{formatScore(sel.dci_score, 2)}</div>
                 <div style={{ fontSize: 10, color: '#22c55e', marginTop: 4 }}>Confirmed Path 1</div>
               </div>
               <div style={S.miniCard}>
                 <div style={S.label}>Fraud Score</div>
-                <div style={{ fontSize: 26, fontWeight: 800, color: getFraudColor(sel.fraud_score) }}>{String(sel.fraud_score).padStart(2, '0')}</div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: getFraudColor(sel.fraud_score) }}>{formatScore(sel.fraud_score)}</div>
                 <div style={{ fontSize: 10, color: isSafe(sel) ? '#22c55e' : '#f97316', marginTop: 4 }}>Status: {isSafe(sel) ? 'Safe' : 'Review'}</div>
               </div>
             </div>

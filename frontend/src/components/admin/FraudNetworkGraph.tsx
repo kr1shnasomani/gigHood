@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 export interface FraudNode {
   id: string;
@@ -27,176 +27,139 @@ interface Position {
 }
 
 export default function FraudNetworkGraph({ data }: { data: NetworkGraph }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+  const [filter, setFilter] = useState<'ALL' | FraudNode['riskLevel']>('ALL');
 
-  const positions = useMemo(() => {
-    const newPositions = new Map<string, Position>();
-    const radius = 150;
+  const { visibleNodes, visibleEdges, positions, centerNodeId } = useMemo(() => {
+    if (data.nodes.length === 0) {
+      return {
+        visibleNodes: [] as FraudNode[],
+        visibleEdges: [] as FraudEdge[],
+        positions: new Map<string, Position>(),
+        centerNodeId: null as string | null,
+      };
+    }
 
-    // Initialize positions in a circle
-    data.nodes.forEach((node, idx) => {
-      const angle = (idx / data.nodes.length) * 2 * Math.PI;
-      newPositions.set(node.id, {
-        x: radius * Math.cos(angle),
-        y: radius * Math.sin(angle),
+    const degreeMap = new Map<string, number>();
+    data.nodes.forEach((n) => degreeMap.set(n.id, 0));
+    data.edges.forEach((e) => {
+      degreeMap.set(e.source, (degreeMap.get(e.source) ?? 0) + 1);
+      degreeMap.set(e.target, (degreeMap.get(e.target) ?? 0) + 1);
+    });
+
+    const centerNode = [...data.nodes].sort((a, b) => (degreeMap.get(b.id) ?? 0) - (degreeMap.get(a.id) ?? 0))[0];
+    const filteredNodes = data.nodes.filter((n) => filter === 'ALL' || n.riskLevel === filter || n.id === centerNode.id);
+    const nodeIdSet = new Set(filteredNodes.map((n) => n.id));
+    const filteredEdges = data.edges.filter((e) => nodeIdSet.has(e.source) && nodeIdSet.has(e.target));
+
+    const positionsMap = new Map<string, Position>();
+    const viewCenter = { x: 490, y: 290 };
+
+    positionsMap.set(centerNode.id, viewCenter);
+
+    const ringNodes = filteredNodes.filter((n) => n.id !== centerNode.id);
+    const radius = Math.max(160, Math.min(250, 120 + ringNodes.length * 8));
+    ringNodes.forEach((node, idx) => {
+      const angle = (-Math.PI / 2) + (2 * Math.PI * idx) / Math.max(1, ringNodes.length);
+      positionsMap.set(node.id, {
+        x: viewCenter.x + radius * Math.cos(angle),
+        y: viewCenter.y + radius * Math.sin(angle),
       });
     });
 
-    return newPositions;
-  }, [data.nodes]);
+    return {
+      visibleNodes: filteredNodes,
+      visibleEdges: filteredEdges,
+      positions: positionsMap,
+      centerNodeId: centerNode.id,
+    };
+  }, [data.edges, data.nodes, filter]);
 
-  // Render canvas
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || positions.size === 0) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const width = canvas.width;
-    const height = canvas.height;
-    const centerX = width / 2;
-    const centerY = height / 2;
-
-    // Clear canvas
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(0, 0, width, height);
-
-    // Draw edges
-    ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)';
-    ctx.lineWidth = 2;
-    data.edges.forEach((edge) => {
-      const sourcePos = positions.get(edge.source);
-      const targetPos = positions.get(edge.target);
-      if (!sourcePos || !targetPos) return;
-
-      ctx.beginPath();
-      ctx.moveTo(centerX + sourcePos.x, centerY + sourcePos.y);
-      ctx.lineTo(centerX + targetPos.x, centerY + targetPos.y);
-      ctx.stroke();
-
-      // Draw edge label at midpoint
-      const midX = (sourcePos.x + targetPos.x) / 2;
-      const midY = (sourcePos.y + targetPos.y) / 2;
-      ctx.fillStyle = 'rgba(148, 163, 184, 0.7)';
-      ctx.font = '10px Inter, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(edge.label, centerX + midX, centerY + midY);
-    });
-
-    // Draw nodes
-    data.nodes.forEach((node) => {
-      const pos = positions.get(node.id);
-      if (!pos) return;
-
-      const x = centerX + pos.x;
-      const y = centerY + pos.y;
-      const radius = 30;
-      const isHovered = hoveredNode === node.id;
-
-      // Node background
-      const nodeColor = {
-        CRITICAL: '#ef4444',
-        HIGH: '#f97316',
-        MEDIUM: '#eab308',
-        LOW: '#22c55e',
-      }[node.riskLevel];
-
-      ctx.fillStyle = isHovered ? nodeColor : `${nodeColor}80`;
-      ctx.beginPath();
-      ctx.arc(x, y, radius, 0, 2 * Math.PI);
-      ctx.fill();
-
-      // Node border
-      ctx.strokeStyle = nodeColor;
-      ctx.lineWidth = isHovered ? 4 : 2;
-      ctx.stroke();
-
-      // Node label
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 12px Inter, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(node.label, x, y - 8);
-
-      // Fraud score
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-      ctx.font = '11px Inter, sans-serif';
-      ctx.fillText(`${node.fraudScore}`, x, y + 10);
-    });
-
-    // Draw legend
-    const legendX = 20;
-    const legendY = 20;
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
-    ctx.fillRect(legendX - 5, legendY - 5, 200, 140);
-
-    ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(legendX - 5, legendY - 5, 200, 140);
-
-    ctx.fillStyle = '#e2e8f0';
-    ctx.font = 'bold 12px Inter, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText('Fraud Network', legendX, legendY + 15);
-
-    const riskLevels = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const;
-    riskLevels.forEach((level, idx) => {
-      const colors = {
-        CRITICAL: '#ef4444',
-        HIGH: '#f97316',
-        MEDIUM: '#eab308',
-        LOW: '#22c55e',
-      };
-
-      ctx.fillStyle = colors[level];
-      ctx.fillRect(legendX, legendY + 35 + idx * 20, 12, 12);
-
-      ctx.fillStyle = '#cbd5e1';
-      ctx.font = '11px Inter, sans-serif';
-      ctx.fillText(level, legendX + 20, legendY + 43 + idx * 20);
-    });
-  }, [data, positions, hoveredNode]);
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left - canvas.width / 2;
-    const y = e.clientY - rect.top - canvas.height / 2;
-
-    let hoveredNodeId: string | null = null;
-    for (const node of data.nodes) {
-      const pos = positions.get(node.id);
-      if (!pos) continue;
-
-      const dist = Math.sqrt((x - pos.x) ** 2 + (y - pos.y) ** 2);
-      if (dist < 30) {
-        hoveredNodeId = node.id;
-        break;
-      }
-    }
-
-    setHoveredNode(hoveredNodeId);
-    canvas.style.cursor = hoveredNodeId ? 'pointer' : 'default';
+  const riskColor = (risk: FraudNode['riskLevel']) => {
+    if (risk === 'CRITICAL') return '#CF4944';
+    if (risk === 'HIGH') return '#E3A33D';
+    if (risk === 'MEDIUM') return '#43A06F';
+    return '#8A94A6';
   };
 
   return (
-    <div className="bg-[#0f172a] rounded-xl shadow-sm border border-slate-800 overflow-hidden">
-      <div className="p-4 border-b border-slate-800 bg-slate-900/50">
-        <h3 className="text-sm font-semibold text-slate-200">Fraud Network Graph (Neo4j Placeholder)</h3>
-        <p className="text-xs text-slate-500 mt-1">Worker relationships and fraud connections</p>
+    <div className="rounded-2xl border border-slate-200 bg-[#F2F4F8] shadow-sm overflow-hidden">
+      <div className="px-6 pt-5 pb-3 flex items-center justify-between">
+        <div>
+          <h3 className="text-[28px] leading-tight font-semibold text-[#1A2538]">Fraud Relationship Network Graph</h3>
+          <p className="mt-2 inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold tracking-[0.12em] text-amber-600 uppercase">
+            Simulated Data
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {(['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const).map((level) => {
+            const active = filter === level;
+            return (
+              <button
+                key={level}
+                type="button"
+                onClick={() => setFilter(level)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  active
+                    ? 'bg-[#1F1A3B] text-white'
+                    : 'bg-slate-200 text-slate-500 hover:bg-slate-300'
+                }`}
+              >
+                {level === 'ALL' ? 'ALL' : level}
+              </button>
+            );
+          })}
+        </div>
       </div>
-      <canvas
-        ref={canvasRef}
-        width={600}
-        height={500}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={() => setHoveredNode(null)}
-        className="w-full block"
-      />
+
+      <div className="px-3 pb-4">
+        <svg viewBox="0 0 980 560" className="w-full h-[560px] block rounded-xl bg-[#F2F4F8]">
+          {visibleEdges.map((edge, idx) => {
+            const source = positions.get(edge.source);
+            const target = positions.get(edge.target);
+            if (!source || !target) return null;
+            return (
+              <line
+                key={`${edge.source}-${edge.target}-${idx}`}
+                x1={source.x}
+                y1={source.y}
+                x2={target.x}
+                y2={target.y}
+                stroke="#CCD5E2"
+                strokeWidth={Math.max(1.2, edge.weight * 2.3)}
+                strokeOpacity={0.8}
+              />
+            );
+          })}
+
+          {visibleNodes.map((node) => {
+            const pos = positions.get(node.id);
+            if (!pos) return null;
+
+            const isCenter = node.id === centerNodeId;
+            const radius = isCenter ? 42 : Math.max(15, Math.min(30, 13 + node.fraudScore / 5.5));
+            const fill = isCenter ? '#E3A33D' : riskColor(node.riskLevel);
+
+            return (
+              <g key={node.id}>
+                <circle cx={pos.x} cy={pos.y} r={radius} fill={fill} fillOpacity={0.95} />
+                <circle cx={pos.x} cy={pos.y} r={radius} fill="none" stroke="#FFFFFF" strokeOpacity={0.35} strokeWidth={1.5} />
+                <title>{`${node.label} • ${node.riskLevel} • Fraud ${node.fraudScore}`}</title>
+
+                <text
+                  x={pos.x}
+                  y={pos.y + radius + 20}
+                  textAnchor="middle"
+                  fontSize="14"
+                  fill="#4A5567"
+                  fontWeight="600"
+                >
+                  {node.label}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
     </div>
   );
 }
