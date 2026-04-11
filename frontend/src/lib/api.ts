@@ -1,33 +1,32 @@
-import axios from 'axios';
+import axios from "axios";
 
-const DEFAULT_LOCAL_API_URL = 'http://localhost:8001';
-const DEFAULT_PROD_API_URL = 'https://gighood-backend-live.onrender.com';
-const DEFAULT_PREVIEW_API_URL = 'https://gighood-backend-admin.onrender.com';
+const DEFAULT_LOCAL_API_URL = "http://localhost:8001";
+const DEFAULT_PROD_API_URL = "https://gighood-backend-live.onrender.com";
+const DEFAULT_PREVIEW_API_URL = "https://gighood-backend-admin.onrender.com";
 
 function resolveApiBaseUrl(): string {
   const configuredProd = process.env.NEXT_PUBLIC_API_URL;
   const configuredPreview = process.env.NEXT_PUBLIC_API_URL_PREVIEW;
   const vercelEnv = process.env.NEXT_PUBLIC_VERCEL_ENV;
 
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     const host = window.location.hostname;
-    if (host === 'localhost' || host === '127.0.0.1') {
+    if (host === "localhost" || host === "127.0.0.1") {
       return DEFAULT_LOCAL_API_URL;
     }
 
     // Most reliable path on Vercel when system env vars are exposed.
-    if (vercelEnv === 'preview') {
+    if (vercelEnv === "preview") {
       return configuredPreview || configuredProd || DEFAULT_PREVIEW_API_URL;
     }
 
-    if (vercelEnv === 'production') {
+    if (vercelEnv === "production") {
       return configuredProd || DEFAULT_PROD_API_URL;
     }
 
     // Fallback for environments where NEXT_PUBLIC_VERCEL_ENV is not exposed.
     const isVercelPreview =
-      host.endsWith('.vercel.app') &&
-      !host.includes('gighood.vercel.app');
+      host.endsWith(".vercel.app") && !host.includes("gighood.vercel.app");
 
     if (isVercelPreview) {
       return configuredPreview || configuredProd || DEFAULT_PREVIEW_API_URL;
@@ -53,14 +52,14 @@ function withStatus(error: Error, status: number): ApiError {
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: process.env.NODE_ENV === 'development' ? 12000 : 30000,
-  headers: { 'Content-Type': 'application/json' },
+  timeout: process.env.NODE_ENV === "development" ? 12000 : 30000,
+  headers: { "Content-Type": "application/json" },
 });
 
 // Attach JWT from localStorage
 api.interceptors.request.use((config) => {
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('gighood_jwt');
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("gighood_jwt");
     if (token) config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
@@ -70,6 +69,11 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (r) => r,
   (error: unknown) => {
+    // Let axios cancellations and AbortController signals pass through unchanged
+    // so callers can distinguish user-initiated cancellations from real errors.
+    if (axios.isCancel(error)) return Promise.reject(error);
+    if (error instanceof DOMException && error.name === "AbortError") return Promise.reject(error);
+
     const maybeError = error as {
       response?: { data?: { detail?: string }; status?: number };
       message?: string;
@@ -77,18 +81,16 @@ api.interceptors.response.use(
 
     if (!maybeError?.response) {
       const networkErr = new Error(
-        `Network error: cannot reach API (${API_BASE_URL}). Check NEXT_PUBLIC_API_URL and backend availability.`
+        `Network error: cannot reach API (${API_BASE_URL}). Check NEXT_PUBLIC_API_URL and backend availability.`,
       );
       return Promise.reject(withStatus(networkErr, 0));
     }
 
     const msg =
-      maybeError.response.data?.detail ||
-      maybeError.message ||
-      'Unknown error';
+      maybeError.response.data?.detail || maybeError.message || "Unknown error";
     const err = new Error(msg);
     return Promise.reject(withStatus(err, maybeError.response.status ?? 0));
-  }
+  },
 );
 
 export default api;
