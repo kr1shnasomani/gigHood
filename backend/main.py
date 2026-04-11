@@ -12,6 +12,7 @@ import backend.api.notifications as notifications
 import backend.api.demo as demo
 import backend.scheduler.jobs as jobs
 import backend.api.location_pings as location_pings
+import backend.api.tts as tts
 from backend.config import settings
 
 logger = logging.getLogger("startup")
@@ -53,6 +54,7 @@ app.include_router(location_pings.router, prefix="/location-pings", tags=["locat
 app.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 app.include_router(chat.router, prefix="/chat", tags=["chat"])
 app.include_router(admin.router, prefix="/admin", tags=["admin"])
+app.include_router(tts.router, tags=["tts"])
 
 @app.get("/")
 async def root():
