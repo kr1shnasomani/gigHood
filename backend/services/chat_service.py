@@ -4,25 +4,30 @@ Chat Service — AI Assistant context builder and LLM query interface.
 Priority chain:
     1. Groq (env-configurable model)       — fast, cheap, primary
     2. OpenRouter (env-configurable model) — fallback if Groq fails
-  3. Rule-based fallback          — if both APIs fail
+    3. Rule-based fallback                 — if both APIs fail
 
 Context (policy, DCI, last claim) is injected as a system prompt
 so workers get personalised answers about their own coverage.
+
+Production improvements (v2):
+    - Connection pooling via shared httpx.Client
+    - Response cleaning pipeline (no ** markdown in UI/voice)
+    - Prompt injection guard
+    - Reduced token cost (max_tokens: 200, temperature: 0.5)
+    - Latency logging per LLM call
 """
 
 import re
+import time
 import logging
 import httpx
 from backend.db.client import supabase
-from backend.config import settings          # reads backend/.env via pydantic-settings
+from backend.config import settings
 from backend.services.dci_engine import get_dci_status
 
 logger = logging.getLogger("chat")
 
 # ── API config ─────────────────────────────────────────────
-# Use settings (not os.getenv) — pydantic-settings loads .env at import time
-# so os.environ may not have these values without an explicit load_dotenv() call.
-
 GROQ_API_KEY        = settings.GROQ_API_KEY or ""
 OPENROUTER_API_KEY  = settings.OPENROUTER_API_KEY or ""
 
@@ -33,6 +38,15 @@ GROQ_MODEL          = settings.GROQ_MODEL_NAME
 OPENROUTER_MODEL    = settings.OPENROUTER_MODEL_NAME
 OPENROUTER_REFERER  = settings.OPENROUTER_HTTP_REFERER
 OPENROUTER_APP_NAME = settings.OPENROUTER_APP_TITLE
+
+# ── Global HTTP client (connection pooling) ─────────────────
+# A single shared client reuses TCP connections across calls,
+# eliminating the handshake overhead of httpx.post() per request.
+http_client = httpx.Client(
+    timeout=httpx.Timeout(connect=5.0, read=15.0, write=5.0, pool=5.0),
+    follow_redirects=True,
+    limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
+)
 
 # Startup diagnostics — visible in uvicorn logs
 print(f"[chat_service] GROQ_API_KEY loaded:       {bool(GROQ_API_KEY)}  (len={len(GROQ_API_KEY)})")
@@ -50,7 +64,8 @@ Last claim: {last_payout}. Total paid claims: {total_payouts}.
 You are read-only — you explain policies, payouts and zone risk. Never file or modify claims.
 Always answer in {response_language}. Do not switch to any other language unless explicitly asked to change language.
 Be concise and warm — this worker may be stressed.
-Keep answers under 150 words. Use simple language suitable for a delivery worker."""
+Keep answers under 150 words. Use simple language suitable for a delivery worker.
+Do not use markdown formatting like **bold**, *italic*, or bullet points. Write in plain natural language."""
 
 LANGUAGE_LABELS = {
     "en": "English",
@@ -73,6 +88,70 @@ LANGUAGE_FALLBACKS = {
     "bn": "এখন সংযোগে সমস্যা হচ্ছে। অনুগ্রহ করে কিছুক্ষণ পরে আবার চেষ্টা করুন।",
     "as": "এতিয়া সংযোগত সমস্যা হৈছে। অনুগ্ৰহ কৰি অলপ পিছত পুনৰ চেষ্টা কৰক।",
 }
+
+# ── Prompt injection guard ──────────────────────────────────
+
+_INJECTION_PATTERNS = [
+    "ignore previous instructions",
+    "ignore all instructions",
+    "disregard the above",
+    "system prompt",
+    "act as",
+    "you are now",
+    "jailbreak",
+    "pretend you are",
+    "forget your instructions",
+    "new persona",
+    "override your",
+]
+
+
+def _sanitize_user_input(text: str) -> str:
+    """
+    Block obvious prompt injection attempts.
+    Returns a safe replacement string if a pattern is detected,
+    so the LLM still responds — just to a neutralised message.
+    """
+    lowered = text.lower()
+    for pattern in _INJECTION_PATTERNS:
+        if pattern in lowered:
+            logger.warning(f"[chat_service] Prompt injection attempt blocked: '{text[:80]}'")
+            return "Tell me about my insurance policy and coverage."
+    return text
+
+
+# ── Response cleaner ────────────────────────────────────────
+
+def _clean_response(text: str) -> str:
+    """
+    Strip markdown formatting from LLM output so the UI shows clean text
+    and the TTS system reads natural speech (no 'asterisk asterisk').
+
+    Applied AFTER _strip_thinking — the combined pipeline is:
+        raw → _strip_thinking → _clean_response → returned to user
+    """
+    if not text:
+        return ""
+
+    # Remove bold: **word** → word
+    text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
+    # Remove italic: *word* → word  (single asterisks not part of bold)
+    text = re.sub(r"\*([^*\n]+?)\*", r"\1", text)
+    # Remove inline code: `word` → word
+    text = re.sub(r"`([^`]+?)`", r"\1", text)
+    # Remove code blocks
+    text = re.sub(r"```[\s\S]*?```", "", text)
+    # Remove heading markers: ### Title → Title
+    text = re.sub(r"^#{1,6}\s+", "", text, flags=re.MULTILINE)
+    # Remove bullet/dash list markers at line start
+    text = re.sub(r"^\s*[-•*]\s+", "", text, flags=re.MULTILINE)
+    # Replace unicode bullet
+    text = text.replace("•", "-")
+    # Collapse multiple blank lines into one
+    text = re.sub(r"\n{3,}", "\n\n", text)
+
+    return text.strip()
+
 
 # ── Context builder ─────────────────────────────────────────
 
@@ -173,8 +252,14 @@ def build_context(worker_id: str) -> dict:
 # ── LLM callers ─────────────────────────────────────────────
 
 def _call_groq(system_prompt: str, user_message: str) -> str:
-    """Call Groq model configured via settings. Raises on any failure."""
-    response = httpx.post(
+    """
+    Call Groq via the shared http_client (connection pooling).
+    Logs latency. Returns cleaned plain-text response.
+    Raises on any failure so query_llm can fall through to OpenRouter.
+    """
+    start = time.time()
+
+    response = http_client.post(
         GROQ_URL,
         headers={
             "Authorization": f"Bearer {GROQ_API_KEY}",
@@ -186,19 +271,30 @@ def _call_groq(system_prompt: str, user_message: str) -> str:
                 {"role": "system", "content": system_prompt},
                 {"role": "user",   "content": user_message},
             ],
-            "max_tokens":  500,
-            "temperature": 0.7,
+            "max_tokens":  200,   # reduced from 500 — keeps cost low, answers concise
+            "temperature": 0.5,   # reduced from 0.7 — more stable, less hallucination
         },
-        timeout=20.0,
     )
+
     response.raise_for_status()
     raw = response.json()["choices"][0]["message"]["content"].strip()
-    return _strip_thinking(raw)
+    cleaned = _clean_response(_strip_thinking(raw))
+
+    latency = round(time.time() - start, 2)
+    logger.info(f"[Groq] responded in {latency}s | chars={len(cleaned)} | model={GROQ_MODEL}")
+
+    return cleaned
 
 
 def _call_openrouter(system_prompt: str, user_message: str) -> str:
-    """Call OpenRouter model configured via settings. Raises on any failure."""
-    response = httpx.post(
+    """
+    Call OpenRouter via the shared http_client (connection pooling).
+    Logs latency. Returns cleaned plain-text response.
+    Raises on any failure so query_llm can fall through to rule-based.
+    """
+    start = time.time()
+
+    response = http_client.post(
         OPENROUTER_URL,
         headers={
             "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -212,14 +308,19 @@ def _call_openrouter(system_prompt: str, user_message: str) -> str:
                 {"role": "system", "content": system_prompt},
                 {"role": "user",   "content": user_message},
             ],
-            "max_tokens":  500,
-            "temperature": 0.7,
+            "max_tokens":  200,   # reduced from 500
+            "temperature": 0.5,   # reduced from 0.7
         },
-        timeout=25.0,
     )
+
     response.raise_for_status()
     raw = response.json()["choices"][0]["message"]["content"].strip()
-    return _strip_thinking(raw)
+    cleaned = _clean_response(_strip_thinking(raw))
+
+    latency = round(time.time() - start, 2)
+    logger.info(f"[OpenRouter] responded in {latency}s | chars={len(cleaned)} | model={OPENROUTER_MODEL}")
+
+    return cleaned
 
 
 def _strip_thinking(text: str) -> str:
@@ -255,15 +356,18 @@ def query_llm(context: dict, user_message: str, language: str = "en") -> str:
     If both fail, return a friendly error message.
     Never return the hardcoded template.
     """
-    lang_label   = LANGUAGE_LABELS.get(language, "English")
+    # Guard against prompt injection before it reaches the LLM
+    user_message = _sanitize_user_input(user_message)
+
+    lang_label     = LANGUAGE_LABELS.get(language, "English")
     prompt_context = {**context, "response_language": lang_label}
-    system_prompt = SYSTEM_PROMPT_TEMPLATE.format(**prompt_context)
+    system_prompt  = SYSTEM_PROMPT_TEMPLATE.format(**prompt_context)
 
     # ── Attempt 1: Groq ─────────────────────────────────────
     if GROQ_API_KEY:
         try:
             reply = _call_groq(system_prompt, user_message)
-            logger.info(f"Groq responded for worker {context.get('name')} ({len(reply)} chars)")
+            logger.info(f"Groq served request for worker '{context.get('name')}'")
             return reply
         except Exception as e:
             logger.warning(f"Groq failed ({type(e).__name__}: {e}), trying OpenRouter…")
@@ -272,11 +376,11 @@ def query_llm(context: dict, user_message: str, language: str = "en") -> str:
     if OPENROUTER_API_KEY:
         try:
             reply = _call_openrouter(system_prompt, user_message)
-            logger.info(f"OpenRouter responded for worker {context.get('name')} ({len(reply)} chars)")
+            logger.info(f"OpenRouter served request for worker '{context.get('name')}'")
             return reply
         except Exception as e:
             logger.warning(f"OpenRouter also failed ({type(e).__name__}: {e})")
 
     # ── Both failed ──────────────────────────────────────────
-    logger.error("Both Groq and OpenRouter failed. Returning error message.")
+    logger.error("Both Groq and OpenRouter failed. Returning language fallback.")
     return LANGUAGE_FALLBACKS.get(language, LANGUAGE_FALLBACKS["en"])
