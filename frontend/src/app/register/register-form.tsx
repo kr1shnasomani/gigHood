@@ -428,7 +428,7 @@ export default function RegisterFormContent() {
               padding: '20px 18px',
             }}
           >
-            <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'white', marginBottom: '14px' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '14px' }}>
               gigHood Parametric Income Protection Terms & Conditions
             </h3>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '14px', lineHeight: 1.55 }}>
@@ -437,37 +437,37 @@ export default function RegisterFormContent() {
 
             <ol style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingLeft: '18px', color: 'var(--text-secondary)' }}>
               <li style={{ lineHeight: 1.55 }}>
-                <strong style={{ color: 'white' }}>Nature of Policy:</strong> Parametric income protection triggered by DCI {'>'} 0.85.
+                <strong style={{ color: 'var(--text-primary)' }}>Nature of Policy:</strong> Parametric income protection triggered by DCI {'>'} 0.85.
               </li>
               <li style={{ lineHeight: 1.55 }}>
-                <strong style={{ color: 'white' }}>Proof of Presence:</strong> Worker must be physically present in the disrupted zone.
+                <strong style={{ color: 'var(--text-primary)' }}>Proof of Presence:</strong> Worker must be physically present in the disrupted zone.
               </li>
               <li style={{ lineHeight: 1.55 }}>
-                <strong style={{ color: 'white' }}>Fraud Prevention:</strong> GPS spoofing or zone hopping will result in claim denial.
+                <strong style={{ color: 'var(--text-primary)' }}>Fraud Prevention:</strong> GPS spoofing or zone hopping will result in claim denial.
               </li>
               <li style={{ lineHeight: 1.55 }}>
-                <strong style={{ color: 'white' }}>Waiting Period:</strong> A 7-day waiting period applies to new accounts.
+                <strong style={{ color: 'var(--text-primary)' }}>Waiting Period:</strong> A 7-day waiting period applies to new accounts.
               </li>
               <li style={{ lineHeight: 1.55 }}>
-                <strong style={{ color: 'white' }}>Auto Trigger Rule:</strong> Coverage triggers only when your zone&apos;s DCI exceeds 0.85.
+                <strong style={{ color: 'var(--text-primary)' }}>Auto Trigger Rule:</strong> Coverage triggers only when your zone&apos;s DCI exceeds 0.85.
               </li>
               <li style={{ lineHeight: 1.55 }}>
-                <strong style={{ color: 'white' }}>Payout Basis:</strong> Payout is calculated from your declared daily earnings and disruption duration.
+                <strong style={{ color: 'var(--text-primary)' }}>Payout Basis:</strong> Payout is calculated from your declared daily earnings and disruption duration.
               </li>
               <li style={{ lineHeight: 1.55 }}>
-                <strong style={{ color: 'white' }}>Coverage Cap:</strong> Daily payout is capped by your assigned policy tier limit.
+                <strong style={{ color: 'var(--text-primary)' }}>Coverage Cap:</strong> Daily payout is capped by your assigned policy tier limit.
               </li>
               <li style={{ lineHeight: 1.55 }}>
-                <strong style={{ color: 'white' }}>Event Close Logic:</strong> A disruption closes only after the DCI returns to stable levels.
+                <strong style={{ color: 'var(--text-primary)' }}>Event Close Logic:</strong> A disruption closes only after the DCI returns to stable levels.
               </li>
               <li style={{ lineHeight: 1.55 }}>
-                <strong style={{ color: 'white' }}>Premium Obligation:</strong> Weekly premium deductions are required to keep coverage active.
+                <strong style={{ color: 'var(--text-primary)' }}>Premium Obligation:</strong> Weekly premium deductions are required to keep coverage active.
               </li>
               <li style={{ lineHeight: 1.55 }}>
-                <strong style={{ color: 'white' }}>Appeals:</strong> Denied or high-risk claims may enter review and appeal workflows.
+                <strong style={{ color: 'var(--text-primary)' }}>Appeals:</strong> Denied or high-risk claims may enter review and appeal workflows.
               </li>
               <li style={{ lineHeight: 1.55 }}>
-                <strong style={{ color: 'white' }}>Data Use & Consent:</strong> Device and location signals are used for eligibility, fraud checks, and claim automation.
+                <strong style={{ color: 'var(--text-primary)' }}>Data Use & Consent:</strong> Device and location signals are used for eligibility, fraud checks, and claim automation.
               </li>
             </ol>
 
@@ -494,7 +494,7 @@ export default function RegisterFormContent() {
                 padding: '12px',
                 borderRadius: '12px',
                 background: 'linear-gradient(135deg, #0EA5E9 0%, #0D9488 100%)',
-                color: 'white',
+                color: 'var(--text-primary)',
                 fontWeight: 700,
                 fontSize: '14px',
               }}
@@ -511,7 +511,7 @@ export default function RegisterFormContent() {
           <Image src="/logo.jpeg" alt="gigHood logo" width={44} height={44} style={{ borderRadius: '12px' }} priority />
         </div>
         <h1 style={{ fontSize: '32px', fontWeight: '700', letterSpacing: '-0.5px' }}>Complete Your <span className="text-gradient">Profile</span></h1>
-        <p style={{ color: 'var(--text-muted)', marginTop: '8px', fontSize: '15px' }}>Get protected in seconds</p>
+        <p style={{ color: 'var(--text-secondary)', marginTop: '8px', fontSize: '15px' }}>Get protected in seconds</p>
       </div>
 
       <div className="glass-panel stagger-2">
@@ -534,7 +534,7 @@ export default function RegisterFormContent() {
               <option value="" disabled>Select location</option>
               {CITIES.map((city) => <option key={city} value={city}>{city}</option>)}
             </select>
-            <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
+            <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '6px' }}>
               {locationStatus === 'detecting' && 'Detecting your location...'}
               {locationStatus === 'detected' && 'Location detected and city selected automatically.'}
               {locationStatus === 'denied' && 'Location permission is blocked in browser settings for this site. Enable location for this site and retry, or choose your city manually.'}
@@ -576,7 +576,7 @@ export default function RegisterFormContent() {
                   minHeight: '44px',
                   fontWeight: 700,
                   fontSize: '12px',
-                  color: 'white',
+                  color: 'var(--text-primary)',
                   border: '1px solid var(--border-glass)',
                   background: isPlatformVerified
                     ? 'linear-gradient(135deg, #10B981 0%, #059669 100%)'
@@ -612,7 +612,7 @@ export default function RegisterFormContent() {
             <input type="text" value={formData.upi_id} onChange={(e) => setFormData((prev) => ({ ...prev, upi_id: e.target.value }))} placeholder="priya.sharma@upi" className="input-glass" required />
           </div>
 
-          <p style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', marginTop: '8px' }}>Device & SIM info auto-detected • Location access will be requested next</p>
+          <p style={{ fontSize: '11px', color: 'var(--text-secondary)', textAlign: 'center', marginTop: '8px' }}>Device & SIM info auto-detected • Location access will be requested next</p>
 
           <label style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', marginTop: '6px', cursor: 'pointer' }}>
             <input
