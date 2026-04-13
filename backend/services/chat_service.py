@@ -41,16 +41,34 @@ print(f"[chat_service] OPENROUTER_API_KEY loaded: {bool(OPENROUTER_API_KEY)}  (l
 # ── System prompt ───────────────────────────────────────────
 
 SYSTEM_PROMPT_TEMPLATE = """You are Gig Copilot, an AI assistant for gigHood parametric income insurance.
+
+IMPORTANT RULES (STRICT):
+- gigHood ONLY provides income protection for work disruption.
+- It does NOT cover accidents, death, health issues, or personal injury.
+- Never mention accident insurance, medical insurance, or life insurance.
+- If user asks about accident or unrelated insurance, clearly say it is NOT covered.
+
 You are speaking with {name}, a Q-commerce delivery worker in {city}, {dark_store_zone}.
 
 Their active policy is {tier} with weekly premium ₹{premium} and coverage cap ₹{coverage_cap}/day.
 Their current zone DCI score is {dci_score} ({dci_status}).
 Last claim: {last_payout}. Total paid claims: {total_payouts}.
 
+How gigHood works:
+- Payout is triggered ONLY when work disruption occurs (high DCI).
+- Worker must be active in the affected zone.
+- No manual claim filing is required.
+- Payout is automatic based on disruption hours.
+
 You are read-only — you explain policies, payouts and zone risk. Never file or modify claims.
-Always answer in {response_language}. Do not switch to any other language unless explicitly asked to change language.
-Be concise and warm — this worker may be stressed.
-Keep answers under 150 words. Use simple language suitable for a delivery worker."""
+
+Always answer in {response_language}.
+Do not switch language unless explicitly asked.
+
+Be concise and clear. Use simple language suitable for a delivery worker.
+Keep answers under 120 words.
+
+If question is outside scope → politely say it is not covered in gigHood."""
 
 LANGUAGE_LABELS = {
     "en": "English",
@@ -186,14 +204,14 @@ def _call_groq(system_prompt: str, user_message: str) -> str:
                 {"role": "system", "content": system_prompt},
                 {"role": "user",   "content": user_message},
             ],
-            "max_tokens":  500,
+            "max_tokens":  1000,
             "temperature": 0.7,
         },
         timeout=20.0,
     )
     response.raise_for_status()
     raw = response.json()["choices"][0]["message"]["content"].strip()
-    return _strip_thinking(raw)
+    return _strip_markdown(_strip_thinking(raw))
 
 
 def _call_openrouter(system_prompt: str, user_message: str) -> str:
@@ -212,14 +230,24 @@ def _call_openrouter(system_prompt: str, user_message: str) -> str:
                 {"role": "system", "content": system_prompt},
                 {"role": "user",   "content": user_message},
             ],
-            "max_tokens":  500,
+            "max_tokens":  1000,
             "temperature": 0.7,
         },
         timeout=25.0,
     )
     response.raise_for_status()
     raw = response.json()["choices"][0]["message"]["content"].strip()
-    return _strip_thinking(raw)
+    return _strip_markdown(_strip_thinking(raw))
+
+def _strip_markdown(text: str) -> str:
+    """Remove ** and __ markdown from text to prevent broken UI formatting when streaming or reading."""
+    if not text:
+        return ""
+    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)
+    text = re.sub(r'__(.*?)__', r'\1', text)
+    # Strip alone asterisks if they are just floating
+    text = text.replace('**', '').replace('__', '')
+    return text.strip()
 
 
 def _strip_thinking(text: str) -> str:
@@ -248,6 +276,21 @@ def _strip_thinking(text: str) -> str:
 
 # ── Public interface ────────────────────────────────────────
 
+def detect_language(text: str) -> str:
+    """
+    Detect input language automatically.
+    Supports English ('en'), Hindi ('hi'), and Tamil ('ta').
+    """
+    if not text:
+        return "en"
+    # Hindi (Devanagari block)
+    if re.search(r'[\u0900-\u097F]', text):
+        return "hi"
+    # Tamil (Tamil block)
+    if re.search(r'[\u0B80-\u0BFF]', text):
+        return "ta"
+    return "en"
+
 
 def query_llm(context: dict, user_message: str, language: str = "en") -> str:
     """
@@ -255,6 +298,20 @@ def query_llm(context: dict, user_message: str, language: str = "en") -> str:
     If both fail, return a friendly error message.
     Never return the hardcoded template.
     """
+    detected_lang = detect_language(user_message)
+    if detected_lang:
+        language = detected_lang
+        
+    # Pre-check for accident/health-related terms to strictly reject them
+    msg_lower = user_message.lower()
+    reject_terms = ["accident", "injury", "death", "hospital", "medical", "health", "விபத்து", "மருத்துவமனை", "दुर्घटना", "अस्पताल"]
+    if any(term in msg_lower for term in reject_terms):
+        return {
+            "en": "gigHood does not cover accidents or health-related issues. It only provides income protection during work disruption.",
+            "hi": "gigHood दुर्घटना या स्वास्थ्य समस्याओं को कवर नहीं करता। यह केवल काम में रुकावट के दौरान आय सुरक्षा देता है।",
+            "ta": "gigHood விபத்து அல்லது உடல்நல பிரச்சினைகளை கவர் செய்யாது. இது வேலை பாதிப்பு நேரத்தில் வருமான பாதுகாப்பை மட்டுமே வழங்குகிறது."
+        }.get(language, "gigHood does not cover accidents or health-related issues. It only provides income protection during work disruption.")
+
     lang_label   = LANGUAGE_LABELS.get(language, "English")
     prompt_context = {**context, "response_language": lang_label}
     system_prompt = SYSTEM_PROMPT_TEMPLATE.format(**prompt_context)

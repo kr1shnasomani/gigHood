@@ -113,7 +113,9 @@ def _update_hex_zone_snapshot(hex_id: str, dci: float, status: str) -> None:
             updated = supabase.table("hex_zones").update(snapshot).eq(where_col, hex_id).execute()
             if getattr(updated, "data", None):
                 return
-        except Exception:
+        except Exception as e:
+            import logging
+            logging.getLogger("api").error(f"Failed to update hex_zones where {where_col}={hex_id}: {e}")
             continue
 
     # If no existing row matched, create/update a snapshot row using either schema variant.

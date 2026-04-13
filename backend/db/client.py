@@ -51,25 +51,94 @@ def get_supabase_client() -> Client:
     key: str = _resolve_supabase_key()
     return create_client(url, key)
 
+
+# Provide supabase_admin for elevated database privileges
+def get_supabase_admin_client() -> Client:
+    url: str = _clean_env_value(settings.SUPABASE_URL)
+    key: str = _clean_env_value(settings.SUPABASE_SERVICE_ROLE_KEY) or _resolve_supabase_key()
+    if not url or not key:
+        raise RuntimeError("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not configured.")
+    return create_client(url, key)
+
+supabase_admin: Client = get_supabase_admin_client()
+
+
+import threading
+
 class _SupabaseProxy:
-    """Create a fresh client per top-level call to avoid stale transport state."""
+    """Provides a thread-local Supabase client.
+    
+    This fixes connection pool corruption across background scheduler jobs
+    and FastAPI requests, while preventing ephemeral port exhaustion (Errno 54)
+    caused by creating a fresh client on every single attribute access.
+    """
+    
+    def __init__(self):
+        self._local = threading.local()
+
+    @property
+    def _client(self):
+        if not hasattr(self._local, "client"):
+            try:
+                self._local.client = get_supabase_client()
+            except RuntimeError as err:
+                def _missing_supabase_attr(*args, **kwargs):
+                    raise RuntimeError(str(err))
+                return _missing_supabase_attr
+        return self._local.client
 
     def __getattr__(self, name: str):
         # unittest.mock and other tooling probe special attrs with hasattr().
         # Avoid creating network clients for those introspection checks.
         if name.startswith('__'):
             raise AttributeError(name)
-
-        try:
-            client = get_supabase_client()
-            return getattr(client, name)
-        except RuntimeError as err:
-            # Return a lazy placeholder so patching/mocking can still replace this
-            # attribute in tests that intentionally run without Supabase env vars.
-            def _missing_supabase_attr(*args, **kwargs):
-                raise RuntimeError(str(err))
-
-            return _missing_supabase_attr
-
+            
+        client = self._client
+        if callable(client): # If it's the error fallback
+            return client
+            
+        return getattr(client, name)
 
 supabase = _SupabaseProxy()
+
+
+# Provide asyncpg connection helpers for performance-critical batch operations
+import os
+import asyncpg
+from contextlib import asynccontextmanager
+
+_asyncpg_pool = None
+
+async def init_db_pool():
+    global _asyncpg_pool
+    db_url = getattr(settings, "DATABASE_URL", None) or os.getenv("DATABASE_URL")
+    if not db_url:
+        import logging
+        logger = logging.getLogger("api")
+        logger.warning("DATABASE_URL not found; asyncpg pool cannot be initialized.")
+        return
+    _asyncpg_pool = await asyncpg.create_pool(db_url)
+
+@asynccontextmanager
+async def get_db_connection():
+    global _asyncpg_pool
+    if not _asyncpg_pool:
+        db_url = getattr(settings, "DATABASE_URL", None) or os.getenv("DATABASE_URL")
+        if not db_url:
+            raise RuntimeError("DATABASE_URL is not set. Cannot establish asyncpg connection.")
+        # Fallback to single connection if pooling failed
+        conn = await asyncpg.connect(db_url)
+        try:
+            yield conn
+        finally:
+            await conn.close()
+        return
+
+    async with _asyncpg_pool.acquire() as conn:
+        yield conn
+
+@asynccontextmanager
+async def get_db_transaction():
+    async with get_db_connection() as conn:
+        async with conn.transaction():
+            yield conn

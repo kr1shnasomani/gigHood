@@ -81,3 +81,45 @@ def run_sunday_xgboost_retrain():
         logger.info("XGBoost retraining successfully completed.")
     except Exception as e:
         logger.error(f"XGBoost retraining cycle failed: {e}")
+
+
+def run_fraud_threshold_retrain():
+    """
+    Weekly fraud threshold recalibration.
+
+    Reads all rows from fraud_feedback, recomputes APPROVE/DENY thresholds
+    using the weighted-average algorithm in fraud_engine.refresh_adaptive_thresholds,
+    and resets the in-process TTL cache so the next inference request picks
+    up the fresh thresholds immediately.
+
+    Scheduled: Sunday 22:00 (before XGBoost retrain at 23:00).
+    """
+    logger.info("[fraud_threshold_retrain] Starting weekly threshold recalibration...")
+    try:
+        from backend.services.fraud_engine import refresh_adaptive_thresholds, _thresholds
+
+        state = refresh_adaptive_thresholds()
+
+        logger.info(
+            f"[fraud_threshold_retrain] Recalibration complete "
+            f"| samples={state.sample_count} "
+            f"| approve_threshold={state.approve:.1f} "
+            f"| deny_threshold={state.deny:.1f} "
+            f"| override_rate={state.override_rate:.1%}"
+        )
+
+        # Emit a DB-level audit row so the ops team can track threshold drift.
+        try:
+            supabase.table("fraud_threshold_audit").insert({
+                "approve_threshold": state.approve,
+                "deny_threshold":    state.deny,
+                "sample_count":      state.sample_count,
+                "override_rate":     state.override_rate,
+            }).execute()
+        except Exception:
+            # Table may not exist yet — non-fatal, log and continue.
+            logger.debug("[fraud_threshold_retrain] Audit table not available yet, skipping.")
+
+    except Exception as e:
+        logger.error(f"[fraud_threshold_retrain] Recalibration failed: {e}")
+

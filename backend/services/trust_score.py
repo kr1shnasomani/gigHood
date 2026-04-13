@@ -53,7 +53,7 @@ def calculate_dynamic_trust(worker_id: str) -> dict[str, Any]:
         val = c.get("fraud_score")
         if val is not None:
             fraud_scores.append(float(val))
-    fraud_avg = (sum(fraud_scores) / len(fraud_scores)) if fraud_scores else 0.0
+    fraud_avg = (sum(fraud_scores) / max(len(fraud_scores), 1)) if fraud_scores else 0.0
 
     paid_ratio = _safe_ratio(paid, total)
     denied_ratio = _safe_ratio(denied, total)

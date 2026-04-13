@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from typing import Literal
 
 from backend.services.auth_service import get_current_worker
-from backend.services.chat_service import build_context, query_llm
+from backend.services.chat_service import build_context, query_llm, detect_language
 
 router = APIRouter()
 
@@ -42,6 +42,11 @@ def chat(req: ChatRequest, worker: dict = Depends(get_current_worker)):
 
     try:
         context = build_context(worker_id)
+        
+        detected_lang = detect_language(req.message)
+        if detected_lang:
+            language = detected_lang
+            
         reply = query_llm(context, req.message, language)
         return ChatResponse(
             reply=reply,

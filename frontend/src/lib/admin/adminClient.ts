@@ -30,6 +30,13 @@ export interface FraudQueueItem {
   dci_score: number;
   payout: number;
   flags: string[];
+  // AI Decision Engine fields
+  decision?: 'APPROVE' | 'REVIEW' | 'DENY';
+  decision_reason?: string;
+  decision_confidence?: 'HIGH' | 'MEDIUM' | 'MANUAL_OVERRIDE';
+  // XAI fields (populated after first fraud evaluation)
+  fraud_breakdown?: Record<string, number> | null;
+  fraud_top_reason?: string | null;
 }
 
 export interface PayoutSummary {
@@ -250,6 +257,9 @@ function fallbackFraudQueue(): FraudQueueItem[] {
       dci_score: 0.89,
       payout: 860,
       flags: ['velocity_anomaly', 'order_gap_mismatch'],
+      decision: 'REVIEW',
+      decision_reason: 'Score 56/100 exceeds REVIEW threshold. Suspicious behavioral deviations detected.',
+      decision_confidence: 'MEDIUM',
     },
     {
       claim_id: 'CLM_90208',
@@ -262,6 +272,9 @@ function fallbackFraudQueue(): FraudQueueItem[] {
       dci_score: 0.86,
       payout: 540,
       flags: ['none'],
+      decision: 'APPROVE',
+      decision_reason: 'Score 18/100 within acceptable bounds. Behavior consistent with legitimate patterns.',
+      decision_confidence: 'HIGH',
     },
     {
       claim_id: 'CLM_90199',
@@ -274,6 +287,24 @@ function fallbackFraudQueue(): FraudQueueItem[] {
       dci_score: 0.82,
       payout: 0,
       flags: ['location_spoofing', 'device_cluster'],
+      decision: 'REVIEW',
+      decision_reason: 'Score 74/100 exceeds REVIEW threshold. Location spoofing and device cluster signals.',
+      decision_confidence: 'MEDIUM',
+    },
+    {
+      claim_id: 'CLM_90185',
+      created_at: isoMinutesAgo(51),
+      worker_name: 'Siya Patel',
+      city: 'Mumbai',
+      status: 'denied',
+      resolution_path: 'DENY',
+      fraud_score: 88,
+      dci_score: 0.94,
+      payout: 0,
+      flags: ['STATIC_DEVICE_FLAG', 'GATE2_NONE', 'MOCK_LOCATION_FLAG'],
+      decision: 'DENY',
+      decision_reason: 'Score 88/100 exceeds DENY threshold. Strong anomaly signals: zone spoofing and network ring membership confirmed.',
+      decision_confidence: 'HIGH',
     },
   ];
 }
@@ -448,4 +479,85 @@ export async function overrideSandboxSignalsBatch(
 
 export async function fetchFraudQueue(): Promise<FraudQueueItem[]> {
   return getWithFallback('/admin/dashboard/fraud-queue', fallbackFraudQueue);
+}
+
+/**
+ * Admin override: set a claim decision to APPROVE or DENY.
+ * On success returns { status: 'updated', claim_id, decision }.
+ */
+export async function overrideClaimDecision(
+  claimId: string,
+  action: 'APPROVE' | 'DENY',
+): Promise<{ status: string; claim_id: string; decision: string; was_correction?: boolean }> {
+  const { data } = await api.post(`/admin/claims/${claimId}/override`, { action });
+  return data;
+}
+
+// ── Audit Log ─────────────────────────────────────────────────────────────────
+
+export interface AuditLog {
+  id: string;
+  entity_type: string;
+  entity_id: string;
+  action: 'AUTO_DECISION' | 'OVERRIDE' | 'CREATE' | 'STATUS_CHANGE' | string;
+  performed_by: string;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+}
+
+function fallbackAuditLogs(): AuditLog[] {
+  return [
+    {
+      id: 'al-0001', entity_type: 'claim', entity_id: 'CLM_90211',
+      action: 'AUTO_DECISION', performed_by: 'AI', created_at: isoMinutesAgo(2),
+      metadata: {
+        fraud_score: 56, decision: 'REVIEW', confidence: 'MEDIUM',
+        top_reason: 'partner_activity', top_reason_label: 'Partner Order Activity (Gate-2)',
+        breakdown: { location_anomaly: 12, telemetry_quality: 8, partner_activity: 30, gps_accuracy: 4, velocity: 0, mock_location: 0, network_behavior: 2 },
+        flags: ['GATE2_WEAK', 'SPARSE_TELEMETRY'], gate2_result: 'WEAK',
+      },
+    },
+    {
+      id: 'al-0002', entity_type: 'claim', entity_id: 'CLM_90185',
+      action: 'AUTO_DECISION', performed_by: 'AI', created_at: isoMinutesAgo(8),
+      metadata: {
+        fraud_score: 88, decision: 'DENY', confidence: 'HIGH',
+        top_reason: 'mock_location', top_reason_label: 'Mock Location Flag',
+        breakdown: { location_anomaly: 20, telemetry_quality: 5, partner_activity: 35, gps_accuracy: 8, velocity: 10, mock_location: 40, network_behavior: 15 },
+        flags: ['MOCK_LOCATION_FLAG', 'GATE2_NONE', 'STATIC_DEVICE_FLAG'], gate2_result: 'NONE',
+      },
+    },
+    {
+      id: 'al-0003', entity_type: 'claim', entity_id: 'CLM_90199',
+      action: 'OVERRIDE', performed_by: 'admin', created_at: isoMinutesAgo(15),
+      metadata: {
+        ai_decision: 'DENY', new_decision: 'REVIEW',
+        fraud_score: 74, was_correction: true,
+      },
+    },
+    {
+      id: 'al-0004', entity_type: 'claim', entity_id: 'CLM_90208',
+      action: 'AUTO_DECISION', performed_by: 'AI', created_at: isoMinutesAgo(22),
+      metadata: {
+        fraud_score: 18, decision: 'APPROVE', confidence: 'HIGH',
+        top_reason: 'none', top_reason_label: 'none',
+        breakdown: { location_anomaly: 0, telemetry_quality: 0, partner_activity: 5, gps_accuracy: 2, velocity: 0, mock_location: 0, network_behavior: 0 },
+        flags: [], gate2_result: 'STRONG',
+      },
+    },
+  ];
+}
+
+export async function fetchAuditLogs(
+  limit = 100,
+  entityType?: string,
+  action?: string,
+): Promise<AuditLog[]> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (entityType) params.append('entity_type', entityType);
+  if (action) params.append('action', action);
+  return getWithFallback(
+    `/admin/audit/logs?${params.toString()}`,
+    fallbackAuditLogs,
+  );
 }

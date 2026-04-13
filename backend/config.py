@@ -6,6 +6,9 @@ except Exception:
 from typing import Optional
 
 class Settings(BaseSettings):
+    # Database
+    DATABASE_URL: Optional[str] = None
+    
     # Supabase
     SUPABASE_URL: str = ""
     SUPABASE_KEY: str = ""
@@ -45,6 +48,40 @@ class Settings(BaseSettings):
     RISK_PROFILER_MODEL_PKL_PATH: str = "backend/ml/risk_profiler.pkl"
     RISK_PROFILER_DATASET_PATH: str = "dataset/synthetic_training_data.csv"
     AUTO_TRAIN_RISK_MODEL_ON_STARTUP: bool = True
+    
+    # Missing App Configurations
+    APP_VERSION: str = "1.0.0"
+    TRIGGER_RAINFALL_MM_PER_HR: float = 35.0
+    TRIGGER_WIND_KM_PER_HR: float = 45.0
+    TRIGGER_AQI_HAZARDOUS: float = 300.0
+    CPCB_BASE_URL: str = "https://api.data.gov.in/resource"
+    CPCB_TIMEOUT_SECONDS: int = 5
+    GOV_ALERT_FEED_TIMEOUT_SECONDS: int = 5
+    GOV_ALERT_FEED_URL: str = ""
+    OPENWEATHER_BASE_URL: str = "https://api.openweathermap.org/data/2.5/weather"
+    OPENWEATHER_TIMEOUT_SECONDS: int = 5
+    SIGNAL_FETCH_DEFAULT_TIMEOUT_SECONDS: int = 5
+    USE_MOCK_PLATFORM_API: bool = True
+    USE_MOCK_SOCIAL_API: bool = True
+    USE_MOCK_TRAFFIC_API: bool = True
+
+    DCI_THRESHOLD_DISRUPTED: float = 0.7
+    DCI_THRESHOLD_ELEVATED_WATCH: float = 0.5
+    DCI_WEIGHT_ALPHA: float = 0.4
+    DCI_WEIGHT_BETA: float = 0.2
+    DCI_WEIGHT_DELTA: float = 0.2
+    DCI_WEIGHT_GAMMA: float = 0.2
+    SIGNAL_DEGRADED_MODE_THRESHOLD: int = 2
+
+    FRAUD_CLAIM_FREQUENCY_PCT_THRESHOLD: float = 20.0
+    FRAUD_SCORE_ACTIVE_VERIFY: float = 0.4
+    FRAUD_SCORE_DENY: float = 0.7
+    FRAUD_SCORE_SOFT_QUEUE: float = 0.5
+    FRAUD_WEIGHT_GATE1: float = 0.4
+    FRAUD_WEIGHT_GATE2: float = 0.3
+    FRAUD_WEIGHT_MOCK_LOCATION: float = 0.3
+    POP_MIN_PINGS_IN_HEX: int = 2
+    POP_WINDOW_MINUTES: int = 30
 
     # Scheduler
     ENABLE_SCHEDULER: bool = True

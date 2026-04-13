@@ -12,6 +12,8 @@ const nextConfig: NextConfig = {
       { source: '/chat', destination: '/worker-app/chat', permanent: false },
       { source: '/payouts', destination: '/worker-app/payouts', permanent: false },
       { source: '/profile', destination: '/worker-app/profile', permanent: false },
+      { source: '/govt', destination: '/worker-app/govt', permanent: false },
+      { source: '/radar', destination: '/worker-app/radar', permanent: false },
     ];
   },
   async rewrites() {
@@ -22,6 +24,8 @@ const nextConfig: NextConfig = {
       { source: '/worker-app/chat', destination: '/chat' },
       { source: '/worker-app/payouts', destination: '/payouts' },
       { source: '/worker-app/profile', destination: '/profile' },
+      { source: '/worker-app/govt', destination: '/govt' },
+      { source: '/worker-app/radar', destination: '/radar' },
     ];
   },
 };

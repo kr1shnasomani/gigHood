@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { verifyPin } from '@/lib/auth';
+import { sendOtp, verifyOtp } from '@/lib/auth';
 import { useAuthStore } from '@/store/authStore';
 
 export default function LoginPage() {
@@ -11,8 +11,9 @@ export default function LoginPage() {
   const setAuth = useAuthStore((s) => s.setAuth);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   
+  const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [phone, setPhone] = useState('');
-  const [pin, setPin] = useState('');
+  const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,16 +49,32 @@ export default function LoginPage() {
     return fallback;
   };
 
-  const handlePinSignIn = async (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (phone.length < 10 || pin.length < 4) return;
+    if (phone.length < 10) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      await sendOtp(phone);
+      setStep('otp');
+    } catch (err: unknown) {
+      console.error('OTP Send failed', err);
+      setError(getErrMessage(err, 'Failed to send OTP. Try again.'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (otp.length < 6) return;
     setIsLoading(true);
     setError(null);
 
     const encodedPhone = encodeURIComponent(phone);
 
     try {
-      const response = await verifyPin(phone, pin);
+      const response = await verifyOtp(phone, otp);
 
       if (authMode === 'signin') {
         setAuth(response.access_token, response.worker);
@@ -67,7 +84,7 @@ export default function LoginPage() {
 
       setError('Account already exists. Please switch to Sign In.');
     } catch (err: unknown) {
-      console.error('PIN Verify failed', err);
+      console.error('OTP Verify failed', err);
 
       if (getErrStatus(err) === 404) {
         if (authMode === 'signup') {
@@ -79,7 +96,7 @@ export default function LoginPage() {
         return;
       }
       
-      setError(getErrMessage(err, 'Invalid PIN or device mismatch. Please try again.'));
+      setError(getErrMessage(err, 'Invalid OTP. Please try again.'));
     } finally {
       setIsLoading(false);
     }
@@ -95,7 +112,7 @@ export default function LoginPage() {
         <h1 style={{ fontSize: '32px', fontWeight: '700', letterSpacing: '-0.5px' }}>
           gigHood <span className="text-gradient">Protect</span>
         </h1>
-        <p style={{ color: 'var(--text-muted)', marginTop: '8px', fontSize: '15px' }}>
+        <p style={{ color: 'var(--text-secondary)', marginTop: '8px', fontSize: '15px' }}>
           Secure login for verified workers
         </p>
       </div>
@@ -107,7 +124,8 @@ export default function LoginPage() {
             onClick={() => {
               setAuthMode('signin');
               setError(null);
-              setPin('');
+              setStep('phone');
+              setOtp('');
             }}
             disabled={isLoading}
             style={{
@@ -115,7 +133,7 @@ export default function LoginPage() {
               borderRadius: '10px',
               border: authMode === 'signin' ? '1px solid rgba(59, 130, 246, 0.6)' : '1px solid rgba(148, 163, 184, 0.3)',
               background: authMode === 'signin' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(15, 23, 42, 0.35)',
-              color: authMode === 'signin' ? '#93C5FD' : 'var(--text-muted)',
+              color: authMode === 'signin' ? '#93C5FD' : 'var(--text-secondary)',
               fontWeight: 600,
               cursor: isLoading ? 'not-allowed' : 'pointer',
             }}
@@ -128,7 +146,8 @@ export default function LoginPage() {
             onClick={() => {
               setAuthMode('signup');
               setError(null);
-              setPin('');
+              setStep('phone');
+              setOtp('');
             }}
             disabled={isLoading}
             style={{
@@ -136,7 +155,7 @@ export default function LoginPage() {
               borderRadius: '10px',
               border: authMode === 'signup' ? '1px solid rgba(16, 185, 129, 0.6)' : '1px solid rgba(148, 163, 184, 0.3)',
               background: authMode === 'signup' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(15, 23, 42, 0.35)',
-              color: authMode === 'signup' ? '#6EE7B7' : 'var(--text-muted)',
+              color: authMode === 'signup' ? '#6EE7B7' : 'var(--text-secondary)',
               fontWeight: 600,
               cursor: isLoading ? 'not-allowed' : 'pointer',
             }}
@@ -145,7 +164,7 @@ export default function LoginPage() {
           </button>
         </div>
 
-        <p style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '18px' }}>
+        <p style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '18px' }}>
           {authMode === 'signin'
             ? 'Use Sign In if you already created an account.'
             : 'Use Sign Up for first-time onboarding with a new number.'}
@@ -157,46 +176,67 @@ export default function LoginPage() {
           </div>
         )}
 
-        <form onSubmit={handlePinSignIn} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div>
-            <label className="label-micro" style={{ marginBottom: '8px', display: 'block' }}>Mobile Number</label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="9876543210"
-              className="input-glass"
-              maxLength={15}
-              required
-            />
-          </div>
-
-          <div>
-            <label className="label-micro" style={{ marginBottom: '8px', display: 'block' }}>Secure PIN</label>
-            <input
-              type="password"
-              inputMode="numeric"
-              value={pin}
-              onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
-              placeholder="Enter your PIN"
-              className="input-glass"
-              style={{ textAlign: 'center', letterSpacing: '3px', fontSize: '22px', fontWeight: 600 }}
-              maxLength={8}
-              required
-            />
-            <p style={{ textAlign: 'center', marginTop: '12px', fontSize: '12px', color: 'var(--text-muted)' }}>
-              Demo PIN: <strong style={{ color: 'var(--trust-emerald)' }}>2468</strong>
-            </p>
-          </div>
-
-          <button 
-            type="submit" 
-            className="btn-premium mt-4"
-            disabled={isLoading || phone.length < 10 || pin.length < 4}
-          >
-            {isLoading ? <div className="spinner" /> : authMode === 'signin' ? 'Sign In Securely' : 'Continue to Sign Up'}
-          </button>
-        </form>
+        {step === 'phone' ? (
+          <form onSubmit={handleSendOtp} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div>
+              <label className="label-micro" style={{ marginBottom: '8px', display: 'block' }}>Mobile Number</label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="9876543210"
+                className="input-glass"
+                maxLength={15}
+                required
+              />
+              <p style={{ textAlign: 'center', marginTop: '12px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                Demo Phone: <strong style={{ color: 'var(--trust-emerald)' }}>9876543210</strong>
+              </p>
+            </div>
+            <button 
+              type="submit" 
+              className="btn-premium mt-4"
+              disabled={isLoading || phone.length < 10}
+            >
+              {isLoading ? <div className="spinner" /> : 'Continue securely'}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleVerifyOtp} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div>
+              <label className="label-micro" style={{ marginBottom: '8px', display: 'block' }}>One-Time Password</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                placeholder="123456"
+                className="input-glass"
+                style={{ textAlign: 'center', letterSpacing: '4px', fontSize: '24px', fontWeight: 600 }}
+                maxLength={6}
+                required
+              />
+              <p style={{ textAlign: 'center', marginTop: '12px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                Demo OTP: <strong style={{ color: 'var(--trust-emerald)' }}>123456</strong>
+              </p>
+            </div>
+            <button 
+              type="submit" 
+              className="btn-premium mt-4"
+              disabled={isLoading || otp.length < 6}
+            >
+              {isLoading ? <div className="spinner" /> : authMode === 'signin' ? 'Verify & Sign In' : 'Verify & Continue'}
+            </button>
+            <button 
+              type="button" 
+              onClick={() => { setStep('phone'); setOtp(''); }}
+              style={{ color: 'var(--text-secondary)', fontSize: '14px', marginTop: '16px', background: 'none', border: 'none', cursor: 'pointer' }}
+              disabled={isLoading}
+            >
+              Change number
+            </button>
+          </form>
+        )}
       </div>
 
       <div style={{ textAlign: 'center', marginTop: '40px' }} className="stagger-3">

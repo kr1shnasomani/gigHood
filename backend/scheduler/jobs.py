@@ -104,7 +104,12 @@ def dci_job():
     res = run_dci_cycle(hexes)
     logger.info(f"DCI cycle complete for {len(res)} zones.")
 
-from backend.scheduler.weekly_jobs import run_monday_policy_cycle, run_sunday_forecast_cycle, run_sunday_xgboost_retrain
+from backend.scheduler.weekly_jobs import (
+    run_monday_policy_cycle,
+    run_sunday_forecast_cycle,
+    run_sunday_xgboost_retrain,
+    run_fraud_threshold_retrain,
+)
 
 def premium_debit_job():
     logger.info("Running weekly Premium Debit job...")
@@ -152,6 +157,12 @@ scheduler.add_job(
 scheduler.add_job(premium_debit_job, 'cron', day_of_week='mon', hour=0, minute=0, id='premium_debit_job', replace_existing=True)
 # Sunday 18:00
 scheduler.add_job(forecast_alert_stub, 'cron', day_of_week='sun', hour=18, minute=0, id='forecast_alert_job', replace_existing=True)
+# Sunday 22:00 — fraud threshold recalibration (before XGBoost retrain)
+scheduler.add_job(
+    run_fraud_threshold_retrain,
+    'cron', day_of_week='sun', hour=22, minute=0,
+    id='fraud_threshold_retrain_job', replace_existing=True,
+)
 # Sunday 23:00
 scheduler.add_job(xgboost_retrain_stub, 'cron', day_of_week='sun', hour=23, minute=0, id='xgboost_retrain_job', replace_existing=True)
 

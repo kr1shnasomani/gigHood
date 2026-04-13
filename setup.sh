@@ -8,15 +8,15 @@ cd "$ROOT_DIR"
 
 echo "🚀 Starting gigHood setup from: $ROOT_DIR"
 
-if ! command -v python3 >/dev/null 2>&1; then
+if ! command -v python3.11 >/dev/null 2>&1; then
     echo "❌ Python 3 is not installed. Please install Python 3.11+."
     exit 1
 fi
-echo "✅ Python 3 found: $(python3 --version)"
+echo "✅ Python 3 found: $(python3.11 --version)"
 
 if [ ! -d "venv" ]; then
     echo "📦 Creating virtual environment..."
-    python3 -m venv venv
+    python3.11 -m venv venv
 else
     echo "✅ Reusing existing virtual environment."
 fi
