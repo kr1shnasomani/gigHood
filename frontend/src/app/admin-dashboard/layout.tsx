@@ -267,8 +267,7 @@ const Header = () => {
           onChange={e => setSearch(e.target.value)}
           type="text"
           placeholder="Search claims, workers, zones…"
-          className="w-full h-10 pl-11 pr-4 rounded-xl bg-white border border-stone-200 text-[13px] text-stone-800 placeholder-stone-400
-                     focus:outline-none focus:border-orange-300 focus:ring-4 focus:ring-orange-500/10 shadow-sm transition-all"
+          className="w-full h-10 pl-11 pr-4 rounded-xl bg-white border border-stone-200 text-[13px] text-stone-800 placeholder-stone-400 focus:outline-none focus:border-orange-300 focus:ring-4 focus:ring-orange-500/10 shadow-sm transition-all"
         />
       </div>
 

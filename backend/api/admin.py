@@ -289,6 +289,17 @@ def _derive_fraud_score(claim: dict, flag_contributions: list[int]) -> int:
         return 15
     return 30
 
+@router.get("/alerts/count")
+def get_alerts_count():
+    try:
+        from backend.services.notification_service import notification_service
+        count = len(notification_service.list_admin_alerts(limit=100))
+        return {"count": count}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/dashboard/kpis")
 def get_kpis():
     try:
