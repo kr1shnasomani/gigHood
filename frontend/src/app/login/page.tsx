@@ -58,7 +58,7 @@ export default function LoginPage() {
       await sendOtp(phone);
       setStep('otp');
     } catch (err: unknown) {
-      console.error('OTP Send failed', err);
+      console.warn('OTP Send failed:', getErrMessage(err, 'Failed to send OTP.'));
       setError(getErrMessage(err, 'Failed to send OTP. Try again.'));
     } finally {
       setIsLoading(false);
@@ -84,7 +84,7 @@ export default function LoginPage() {
 
       setError('Account already exists. Please switch to Sign In.');
     } catch (err: unknown) {
-      console.error('OTP Verify failed', err);
+      console.warn('OTP Verify failed:', getErrMessage(err, 'Invalid OTP.'));
 
       if (getErrStatus(err) === 404) {
         if (authMode === 'signup') {

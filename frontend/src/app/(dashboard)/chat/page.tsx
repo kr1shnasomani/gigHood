@@ -243,7 +243,7 @@ export default function ChatPage() {
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="chat-page">
+    <div className="chat-page relative min-h-screen pb-32 flex flex-col">
       {/* ── HEADER (frosted, sticky) ─────────────────────────────────── */}
       <header
         style={{
@@ -625,14 +625,19 @@ export default function ChatPage() {
       {/* ── COMPOSER ────────────────────────────────────────────────── */}
       <div
         style={{
-          position: "sticky",
-          bottom: 0,
-          zIndex: 40,
-          background: "rgba(8,8,16,0.96)",
-          backdropFilter: "blur(24px)",
-          borderTop: "1px solid rgba(255,255,255,0.06)",
-          padding: "12px 16px",
-          paddingBottom: "calc(12px + env(safe-area-inset-bottom))",
+          position: "fixed",
+          bottom: "85px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: "92%",
+          maxWidth: "420px",
+          zIndex: 50,
+          background: "rgba(15, 23, 42, 0.85)",
+          backdropFilter: "blur(12px)",
+          borderRadius: "24px",
+          border: "1px solid rgba(168, 85, 247, 0.3)",
+          padding: "8px 12px",
+          boxShadow: "0 10px 40px rgba(0,0,0,0.5)",
         }}
       >
         {/* VOICE MODE */}
@@ -874,7 +879,7 @@ export default function ChatPage() {
             fontSize: "10px",
             color: "rgba(148,163,184,0.4)",
             textAlign: "center",
-            marginTop: "8px",
+            marginTop: "12px",
           }}
         >
           AI-generated responses · Verify policy details officially
