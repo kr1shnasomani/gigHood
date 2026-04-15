@@ -210,9 +210,6 @@ def run_dci_cycle(hex_ids: list[str]) -> dict:
             "status": status
         }
         
-        # Check trigger boundary limits securely injecting new DCI
-        from backend.services.trigger_monitor import check_trigger_transitions
-        check_trigger_transitions(hex_id, dci)
 
         if settings.DCI_CYCLE_HEX_SLEEP_SECONDS > 0:
             time.sleep(settings.DCI_CYCLE_HEX_SLEEP_SECONDS)

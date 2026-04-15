@@ -418,7 +418,8 @@ def get_my_hex_dci(worker: dict = Depends(get_current_worker)):
             or is_bootstrap_placeholder
         )
         if should_refresh:
-            run_signal_ingestion_cycle([hex_id], city=(worker.get('city') or 'Bengaluru'))
+            import asyncio
+            asyncio.run(run_signal_ingestion_cycle([hex_id], city=(worker.get('city') or 'Bengaluru')))
             run_dci_cycle([hex_id])
 
             for select_cols, where_col in query_attempts:
@@ -503,7 +504,8 @@ def get_my_hex_dci(worker: dict = Depends(get_current_worker)):
                         has_worker_claim = False
 
                     if not has_worker_claim:
-                        run_signal_ingestion_cycle([hex_id], city=(worker.get('city') or 'Bengaluru'))
+                        import asyncio
+                        asyncio.run(run_signal_ingestion_cycle([hex_id], city=(worker.get('city') or 'Bengaluru')))
                         run_dci_cycle([hex_id])
                         for select_cols, where_col in query_attempts:
                             try:

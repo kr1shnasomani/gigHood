@@ -91,7 +91,8 @@ def signal_job():
     if not hexes:
         logger.warning("No hex zones found. Skipping signal ingestion.")
         return
-    res = run_signal_ingestion_cycle(hexes)
+    import asyncio
+    res = asyncio.run(run_signal_ingestion_cycle(hexes))
     logger.info(f"Signal cycle complete for {len(res)} zones.")
 
 def dci_job():

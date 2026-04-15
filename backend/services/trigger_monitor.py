@@ -58,7 +58,7 @@ from typing import Any, Callable, Coroutine, Optional
 
 from backend.config import settings
 from backend.db.client import get_db_connection, supabase_admin
-from backend.services.dci_engine import DCICycleResult, HexDCIResult
+from typing import Any
 
 logger = logging.getLogger(__name__)
 audit_logger = logging.getLogger("trigger_monitor.audit")
@@ -1000,7 +1000,7 @@ async def _notify_elevated_watch_workers(
 # =============================================================================
 
 async def _process_dci_cycle_inner(
-    dci_cycle: DCICycleResult,
+    dci_cycle: Any,
 ) -> TriggerMonitorCycleResult:
     """
     Inner implementation — wrapped by process_dci_cycle_results with a
@@ -1131,7 +1131,7 @@ async def _process_dci_cycle_inner(
 
 
 async def process_dci_cycle_results(
-    dci_cycle: DCICycleResult,
+    dci_cycle: Any,
 ) -> TriggerMonitorCycleResult:
     """
     Processes the output of run_dci_cycle() to initiate claims, send
