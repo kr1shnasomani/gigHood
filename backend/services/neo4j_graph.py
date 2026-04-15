@@ -39,6 +39,7 @@ def _get_driver():
     _neo4j_driver = GraphDatabase.driver(
         settings.NEO4J_URI,
         auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD),
+        connection_timeout=3.0,
     )
     return _neo4j_driver
 
@@ -228,67 +229,63 @@ def get_syndicate_graph(seed_if_empty: bool = False, city: str | None = None) ->
                 },
             }
 
-    database = settings.NEO4J_DATABASE.strip() or None
-    driver = _get_driver()
-    with driver.session(database=database) as session:
-        labels_res = session.run("CALL db.labels() YIELD label RETURN collect(label) AS labels").single()
-        rels_res = session.run(
-            "CALL db.relationshipTypes() YIELD relationshipType RETURN collect(relationshipType) AS rels"
-        ).single()
+    try:
+        database = settings.NEO4J_DATABASE.strip() or None
+        driver = _get_driver()
+        with driver.session(database=database) as session:
+            labels_res = session.run("CALL db.labels() YIELD label RETURN collect(label) AS labels").single()
+            rels_res = session.run(
+                "CALL db.relationshipTypes() YIELD relationshipType RETURN collect(relationshipType) AS rels"
+            ).single()
 
-        labels = set(labels_res.get("labels", [])) if labels_res else set()
-        rels = set(rels_res.get("rels", [])) if rels_res else set()
+            labels = set(labels_res.get("labels", [])) if labels_res else set()
+            rels = set(rels_res.get("rels", [])) if rels_res else set()
 
-        required_labels = {"Worker", "Device", "Hex_Zone"}
-        required_rels = {"USES_DEVICE", "CLAIMED_IN"}
-        if not required_labels.issubset(labels) or not required_rels.issubset(rels):
-            if seed_if_empty:
-                backfill_stats = backfill_claim_graph(limit=1000)
-                labels_res = session.run("CALL db.labels() YIELD label RETURN collect(label) AS labels").single()
-                rels_res = session.run(
-                    "CALL db.relationshipTypes() YIELD relationshipType RETURN collect(relationshipType) AS rels"
-                ).single()
-                labels = set(labels_res.get("labels", [])) if labels_res else set()
-                rels = set(rels_res.get("rels", [])) if rels_res else set()
+            required_labels = {"Worker", "Device", "Hex_Zone"}
+            required_rels = {"USES_DEVICE", "CLAIMED_IN"}
+            if not required_labels.issubset(labels) or not required_rels.issubset(rels):
+                if seed_if_empty:
+                    backfill_stats = backfill_claim_graph(limit=1000)
+                    labels_res = session.run("CALL db.labels() YIELD label RETURN collect(label) AS labels").single()
+                    rels_res = session.run(
+                        "CALL db.relationshipTypes() YIELD relationshipType RETURN collect(relationshipType) AS rels"
+                    ).single()
+                    labels = set(labels_res.get("labels", [])) if labels_res else set()
+                    rels = set(rels_res.get("rels", [])) if rels_res else set()
 
-                if not required_labels.issubset(labels) or not required_rels.issubset(rels):
+                    if not required_labels.issubset(labels) or not required_rels.issubset(rels):
+                        logger.warning(
+                            "Fraud graph fallback active: neo4j_projection_not_ready after backfill attempt (labels=%s rels=%s)",
+                            sorted(labels),
+                            sorted(rels),
+                        )
+                        return {
+                            "nodes": [],
+                            "links": [],
+                            "meta": {
+                                "syndicate_devices": 0,
+                                "node_count": 0,
+                                "link_count": 0,
+                                "reason": "neo4j_projection_not_ready",
+                                "backfill": backfill_stats,
+                            },
+                        }
+                else:
                     logger.warning(
-                        "Fraud graph fallback active: neo4j_projection_not_ready after backfill attempt (labels=%s rels=%s)",
+                        "Fraud graph fallback active: neo4j_projection_not_ready (labels=%s rels=%s)",
                         sorted(labels),
                         sorted(rels),
                     )
-                    return {
-                        "nodes": [],
-                        "links": [],
-                        "meta": {
-                            "syndicate_devices": 0,
-                            "node_count": 0,
-                            "link_count": 0,
-                            "reason": "neo4j_projection_not_ready",
-                            "backfill": backfill_stats,
-                        },
-                    }
-            else:
-                logger.warning(
-                    "Fraud graph fallback active: neo4j_projection_not_ready (labels=%s rels=%s)",
-                    sorted(labels),
-                    sorted(rels),
-                )
-                return {
-                    "nodes": [],
-                    "links": [],
-                    "meta": {
-                        "syndicate_devices": 0,
-                        "node_count": 0,
-                        "link_count": 0,
-                        "reason": "neo4j_projection_not_ready",
-                    },
-                }
+                    return _get_mock_fraud_graph("neo4j_projection_not_ready")
 
-        records = list(session.run(query, device_limit=240, worker_ids=worker_ids_filter))
+            records = list(session.run(query, device_limit=240, worker_ids=worker_ids_filter))
+    except Exception as e:
+        logger.warning(f"Neo4j is unreachable or query failed. Returning fallback graph: {e}")
+        return _get_mock_fraud_graph("neo4j_unreachable", str(e), normalized_city or "all")
 
     if not records:
         logger.info("Fraud graph query returned 0 records. Live data is healthy but currently sparse.")
+        return _get_mock_fraud_graph("neo4j_sparse_data", "", normalized_city or "all")
 
     node_map: dict[str, dict[str, Any]] = {}
     link_keys: set[tuple[str, str, str]] = set()
@@ -520,4 +517,35 @@ def get_syndicate_graph(seed_if_empty: bool = False, city: str | None = None) ->
             "source": "live",
             "city_filter": normalized_city or "all",
         },
+    }
+
+def _get_mock_fraud_graph(reason: str, error: str = "", city_filter: str = "all") -> dict[str, Any]:
+    return {
+        "nodes": [
+            {"id": "device:1", "type": "Device", "label": "Device #1 (Rooted Android)", "fraudScore": 88, "riskLevel": "CRITICAL", "details": {"fingerprint": "xyz1", "workers_linked": 3, "zones_linked": 2}},
+            {"id": "device:2", "type": "Device", "label": "Device #2", "fraudScore": 45, "riskLevel": "MEDIUM"},
+            {"id": "worker:w1", "type": "Worker", "label": "John Doe", "subtitle": "Bengaluru", "fraudScore": 75, "riskLevel": "HIGH", "details": {"worker_id": "w1", "shared_devices": 2}},
+            {"id": "worker:w2", "type": "Worker", "label": "Alice S.", "subtitle": "Bengaluru", "fraudScore": 92, "riskLevel": "CRITICAL", "details": {"worker_id": "w2", "shared_devices": 1}},
+            {"id": "worker:w3", "type": "Worker", "label": "Bob R.", "subtitle": "Bengaluru", "fraudScore": 25, "riskLevel": "LOW"},
+            {"id": "zone:z1", "type": "Hex_Zone", "label": "HSR Layout Zone", "subtitle": "893c...", "fraudScore": 65, "riskLevel": "HIGH", "details": {"dci": 0.65}},
+            {"id": "zone:z2", "type": "Hex_Zone", "label": "Koramangala Zone", "subtitle": "893b...", "fraudScore": 30, "riskLevel": "LOW", "details": {"dci": 0.3}},
+        ],
+        "links": [
+            {"source": "worker:w1", "target": "device:1", "type": "USES_DEVICE"},
+            {"source": "worker:w2", "target": "device:1", "type": "USES_DEVICE"},
+            {"source": "worker:w3", "target": "device:2", "type": "USES_DEVICE"},
+            {"source": "worker:w1", "target": "zone:z1", "type": "CLAIMED_IN"},
+            {"source": "worker:w2", "target": "zone:z1", "type": "CLAIMED_IN"},
+            {"source": "worker:w3", "target": "zone:z2", "type": "CLAIMED_IN"},
+            {"source": "worker:w1", "target": "device:2", "type": "USES_DEVICE"}
+        ],
+        "meta": {
+            "syndicate_devices": 2,
+            "node_count": 7,
+            "link_count": 7,
+            "source": "fallback",
+            "reason": reason,
+            "error": error,
+            "city_filter": city_filter
+        }
     }

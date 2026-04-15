@@ -1,15 +1,22 @@
 import os
 import pickle
+import threading
+import logging
+import random
+from typing import List
+
 import numpy as np
 import pandas as pd
 import xgboost as xgb
-import logging
+
 from backend.config import settings
+from backend.services.feature_store import get_worker_features
+logger = logging.getLogger("risk_profiler")
 
-logger = logging.getLogger("api")
-
+# =========================================================
+# PATH RESOLUTION
+# =========================================================
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-
 
 def _resolve_path(path_value: str) -> str:
     if os.path.isabs(path_value):
@@ -17,132 +24,226 @@ def _resolve_path(path_value: str) -> str:
     return os.path.abspath(os.path.join(PROJECT_ROOT, path_value))
 
 
-MODEL_PATH_JSON = _resolve_path(settings.RISK_PROFILER_MODEL_JSON_PATH)
-MODEL_PATH_PKL  = _resolve_path(settings.RISK_PROFILER_MODEL_PKL_PATH)  # legacy — migrated on first load
-DATASET_PATH    = _resolve_path(settings.RISK_PROFILER_DATASET_PATH)
+# ✅ VERSIONED MODEL PATH
+def get_model_path():
+    version = settings.RISK_MODEL_VERSION
+    return _resolve_path(f"backend/ml/models/risk_model_{version}.json")
 
-# Global in-memory cache for the loaded model to prevent I/O blocking
+
+MODEL_PATH_JSON = get_model_path()
+MODEL_PATH_PKL = _resolve_path(settings.RISK_PROFILER_MODEL_PKL_PATH)
+DATASET_PATH = _resolve_path(settings.RISK_PROFILER_DATASET_PATH)
+
+
+# =========================================================
+# THREAD-SAFE MODEL CACHE
+# =========================================================
 _model = None
+_model_lock = threading.Lock()
 
+
+# =========================================================
+# STATIC CITY RISK
+# =========================================================
 CITY_FLOOD_PROXIMITY = {
     "Bengaluru": 0.35,
-    "Chennai": 0.75,    # High — coastal + cyclone risk
-    "Mumbai": 0.80,     # Very high — sea level flooding
-    "Delhi": 0.65,      # AQI spikes — not flood but equally disruptive
-    "Jaipur": 0.15,     # Low — dry climate
+    "Chennai": 0.75,
+    "Mumbai": 0.80,
+    "Delhi": 0.65,
+    "Jaipur": 0.15,
     "Hyderabad": 0.40,
     "Lucknow": 0.45,
-    "Kolkata": 0.70,    # High — delta flooding
-    "Guwahati": 0.65    # High — Brahmaputra flooding
+    "Kolkata": 0.70,
+    "Guwahati": 0.65
 }
 
+def predict_tier_from_store(worker_id: str, fallback_inputs: dict = None):
+    """
+    Fetch features dynamically from feature store and compute tier.
+    Falls back to provided inputs if missing.
+    """
+
+    features = get_worker_features(worker_id)
+
+    if not features and fallback_inputs:
+        features = fallback_inputs
+
+    if not features:
+        # Hard fallback (cold start)
+        return "B"
+
+    worker_hex_history = features.get("dci_history", [])
+    seasonal_flag = features.get("seasonal_flag", False)
+    city = features.get("city", "Bengaluru")
+    claim_frequency = features.get("claim_frequency", 0.2)
+
+    return predict_tier(
+        worker_hex_history=worker_hex_history,
+        seasonal_flag=seasonal_flag,
+        city=city,
+        claim_frequency=claim_frequency,
+        worker_id=worker_id
+    )
+
+# =========================================================
+# A/B TESTING
+# =========================================================
+def is_ab_user(worker_id: str) -> bool:
+    random.seed(worker_id)
+    return random.random() < settings.AB_TEST_RATIO
 
 
+# =========================================================
+# TRAIN MODEL
+# =========================================================
 def train_and_save_model():
-    """
-    Trains the XGBoost classifier on realistic data loaded from the dataset artifacts and saves weights.
-    """
-    logger.info("Loading realistic dataset CSV...")
     df = pd.read_csv(DATASET_PATH)
-    
-    # Calculate DCI Avg dynamically
+
     dci_cols = [f"dci_w{i}" for i in range(1, 13)]
     df["dci_avg"] = df[dci_cols].mean(axis=1)
-    
-    # Rename columns to match the ML signature natively across the backend code
+
     df.rename(columns={
         "is_high_risk_season": "seasonal_flag",
         "historical_claim_freq": "claim_frequency"
     }, inplace=True)
-    
-    # Encode target tier integers
+
     tier_map = {"Tier A": 0, "Tier B": 1, "Tier C": 2}
     df["tier"] = df["target_tier"].map(tier_map)
-    
+
     X = df[["dci_avg", "seasonal_flag", "flood_proximity_score", "claim_frequency"]]
     y = df["tier"]
-    
-    logger.info("Training XGBoost Classifier...")
+
     model = xgb.XGBClassifier(
         n_estimators=100,
         max_depth=4,
         learning_rate=0.1,
-        eval_metric='mlogloss',
+        eval_metric="mlogloss",
         random_state=42
     )
-    
+
     model.fit(X, y)
-    
-    # Serialize model using XGBoost native JSON (no pickle deprecation warnings)
-    os.makedirs(os.path.dirname(MODEL_PATH_JSON), exist_ok=True)
-    model.save_model(MODEL_PATH_JSON)
 
-    logger.info(f"Successfully trained and serialized XGBoost model to {MODEL_PATH_JSON}")
+    os.makedirs(os.path.dirname(get_model_path()), exist_ok=True)
+    model.save_model(get_model_path())
 
+    logger.info(f"Model saved → {get_model_path()}")
+
+
+# =========================================================
+# LOAD MODEL
+# =========================================================
 def load_model():
-    """
-    Loads and caches the XGBoost model using native JSON format (no pickle warnings).
-    On first call, migrates any legacy .pkl to .json automatically.
-    If neither exists, triggers a fresh training cycle.
-    """
     global _model
+
     if _model is not None:
         return _model
 
-    if not os.path.exists(MODEL_PATH_JSON):
-        # One-time migration: re-save existing pkl as JSON to eliminate UserWarning
-        if os.path.exists(MODEL_PATH_PKL):
-            logger.info("Migrating legacy risk_profiler.pkl → risk_profiler.json (one-time)…")
-            with open(MODEL_PATH_PKL, "rb") as f:
-                migrated = pickle.load(f)
-            migrated.save_model(MODEL_PATH_JSON)
-            logger.info(f"Migration complete. JSON model saved to {MODEL_PATH_JSON}")
-        else:
-            logger.warning("No model file found. Triggering training cycle…")
-            train_and_save_model()
+    with _model_lock:
+        if _model is not None:
+            return _model
 
-    model = xgb.XGBClassifier()
-    model.load_model(MODEL_PATH_JSON)
-    _model = model
-    return _model
+        if not os.path.exists(get_model_path()):
+            if os.path.exists(MODEL_PATH_PKL):
+                with open(MODEL_PATH_PKL, "rb") as f:
+                    migrated = pickle.load(f)
+                migrated.save_model(get_model_path())
+            else:
+                train_and_save_model()
 
-def predict_tier(worker_hex_history: list[float], seasonal_flag: bool, city: str, claim_frequency: float) -> str:
-    """
-    Computes the insurance risk Tier ('A', 'B', or 'C') based on physical properties of the assigned Hex zone.
-    """
+        model = xgb.XGBClassifier()
+        model.load_model(get_model_path())
+
+        _model = model
+        return _model
+
+
+# =========================================================
+# PREDICT TIER
+# =========================================================
+def predict_tier(
+    worker_hex_history: List[float],
+    seasonal_flag: bool,
+    city: str,
+    claim_frequency: float,
+    worker_id: str = "default"
+) -> str:
+
     model = load_model()
-    
-    # Extract the average of the 12-week history array, fallback to 0.0 if empty
+
     dci_avg = float(np.mean(worker_hex_history)) if worker_hex_history else 0.0
+    dci_avg = max(0.0, min(dci_avg, 1.0))
+
+    claim_frequency = max(0.0, min(claim_frequency, 1.0))
     season_int = 1 if seasonal_flag else 0
-    
-    # Flood score is sourced from a deterministic city-risk lookup for the demo.
-    flood_proximity_score = CITY_FLOOD_PROXIMITY.get(city, 0.35)
-    
+
+    flood_score = CITY_FLOOD_PROXIMITY.get(city, 0.35)
+
     df_inf = pd.DataFrame([{
         "dci_avg": dci_avg,
         "seasonal_flag": season_int,
-        "flood_proximity_score": flood_proximity_score,
+        "flood_proximity_score": flood_score,
         "claim_frequency": claim_frequency
     }])
-    
-    # Predict deterministic class
+
     pred = model.predict(df_inf)[0]
+    mapping = {0: "A", 1: "B", 2: "C"}
+    ml_tier = mapping.get(int(pred), "B")
 
-    # Safely route the predicted integer back to String Tier definitions
-    mapping = {0: 'A', 1: 'B', 2: 'C'}
-    ml_tier = mapping.get(int(pred), 'B')  # Fallback safely to B if corrupted prediction occurs
-
-    # Deterministic calibration layer for demo consistency:
-    # - Keep low-risk dry zones in A
-    # - Promote moderate DCI to at least B
-    # - Promote high DCI + flood-prone cities to C
-    if dci_avg >= 0.65 and flood_proximity_score >= 0.70:
-        rule_tier = 'C'
-    elif dci_avg >= 0.50 or (dci_avg >= 0.45 and flood_proximity_score >= 0.60):
-        rule_tier = 'B'
+    # RULE SYSTEM
+    if dci_avg >= 0.65 and flood_score >= 0.70:
+        rule_tier = "C"
+    elif dci_avg >= 0.50 or (dci_avg >= 0.45 and flood_score >= 0.60):
+        rule_tier = "B"
     else:
-        rule_tier = 'A'
+        rule_tier = "A"
 
-    order = {'A': 0, 'B': 1, 'C': 2}
-    return rule_tier if order[rule_tier] > order[ml_tier] else ml_tier
+    order = {"A": 0, "B": 1, "C": 2}
+
+    # ✅ A/B TESTING
+    if settings.ENABLE_AB_TESTING and is_ab_user(worker_id):
+        final_tier = ml_tier
+        mode = "ML"
+    else:
+        final_tier = rule_tier if order[rule_tier] > order[ml_tier] else ml_tier
+        mode = "HYBRID"
+
+    logger.info(f"[AB_TEST] worker={worker_id} mode={mode} tier={final_tier}")
+
+    return final_tier
+
+
+# =========================================================
+# EXPLAINABILITY
+# =========================================================
+def explain_tier(worker_hex_history, seasonal_flag, city, claim_frequency, worker_id="default"):
+
+    dci_avg = float(np.mean(worker_hex_history)) if worker_hex_history else 0.0
+    flood_score = CITY_FLOOD_PROXIMITY.get(city, 0.35)
+
+    reasons = []
+
+    if dci_avg > 0.6:
+        reasons.append(f"High disruption score ({round(dci_avg, 2)})")
+
+    if flood_score > 0.7:
+        reasons.append(f"High flood risk in {city}")
+
+    if claim_frequency > 0.5:
+        reasons.append("Frequent past claims")
+
+    if seasonal_flag:
+        reasons.append("High-risk seasonal period")
+
+    tier = predict_tier(
+        worker_hex_history,
+        seasonal_flag,
+        city,
+        claim_frequency,
+        worker_id
+    )
+
+    return {
+        "tier": tier,
+        "reasons": reasons,
+        "confidence": round(dci_avg, 2)
+    }
