@@ -6,6 +6,85 @@ from backend.db.supabase_retry import execute_with_retry
 from backend.config import settings
 
 _DEGRADED_HEX_ACTIVE: set[str] = set()
+_WEIGHT_CACHE_TTL_SECONDS = 300
+_weight_cache: dict[str, float] | None = None
+_weight_cache_ts = 0.0
+
+
+def invalidate_weight_cache() -> None:
+    """Forces reload of DCI weights on next cycle."""
+    global _weight_cache, _weight_cache_ts
+    _weight_cache = None
+    _weight_cache_ts = 0.0
+
+
+def _clamp_weight(value: float, fallback: float) -> float:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return fallback
+    return max(0.0, min(1.0, parsed))
+
+
+def get_active_dci_weights() -> dict[str, float]:
+    """
+    Returns active DCI weights from `dci_weights` with a short in-process cache.
+    Falls back to cold-start defaults when table/data is unavailable.
+    """
+    global _weight_cache, _weight_cache_ts
+
+    now = time.time()
+    if _weight_cache and (now - _weight_cache_ts) < _WEIGHT_CACHE_TTL_SECONDS:
+        return _weight_cache
+
+    fallback = {
+        "alpha": float(getattr(settings, "DCI_WEIGHT_ALPHA", 0.45)),
+        "beta": float(getattr(settings, "DCI_WEIGHT_BETA", 0.25)),
+        "gamma": float(getattr(settings, "DCI_WEIGHT_GAMMA", 0.20)),
+        "delta": float(getattr(settings, "DCI_WEIGHT_DELTA", 0.10)),
+    }
+
+    try:
+        res = execute_with_retry(
+            lambda: supabase.table("dci_weights")
+            .select("alpha,beta,gamma,delta")
+            .eq("is_active", True)
+            .order("trained_at", desc=True)
+            .limit(1)
+            .execute(),
+            op_name="dci_engine:get_active_dci_weights",
+        )
+
+        row = (res.data or [None])[0]
+        if not row:
+            _weight_cache = fallback
+            _weight_cache_ts = now
+            return fallback
+
+        alpha = _clamp_weight(row.get("alpha"), fallback["alpha"])
+        beta = _clamp_weight(row.get("beta"), fallback["beta"])
+        gamma = _clamp_weight(row.get("gamma"), fallback["gamma"])
+        delta = _clamp_weight(row.get("delta"), fallback["delta"])
+
+        total = alpha + beta + gamma + delta
+        if total <= 0.0:
+            _weight_cache = fallback
+            _weight_cache_ts = now
+            return fallback
+
+        normalized = {
+            "alpha": alpha / total,
+            "beta": beta / total,
+            "gamma": gamma / total,
+            "delta": delta / total,
+        }
+        _weight_cache = normalized
+        _weight_cache_ts = now
+        return normalized
+    except Exception:
+        _weight_cache = fallback
+        _weight_cache_ts = now
+        return fallback
 
 def sigmoid(x: float) -> float:
     """Standard sigmoid function mapping any real number into the (0, 1) bounds."""
@@ -45,6 +124,9 @@ def run_dci_cycle(hex_ids: list[str]) -> dict:
     
     if not hex_ids:
         return results
+
+    # Read active learned weights once per cycle.
+    weights = get_active_dci_weights()
 
     # Fetch signals from Supabase cache
     try:
@@ -132,18 +214,32 @@ def run_dci_cycle(hex_ids: list[str]) -> dict:
             _DEGRADED_HEX_ACTIVE.discard(hex_id)
             
         # Defaults for missing signals safely mapped to 0 if required (since >=3 exist, max 2 are 0)
-        w = hex_sigs.get("WEATHER", 0.0)
-        t = hex_sigs.get("TRAFFIC", 0.0)
-        p = hex_sigs.get("PLATFORM", 0.0)
-        s = hex_sigs.get("SOCIAL", 0.0)
+        w = float(hex_sigs.get("WEATHER", 0.0) or 0.0)
+        t = float(hex_sigs.get("TRAFFIC", 0.0) or 0.0)
+        p = float(hex_sigs.get("PLATFORM", 0.0) or 0.0)
+        s = float(hex_sigs.get("SOCIAL", 0.0) or 0.0)
+
+        # AQI contributes into weather context, but raw additive sums can inflate baseline DCI.
+        # Use bounded averaging so fresh zones start in normal ranges unless true extremes occur.
+        a = float(hex_sigs.get("AQI", 0.0) or 0.0)
+        w_combined = (w + a) / 2.0 if a > 0 else w
+
+        # Clamp signal components to prevent malformed upstream scores from saturating sigmoid.
+        w_combined = max(0.0, min(1.5, w_combined))
+        t = max(0.0, min(1.0, t))
+        p = max(0.0, min(1.0, p))
+        s = max(0.0, min(1.0, s))
         
-        # AQI modifies W in the requirements but spec examples suggest they are baked into weather composite
-        # If AQI exists, it's combined with W or tracked independently? The formula only has W, T, P, S.
-        # "combine with weather W score":
-        a = hex_sigs.get("AQI", 0.0)
-        w_combined = w + a
-        
-        dci = compute_dci(w_combined, t, p, s)
+        dci = compute_dci(
+            w_combined,
+            t,
+            p,
+            s,
+            alpha=weights["alpha"],
+            beta=weights["beta"],
+            gamma=weights["gamma"],
+            delta=weights["delta"],
+        )
         status = get_dci_status(dci)
         
         now_iso = datetime.now(timezone.utc).isoformat()

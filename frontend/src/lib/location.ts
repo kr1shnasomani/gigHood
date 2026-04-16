@@ -16,6 +16,24 @@ export interface GeolocationOptions {
   maximumAge: number;
 }
 
+function readPosition(options: GeolocationOptions): Promise<GeolocationPosition> {
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, options);
+  });
+}
+
+function toGeolocationErrorMessage(error: GeolocationPositionError): string {
+  const codeLabel =
+    error.code === error.PERMISSION_DENIED
+      ? 'permission denied'
+      : error.code === error.POSITION_UNAVAILABLE
+        ? 'position unavailable'
+        : error.code === error.TIMEOUT
+          ? 'location timeout'
+          : 'unknown location error';
+  return error.message || `Unable to read location (${codeLabel}).`;
+}
+
 // Check if geolocation is available
 export function isGeolocationSupported(): boolean {
   return 'geolocation' in navigator;
@@ -27,28 +45,28 @@ export async function getCurrentPosition(): Promise<GeolocationPosition> {
     throw new Error('Geolocation is not supported by this browser');
   }
 
-  return new Promise((resolve, reject) => {
-    navigator.geolocation.getCurrentPosition(
-      resolve,
-      (error) => {
-        // GeolocationPositionError is not always an Error instance.
-        const codeLabel =
-          error.code === error.PERMISSION_DENIED
-            ? 'permission denied'
-            : error.code === error.POSITION_UNAVAILABLE
-              ? 'position unavailable'
-              : error.code === error.TIMEOUT
-                ? 'location timeout'
-                : 'unknown location error';
-        reject(new Error(error.message || `Unable to read location (${codeLabel}).`));
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
+  const attempts: GeolocationOptions[] = [
+    // First try: precise and fresh.
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+    // Retry: allow less precise but more likely fix on weak networks/devices.
+    { enableHighAccuracy: false, timeout: 20000, maximumAge: 30000 },
+    // Final fallback: cached fix is better than hard-failing claim flow.
+    { enableHighAccuracy: false, timeout: 8000, maximumAge: 180000 },
+  ];
+
+  let lastError: GeolocationPositionError | null = null;
+  for (const options of attempts) {
+    try {
+      return await readPosition(options);
+    } catch (error) {
+      if ((error as GeolocationPositionError).code === GeolocationPositionError.PERMISSION_DENIED) {
+        throw new Error(toGeolocationErrorMessage(error as GeolocationPositionError));
       }
-    );
-  });
+      lastError = error as GeolocationPositionError;
+    }
+  }
+
+  throw new Error(lastError ? toGeolocationErrorMessage(lastError) : 'Unable to read location.');
 }
 
 // Detect if mock location might be enabled (web limitation - best effort)
@@ -135,9 +153,27 @@ export async function submitLocationPing(): Promise<void> {
   try {
     await api.post('/location-pings', ping);
   } catch (error) {
+    const status =
+      typeof error === 'object' &&
+      error !== null &&
+      'status' in error &&
+      typeof (error as { status?: number }).status === 'number'
+        ? (error as { status: number }).status
+        : 0;
     const message = error instanceof Error ? error.message : String(error);
     if (message.toLowerCase().includes('invalid api key')) {
       console.warn('Location ping disabled: backend Supabase key is invalid. Update backend/.env keys.');
+      return;
+    }
+    if (
+      status === 401 ||
+      message.toLowerCase().includes('not authenticated') ||
+      message.toLowerCase().includes('token expired') ||
+      message.toLowerCase().includes('could not validate credentials') ||
+      message.includes('401')
+    ) {
+      console.warn('Location ping failed: unauthorized. Stopping tracking.');
+      stopLocationTracking();
       return;
     }
     throw error;

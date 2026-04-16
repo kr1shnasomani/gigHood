@@ -48,39 +48,80 @@ def run_monday_policy_cycle():
 
 def run_sunday_forecast_cycle():
     """
-    Run on Sundays to mock-forecast DCI probabilities and send proactive Tier Upgrade
-    pushes to users who show improved safety trends before Monday's renewal.
+    Run on Sundays to send proactive tier-upgrade nudges based on recent
+    worker-level DCI trends (instead of mock broadcast notifications).
     """
     logger.info("Initializing Sunday Tier Upgrade Forecast Cycle...")
     try:
         from backend.services.notification_service import notification_service
-        # Fetch active workers
-        workers_res = supabase.table('workers').select('id, name, fcm_token').eq('status', 'active').execute()
-        
+
+        workers_res = (
+            supabase.table('workers')
+            .select('id,name,fcm_token,hex_id,home_hex')
+            .eq('status', 'active')
+            .execute()
+        )
+
         count = 0
-        for worker in workers_res.data:
-            if worker.get('fcm_token'):
-                # Mock logic: we pretend the backend predicted they can upgrade from B -> A
-                # In production this calls a timeseries forecast model
-                notification_service.notify_tier_upgrade(worker['fcm_token'], "B", "A")
+        for worker in workers_res.data or []:
+            token = worker.get('fcm_token')
+            if not token:
+                continue
+
+            hex_id = worker.get('hex_id') or worker.get('home_hex')
+            if not hex_id:
+                continue
+
+            hist_res = (
+                supabase.table('dci_history')
+                .select('dci_score,computed_at')
+                .eq('hex_id', hex_id)
+                .order('computed_at', desc=True)
+                .limit(14)
+                .execute()
+            )
+            history = hist_res.data or []
+            if len(history) < 6:
+                continue
+
+            scores = [float(row.get('dci_score') or 0.0) for row in history]
+            latest_window = scores[:7]
+            prior_window = scores[7:14] if len(scores) >= 14 else scores[3:10]
+            if not prior_window:
+                continue
+
+            latest_avg = sum(latest_window) / len(latest_window)
+            prior_avg = sum(prior_window) / len(prior_window)
+
+            # Notify when risk trend is materially improving.
+            if latest_avg <= 0.45 and (prior_avg - latest_avg) >= 0.08:
+                notification_service.notify_tier_upgrade(token, "B", "A")
                 count += 1
-                
+
         logger.info(f"Sunday Forecast completed. Sent {count} tier upgrade offers.")
     except Exception as e:
         logger.error(f"Sunday forecast cycle failed: {e}")
 
 def run_sunday_xgboost_retrain():
     """
-    Weekly automated MLOps pipeline executing on Sundays to refresh the model 
-    weights on the latest collected data.
+    Weekly automated MLOps pipeline executing on Sundays to refresh all
+    model artifacts used by runtime decisions.
     """
-    logger.info("Initializing Sunday XGBoost Auto-Retrain Pipeline...")
+    logger.info("Initializing Sunday ML Retraining Pipeline...")
     try:
         from backend.services.risk_profiler import train_and_save_model
+        from backend.ml.train_fraud_model import train_model as train_fraud_model
+        from backend.services.dci_weight_trainer import run_dci_weight_optimization
+
         train_and_save_model()
-        logger.info("XGBoost retraining successfully completed.")
+        train_fraud_model()
+        weight_result = run_dci_weight_optimization()
+        logger.info(
+            "ML retraining completed | risk_profiler=ok | fraud_model=ok | "
+            f"dci_weight_status={weight_result.get('status')}"
+        )
     except Exception as e:
-        logger.error(f"XGBoost retraining cycle failed: {e}")
+        logger.error(f"ML retraining cycle failed: {e}")
 
 
 def run_fraud_threshold_retrain():

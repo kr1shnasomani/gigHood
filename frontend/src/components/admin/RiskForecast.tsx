@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { fetchRiskForecast, RiskForecast } from '@/lib/admin/adminClient';
 import { TrendingUp } from 'lucide-react';
 
@@ -14,11 +14,12 @@ const CITY_FLAGS: Record<string, string> = {
 };
 
 export default function RiskForecastPanel() {
-  const [forecast, setForecast] = useState<RiskForecast[]>([]);
-
-  useEffect(() => {
-    fetchRiskForecast().then(setForecast).catch(console.error);
-  }, []);
+  const { data: forecast = [] } = useQuery<RiskForecast[]>({
+    queryKey: ['admin', 'risk-forecast'],
+    queryFn: fetchRiskForecast,
+    staleTime: 60_000,
+    gcTime: 10 * 60_000,
+  });
 
   const normalized = forecast.map(item => ({
     ...item,

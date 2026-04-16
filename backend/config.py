@@ -70,10 +70,10 @@ class Settings(BaseSettings):
 
     DCI_THRESHOLD_DISRUPTED: float = 0.7
     DCI_THRESHOLD_ELEVATED_WATCH: float = 0.5
-    DCI_WEIGHT_ALPHA: float = 0.4
-    DCI_WEIGHT_BETA: float = 0.2
-    DCI_WEIGHT_DELTA: float = 0.2
-    DCI_WEIGHT_GAMMA: float = 0.2
+    DCI_WEIGHT_ALPHA: float = 0.45
+    DCI_WEIGHT_BETA: float = 0.25
+    DCI_WEIGHT_DELTA: float = 0.10
+    DCI_WEIGHT_GAMMA: float = 0.20
     SIGNAL_DEGRADED_MODE_THRESHOLD: int = 2
 
     FRAUD_CLAIM_FREQUENCY_PCT_THRESHOLD: float = 20.0
@@ -85,6 +85,18 @@ class Settings(BaseSettings):
     FRAUD_WEIGHT_MOCK_LOCATION: float = 0.3
     POP_MIN_PINGS_IN_HEX: int = 2
     POP_WINDOW_MINUTES: int = 30
+
+    # Premium banding configuration
+    PREMIUM_A_LOW: float = 20.0
+    PREMIUM_A_HIGH: float = 24.0
+    PREMIUM_B_LOW: float = 28.0
+    PREMIUM_B_HIGH: float = 34.0
+    PREMIUM_C_LOW: float = 36.0
+    PREMIUM_C_HIGH: float = 42.0
+    MONSOON_MONTHS: tuple[int, ...] = (6, 7, 8, 9)
+    MONSOON_MULTIPLIER: float = 1.4
+    MIN_PREMIUM: float = 20.0
+    MAX_PREMIUM: float = 50.0
 
     # Scheduler
     ENABLE_SCHEDULER: bool = True

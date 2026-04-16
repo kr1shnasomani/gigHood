@@ -80,7 +80,6 @@ ehthumbs.db
 Thumbs.db
 
 # Machine Learning
-**/*.pkl
 **/*.model
 *.h5
 *.hdf5

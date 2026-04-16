@@ -25,14 +25,64 @@ import asyncio
 import hashlib
 import time
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 
-from backend.db.client import supabase
+import joblib
+import numpy as np
+
+from backend.db.client import supabase, supabase_admin
 from backend.config import settings
 from backend.services.mock_external_apis import verify_zepto_worker_activity
 
 logger = logging.getLogger("fraud_engine")
+
+_fraud_model = None
+_fraud_model_loaded_at = 0.0
+_FRAUD_MODEL_TTL_SECONDS = 600
+
+
+def _resolve_fraud_model_path() -> str:
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    return os.path.join(project_root, "backend", "ml", "fraud_model.pkl")
+
+
+def _load_fraud_model():
+    """Loads and caches the fraud ML model, training once on cold-start if needed."""
+    global _fraud_model, _fraud_model_loaded_at
+
+    now = time.time()
+    if _fraud_model is not None and (now - _fraud_model_loaded_at) < _FRAUD_MODEL_TTL_SECONDS:
+        return _fraud_model
+
+    model_path = _resolve_fraud_model_path()
+    if not os.path.exists(model_path):
+        from backend.ml.train_fraud_model import train_model
+
+        train_model()
+
+    _fraud_model = joblib.load(model_path)
+    _fraud_model_loaded_at = now
+    return _fraud_model
+
+
+def predict_fraud_ml(features: dict[str, float]) -> float:
+    """
+    Returns fraud probability on a 0-100 scale from the trained model.
+    """
+    model = _load_fraud_model()
+    values = np.array(
+        [[
+            float(features.get("claim_frequency", 0.0)),
+            float(features.get("zone_risk", 0.0)),
+            float(features.get("location_anomaly", 0.0)),
+            float(features.get("time_of_day", 12.0)),
+        ]],
+        dtype=float,
+    )
+    proba = model.predict_proba(values)[0][1]
+    return max(0.0, min(100.0, float(proba) * 100.0))
 
 
 # ── Fraud scoring weights (sourced from settings with fallbacks) ────────────
@@ -76,6 +126,11 @@ def _safe_db_call(fn: Callable[[], Any], retries: int = 3) -> Any:
         try:
             return fn()
         except Exception as exc:
+            # Permission errors are deterministic in the current auth context;
+            # retrying only spams logs and increases latency.
+            msg = str(exc)
+            if "permission denied" in msg or "'code': '42501'" in msg:
+                raise exc
             last_exc = exc
             logger.warning(
                 f"[fraud_engine] DB call failed (attempt {attempt}/{retries}): {exc}"
@@ -147,11 +202,12 @@ def refresh_adaptive_thresholds() -> _ThresholdState:
     global _thresholds
     try:
         res = _safe_db_call(
-            lambda: supabase.table("fraud_feedback")
+            lambda: supabase_admin.table("fraud_feedback")
                 .select("fraud_score,ai_decision,admin_decision")
                 .execute()
         )
-        rows = res.data if res and hasattr(res, "data") and res.data else []
+        rows_data = getattr(res, "data", None)
+        rows = rows_data if isinstance(rows_data, list) else []
 
         approve_scores = [
             float(r["fraud_score"]) for r in rows
@@ -192,8 +248,11 @@ def refresh_adaptive_thresholds() -> _ThresholdState:
         )
 
     except Exception as exc:
-        # Soft failure: keep existing thresholds, log, continue.
-        logger.warning(f"[fraud_engine] Threshold refresh failed (using cached): {exc}")
+        # Soft failure: keep existing thresholds, log once, continue.
+        if "permission denied" in str(exc) or "'code': '42501'" in str(exc):
+            logger.info("[fraud_engine] Threshold feedback table not accessible in current environment; using baseline thresholds.")
+        else:
+            logger.warning(f"[fraud_engine] Threshold refresh failed (using cached): {exc}")
         _thresholds.last_refreshed_at = time.time()  # back-off: don’t hammer DB on transient errors
 
     return _thresholds
@@ -369,7 +428,7 @@ def write_audit_log(
     a transient error here never affects the claim decision result.
     """
     try:
-        supabase.table("audit_logs").insert({
+        supabase_admin.table("audit_logs").insert({
             "entity_type":  entity_type,
             "entity_id":    entity_id,
             "action":       action,
@@ -377,7 +436,10 @@ def write_audit_log(
             "metadata":     metadata,
         }).execute()
     except Exception as exc:
-        logger.warning(f"[fraud_engine] audit_log write failed (non-fatal): {exc}")
+        if "permission denied" in str(exc) or "'code': '42501'" in str(exc):
+            logger.info("[fraud_engine] audit_logs table not accessible in current environment; skipping audit write.")
+        else:
+            logger.warning(f"[fraud_engine] audit_log write failed (non-fatal): {exc}")
 
 
 # ── FraudEvaluator ──────────────────────────────────────────────────────────
@@ -679,7 +741,8 @@ class FraudEvaluator:
                         .gte("created_at", seven_days_ago)
                         .execute()
                 )
-                recent_claims = getattr(claims_res, 'count', 0) or 0
+                raw_claim_count = getattr(claims_res, 'count', 0)
+                recent_claims = int(raw_claim_count) if isinstance(raw_claim_count, (int, float)) else 0
             except Exception:
                 recent_claims = 0
 
@@ -897,20 +960,96 @@ class FraudEvaluator:
         self, worker_id: str, hex_id: str, start_iso: str
     ) -> dict:
         """
-        Evaluates behavioral clustering and network patterns for fraud detection.
-        Deterministically scores based on worker_id characteristics.
+        Evaluates fraud rings using observed network evidence from recent events.
+
+        Signals:
+          1) Same-hex multi-claim cluster in the last 30 days
+          2) Worker concentration in the cluster (few workers taking many claims)
+          3) Shared device/carrier fingerprint concentration within clustered workers
         """
         flags: dict[str, int] = {}
 
-        seed_val       = int(hashlib.md5(worker_id.encode()).hexdigest(), 16)
-        behavior_score = (seed_val % 100) / 100.0
+        try:
+            try:
+                start_dt = datetime.fromisoformat(str(start_iso).replace("Z", "+00:00"))
+            except Exception:
+                start_dt = datetime.now(timezone.utc)
+            since_iso = (start_dt - timedelta(days=30)).isoformat()
 
-        if behavior_score > 0.80:
-            flags["REGISTRATION_COHORT"] = 15
-            flags["ANOMALOUS_PATTERN"]   = 10
-        elif behavior_score > 0.60:
-            flags["MODEL_CONCENTRATION"] = 12
-        elif behavior_score > 0.40:
-            flags["MODERATE_CLUSTERING"] = 5
+            events_res = _safe_db_call(
+                lambda: supabase.table("disruption_events")
+                .select("id")
+                .eq("hex_id", hex_id)
+                .gte("started_at", since_iso)
+                .limit(300)
+                .execute()
+            )
+            event_ids = [row.get("id") for row in (events_res.data or []) if row.get("id")]
+            if not event_ids:
+                return flags
+
+            claims_res = _safe_db_call(
+                lambda: supabase.table("claims")
+                .select("worker_id,event_id,created_at")
+                .in_("event_id", event_ids)
+                .gte("created_at", since_iso)
+                .limit(5000)
+                .execute()
+            )
+            rows = claims_res.data or []
+            if not rows:
+                return flags
+
+            claim_counts: dict[str, int] = {}
+            for row in rows:
+                wid = row.get("worker_id")
+                if not wid:
+                    continue
+                claim_counts[wid] = claim_counts.get(wid, 0) + 1
+
+            if not claim_counts:
+                return flags
+
+            cluster_workers = {wid for wid, cnt in claim_counts.items() if cnt >= 2}
+            total_claims = sum(claim_counts.values())
+            worker_claims = claim_counts.get(worker_id, 0)
+
+            if worker_id in cluster_workers and len(cluster_workers) >= 3:
+                flags["REGISTRATION_COHORT"] = 12
+
+            if total_claims > 0:
+                concentration = worker_claims / total_claims
+                if concentration >= 0.35 and worker_claims >= 3:
+                    flags["MODEL_CONCENTRATION"] = 10
+
+            if cluster_workers and worker_id in cluster_workers:
+                cluster_ids = list(cluster_workers)[:100]
+                workers_res = _safe_db_call(
+                    lambda: supabase.table("workers")
+                    .select("id,device_model,sim_carrier")
+                    .in_("id", cluster_ids)
+                    .execute()
+                )
+                profiles = workers_res.data or []
+                target = next((r for r in profiles if r.get("id") == worker_id), None)
+                if target:
+                    device = str(target.get("device_model") or "").strip().lower()
+                    carrier = str(target.get("sim_carrier") or "").strip().lower()
+                    if device or carrier:
+                        peers = 0
+                        for row in profiles:
+                            if row.get("id") == worker_id:
+                                continue
+                            same_device = device and str(row.get("device_model") or "").strip().lower() == device
+                            same_carrier = carrier and str(row.get("sim_carrier") or "").strip().lower() == carrier
+                            if same_device or same_carrier:
+                                peers += 1
+                        if peers >= 2:
+                            flags["ANOMALOUS_PATTERN"] = 8
+                        elif peers == 1:
+                            flags["MODERATE_CLUSTERING"] = 4
+
+        except Exception as exc:
+            logger.debug(f"[fraud_engine] network ring evaluation skipped: {exc}")
 
         return flags

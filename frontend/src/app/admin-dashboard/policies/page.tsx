@@ -191,6 +191,11 @@ export default function ActivePoliciesPage() {
 
   const chartData = payoutTrends.map((t) => ({ name: t.month, premiums: t.premiums || 0, payouts: t.payouts }));
   const cardStyle = { background: '#FFFFFF', borderRadius: 16, border: '1px solid rgba(249,115,22,0.12)', boxShadow: '0 1px 4px rgba(0,0,0,0.05), 0 8px 24px rgba(249,115,22,0.05)' };
+  const lossRatioThreshold = 0.75;
+  const lossRatioDeltaPct = Math.round(Math.abs(policyStats.loss_ratio - lossRatioThreshold) * 100);
+  const lossRatioBadge = policyStats.loss_ratio <= lossRatioThreshold
+    ? `${lossRatioDeltaPct}% BELOW THRESHOLD`
+    : `${lossRatioDeltaPct}% ABOVE THRESHOLD`;
 
   return (
     <div className="p-7 space-y-7 max-w-[1400px] mx-auto">
@@ -231,7 +236,7 @@ export default function ActivePoliciesPage() {
             </p>
             <h2 className="text-5xl font-black mt-2 tracking-tight font-mono">{policyStats.loss_ratio.toFixed(2)}</h2>
             <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-400 text-[11px] font-bold border border-emerald-500/30">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" /> 5% BELOW THRESHOLD
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" /> {lossRatioBadge}
             </div>
           </div>
           <div className="mt-auto pt-6 text-center">

@@ -59,19 +59,19 @@ export default function PayoutSummaryPage() {
       {/* KPI GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         
-        {/* Loss Ratio Card - Themed for Semantic Importance */}
+        {/* Payout volume card */}
         <div className="bg-gradient-to-br from-[#1c1917] to-[#292524] text-white p-6 rounded-2xl relative overflow-hidden"
              style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
           <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full"
                style={{ background: 'radial-gradient(circle, rgba(249,115,22,0.15) 0%, transparent 60%)' }} />
           <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-            System Loss Ratio <Zap size={11} className="text-orange-400" />
+            Payout Volume (Mn) <Zap size={11} className="text-orange-400" />
           </p>
           <div className="text-4xl font-black text-orange-400 font-mono tracking-tight mt-1">
             {(summary.total_payouts / 1000000).toFixed(2)}
           </div>
           <p className="text-[11px] font-semibold text-stone-400 mt-2">
-            Derived from payouts vs premiums
+            Based on current disbursement totals
           </p>
         </div>
 

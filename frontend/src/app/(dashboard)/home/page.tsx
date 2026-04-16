@@ -7,17 +7,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState, useCallback, useEffect, useRef } from "react";
 import {
-  ShieldCheck,
   AlertCircle,
   Bell,
-  
-  CloudLightning,
-  
   CheckCircle,
   ChevronLeft,
   ChevronRight,
-  
-  
 } from "lucide-react";
 import { workerApi, simulateDisruption, processClaim } from "@/lib/worker";
 import { useAuthStore } from "@/store/authStore";
@@ -227,6 +221,7 @@ export default function DashboardPage() {
   const accessToken = useAuthStore((s) => s.accessToken);
   const language = useLanguageStore((s) => s.language);
   const setLanguage = useLanguageStore((s) => s.setLanguage);
+  const isLanguageHydrated = useLanguageStore((s) => s.isHydrated);
   const inferLanguageFromCity = useLanguageStore(
     (s) => s.inferLanguageFromCity,
   );
@@ -258,10 +253,11 @@ export default function DashboardPage() {
   });
 
   // Load DCI independently (refresh more often)
-  const { data: dciData, refetch: refetchDci } = useQuery({
+  const { data: dciData, refetch: refetchDci, isPending: isDciPending } = useQuery({
     queryKey: ["dci"],
     queryFn: workerApi.getDci,
     staleTime: 60 * 1000,
+    refetchInterval: accessToken ? 45 * 1000 : false,
     retry: 2,
     retryDelay: (attempt) => Math.min(1200 * 2 ** attempt, 5000),
     enabled: !!accessToken,
@@ -353,11 +349,14 @@ export default function DashboardPage() {
   }, [dciData?.current_dci, dciData?.dci_status]);
 
   useEffect(() => {
+    if (!isLanguageHydrated) {
+      return;
+    }
     if (!dashboard?.worker?.city) {
       return;
     }
     inferLanguageFromCity(dashboard.worker.city);
-  }, [dashboard?.worker?.city, inferLanguageFromCity]);
+  }, [dashboard?.worker?.city, inferLanguageFromCity, isLanguageHydrated]);
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -598,12 +597,13 @@ export default function DashboardPage() {
   // DCI status derivation
   const hasDci = typeof dciScore === "number" && Number.isFinite(dciScore);
   const normalizedDci = hasDci ? dciScore : 0;
-  const isNormal = dciStatus === "normal" || (hasDci && normalizedDci < 0.5);
-  const isElevated =
-    dciStatus === "elevated" ||
-    (hasDci && normalizedDci >= 0.5 && normalizedDci <= 0.85);
-  const isDisrupted =
-    dciStatus === "disrupted" || (hasDci && normalizedDci > 0.85);
+  const isNormal = hasDci ? normalizedDci <= 0.65 : dciStatus === "normal";
+  const isElevated = hasDci
+    ? normalizedDci > 0.65 && normalizedDci <= 0.85
+    : dciStatus === "elevated";
+  const isDisrupted = hasDci
+    ? normalizedDci > 0.85
+    : dciStatus === "disrupted";
 
   const statusColor = !hasDci
     ? "#94A3B8"
@@ -620,7 +620,9 @@ export default function DashboardPage() {
         ? "var(--dci-elevated-bg)"
         : "var(--dci-disrupted-bg)";
   const statusLabel = !hasDci
-    ? "NO DATA"
+    ? isDciPending
+      ? "SYNCING"
+      : "NO DATA"
     : isNormal
       ? "NORMAL"
       : isElevated
@@ -629,7 +631,9 @@ export default function DashboardPage() {
 
   // ─── Emotionally resonant DCI text ────────────────────────────────────────
   const dciText = !hasDci
-    ? "We're analyzing live conditions in your area — risk score will appear shortly."
+    ? isDciPending
+      ? "Syncing live zone signals now. Your risk score will appear in a few seconds."
+      : "We're analyzing live conditions in your area — risk score will appear shortly."
     : isNormal
       ? "You're safe. Your zone is operating normally."
       : isElevated
@@ -1088,17 +1092,19 @@ export default function DashboardPage() {
 
   // ===== MAIN DASHBOARD VIEW =====
   return (
-    <div className="dashboard-page animate-fadeIn">
+    <>
       {smsToast && <SmsToast message={smsToast} />}
 
       {/* Processing overlay */}
       {isProcessing && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(2,6,23,0.85)", backdropFilter: "blur(6px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "16px" }}>
+        <div style={{ position: "fixed", top: "50%", left: "50%", width: "100vw", height: "100vh", transform: "translate(-50%, -50%)", zIndex: 5000, background: "rgba(2,6,23,0.85)", backdropFilter: "blur(6px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "16px", pointerEvents: "all" }}>
           <div className="spinner" style={{ width: "44px", height: "44px", borderWidth: "3px" }} />
           <p style={{ fontSize: "16px", fontWeight: 700, color: "var(--text-primary)" }}>Running Fraud Engine…</p>
           <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>Securely evaluating your claim</p>
         </div>
       )}
+
+      <div className="dashboard-page animate-fadeIn">
 
       {/* STICKY TOP HEADER */}
       <header style={{ background: "linear-gradient(180deg,rgba(15,23,42,1) 0%,rgba(15,23,42,0) 100%)", padding: "20px 20px 24px", position: "sticky", top: 0, zIndex: 50, backdropFilter: "blur(12px)" }}>
@@ -1224,22 +1230,6 @@ export default function DashboardPage() {
           {processingError && <div style={{ marginTop: "12px", padding: "12px 14px", background: "rgba(239,68,68,0.08)", borderRadius: "12px", border: "1px solid rgba(239,68,68,0.2)", color: "#FCA5A5", fontSize: "13px" }}>{processingError}</div>}
         </section>
 
-        {/* BIG CTA BUTTONS */}
-        {!isDisrupted && (
-          <section className="stagger-3">
-            <motion.button whileTap={{ scale: 0.97 }} whileHover={{ scale: 1.01 }} onClick={handleSimulateDisruption} disabled={isSimulating} className="primary-btn" style={{ background: isSimulating ? "rgba(14,165,233,0.3)" : undefined, transition: "all 0.2s ease" }}>
-              {isSimulating ? <><div className="spinner" style={{ width: "18px", height: "18px", borderWidth: "2px" }} />Simulating…</> : <><CloudLightning size={20} />Simulate Extreme Weather</>}
-            </motion.button>
-          </section>
-        )}
-        {isDisrupted && !claimReceipt && (
-          <section className="stagger-3">
-            <motion.button whileTap={{ scale: 0.97 }} whileHover={{ scale: 1.01 }} onClick={handleProcessClaim} disabled={isProcessing} className="action-button success" style={{ background: isProcessing ? "rgba(16,185,129,0.3)" : undefined, transition: "all 0.2s ease" }}>
-              {isProcessing ? <><div className="spinner" style={{ width: "18px", height: "18px", borderWidth: "2px" }} />Processing Claim…</> : <><CheckCircle size={20} />Process Claim Now</>}
-            </motion.button>
-          </section>
-        )}
-
         {/* SAFETY RADAR */}
         <section className="stagger-3">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
@@ -1332,6 +1322,7 @@ export default function DashboardPage() {
         </section>
 
       </div>
-    </div>
+      </div>
+    </>
   );
 }

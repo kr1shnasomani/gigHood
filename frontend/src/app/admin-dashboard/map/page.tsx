@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import dynamic from 'next/dynamic'
+import { cellToLatLng, isValidCell } from 'h3-js'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
 import {
   fetchLiveZones,
-  getAdminFallbackEvents,
   HexZone,
 } from '@/lib/admin/adminClient'
 import { Home, ChevronRight, AlertTriangle, TrendingUp } from 'lucide-react'
@@ -21,6 +22,13 @@ const MapLibre = dynamic(() => import('react-map-gl/maplibre').then((m) => m.Map
 
 type H3HexagonLayerCtor = typeof import('@deck.gl/geo-layers').H3HexagonLayer
 type PickingInfo = import('@deck.gl/core').PickingInfo<HexZone>
+type MapViewState = {
+  longitude: number
+  latitude: number
+  zoom: number
+  pitch: number
+  bearing: number
+}
 
 const INITIAL_VIEW_STATE = {
   longitude: 77.5946,
@@ -79,8 +87,7 @@ const statCard: React.CSSProperties = {
 }
 
 export default function MapPage() {
-  const [zones,          setZones]          = useState<HexZone[]>([])
-  const [loading,        setLoading]        = useState(true)
+  const [selectedCity,   setSelectedCity]   = useState('ALL')
   const [alertZone,      setAlertZone]      = useState<HexZone | null>(null)
   const [timeframe,      setTimeframe]      = useState('Real-time')
   const [hasMounted,     setHasMounted]     = useState(false)
@@ -88,36 +95,77 @@ export default function MapPage() {
   const [deckReady,      setDeckReady]      = useState(false)
   const [deckError,      setDeckError]      = useState<string | null>(null)
   const [h3Ctor,         setH3Ctor]         = useState<H3HexagonLayerCtor | null>(null)
-  const [fallbackNotice, setFallbackNotice] = useState<string | null>(null)
+  const [viewState,      setViewState]      = useState<MapViewState>(INITIAL_VIEW_STATE)
 
-  const loadZones = useCallback(async () => {
-    try {
-      const data = await fetchLiveZones()
-      setZones(data)
+  const {
+    data: zones = [],
+    isLoading: zonesLoading,
+    isError: zonesError,
+    error: zonesErrorDetail,
+  } = useQuery<HexZone[]>({
+    queryKey: ['admin', 'zones'],
+    queryFn: fetchLiveZones,
+    staleTime: 30_000,
+    gcTime: 10 * 60_000,
+    refetchInterval: 45_000,
+  })
 
-      const highest = [...data].sort((a, b) => (b.dci_score ?? 0) - (a.dci_score ?? 0))[0]
-      if (highest) setAlertZone(highest)
+  useEffect(() => {
+    if (!zonesError) return
+    console.error('H3 zones live fetch failed:', zonesErrorDetail)
+  }, [zonesError, zonesErrorDetail])
 
-      const fallbackEvents = getAdminFallbackEvents()
-      const zonesFallback  = fallbackEvents.some(e => e.url.includes('/admin/dashboard/zones'))
-      setFallbackNotice(
-        zonesFallback
-          ? 'Map is using preview fallback zone data. Validate on a live backend.'
-          : null
-      )
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
+  const cityOptions = useMemo(() => {
+    const set = new Set<string>()
+    zones.forEach((z) => {
+      const city = (z.city || '').trim()
+      if (city) set.add(city)
+    })
+    return ['ALL', ...Array.from(set).sort()]
+  }, [zones])
+
+  const filteredZones = useMemo(() => {
+    if (selectedCity === 'ALL') return zones
+    return zones.filter((z) => (z.city || '').trim() === selectedCity)
+  }, [zones, selectedCity])
+
+  const validZones = useMemo(() => {
+    const valid = filteredZones.filter((z) => Boolean(z.h3_index) && isValidCell(String(z.h3_index)))
+    if (filteredZones.length > 0 && valid.length === 0) {
+      console.error('No valid H3 cells found for current filter.', { selectedCity, sample: filteredZones[0] })
     }
-  }, [])
+    return valid
+  }, [filteredZones, selectedCity])
+
+  useEffect(() => {
+    if (validZones.length === 0) return
+    const sample = validZones.slice(0, 300)
+    const coords = sample.map((z) => cellToLatLng(String(z.h3_index)))
+    if (coords.length === 0) return
+
+    const lat = coords.reduce((sum, pair) => sum + pair[0], 0) / coords.length
+    const lng = coords.reduce((sum, pair) => sum + pair[1], 0) / coords.length
+
+    setViewState((prev) => ({
+      ...prev,
+      latitude: lat,
+      longitude: lng,
+      zoom: selectedCity === 'ALL' ? 9.8 : 11.2,
+    }))
+  }, [validZones, selectedCity])
 
   useEffect(() => {
     setHasMounted(true)
     const canvas = document.createElement('canvas')
     setWebglSupported(Boolean(canvas.getContext('webgl2')))
-    loadZones()
-  }, [loadZones])
+  }, [])
+
+  useEffect(() => {
+    if (validZones.length > 0) {
+      const highest = [...validZones].sort((a, b) => (b.dci_score ?? 0) - (a.dci_score ?? 0))[0]
+      if (highest) setAlertZone(highest)
+    }
+  }, [validZones])
 
   useEffect(() => {
     let cancelled = false
@@ -127,7 +175,7 @@ export default function MapPage() {
         const geoLayers = await import('@deck.gl/geo-layers')
         if (cancelled) return
         setH3Ctor(() => geoLayers.H3HexagonLayer)
-        window.setTimeout(() => { if (!cancelled) setDeckReady(true) }, 120)
+        window.setTimeout(() => { if (!cancelled) setDeckReady(true) }, 0)
       } catch (err) {
         console.error('Failed to initialize map runtime:', err)
         if (!cancelled) setDeckError('3D map engine failed to initialize.')
@@ -138,7 +186,7 @@ export default function MapPage() {
   }, [hasMounted, webglSupported])
 
   const zoneStats = useMemo(() => {
-    const ws     = zones.filter(z => z.dci_score != null)
+    const ws     = validZones.filter(z => z.dci_score != null)
     const sorted = [...ws].sort((a, b) => (b.dci_score ?? 0) - (a.dci_score ?? 0))
     const avg    = ws.length
       ? Math.round(ws.reduce((s, z) => s + (z.dci_score ?? 0), 0) / ws.length * 100)
@@ -154,26 +202,24 @@ export default function MapPage() {
       total:       ws.length,
       barData:     buildBarData(ws),
     }
-  }, [zones])
+  }, [validZones])
 
   const layer = useMemo(() => {
     if (!h3Ctor) return null
     return new h3Ctor({
       id: 'h3-layer',
-      data: zones.filter(z => z.h3_index),
+      data: validZones,
       pickable: true,
       filled: true,
-      extruded: true,
-      elevationScale: 5,
+      extruded: false,
       getHexagon:   (d: HexZone) => d.h3_index,
-      getFillColor: (d: HexZone) => dciColor(d.dci_score ?? 0),
-      getElevation: (d: HexZone) => (d.dci_score ?? 0) * 140 + 16,
-      getLineColor: [255, 255, 255, 16],
-      lineWidthMinPixels: 1,
-      updateTriggers: { getFillColor: zones, getElevation: zones },
+      getFillColor: (d: HexZone) => dciColor(d.dci_score ?? 0, 170),
+      getLineColor: [255, 255, 255, 28],
+      lineWidthMinPixels: 0.8,
+      updateTriggers: { getFillColor: validZones },
       onClick: (info: PickingInfo) => { if (info.object) setAlertZone(info.object) },
     })
-  }, [h3Ctor, zones])
+  }, [h3Ctor, validZones])
 
   /* ── Fallbacks for non-WebGL / errors ── */
   if (!hasMounted) {
@@ -221,6 +267,21 @@ export default function MapPage() {
             <p className="text-sm text-stone-500 mt-1">
               H3 hexagonal disruption coverage index · Resolution 8
             </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-black text-stone-400 uppercase tracking-[0.15em]">City</span>
+              <select
+                value={selectedCity}
+                onChange={(e) => setSelectedCity(e.target.value)}
+                className="border border-stone-200 rounded-lg px-3 py-1.5 text-xs font-semibold bg-white text-stone-700"
+              >
+                {cityOptions.map((city) => (
+                  <option key={city} value={city}>{city}</option>
+                ))}
+              </select>
+              <span className="text-[11px] text-stone-500">
+                Rendering {validZones.length.toLocaleString()} valid H3 cells
+              </span>
+            </div>
           </div>
 
           {/* Quick stats */}
@@ -239,10 +300,15 @@ export default function MapPage() {
         </div>
       </div>
 
-      {fallbackNotice && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-800 flex items-center gap-2">
-          <AlertTriangle size={13} className="text-amber-500 shrink-0" />
-          {fallbackNotice}
+      {zonesError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-xs text-red-700">
+          Failed to load live H3 zones from Supabase. Check backend `/admin/dashboard/zones` and DB connectivity.
+        </div>
+      )}
+
+      {!zonesError && filteredZones.length > 0 && validZones.length === 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-700">
+          Live zones loaded but none had valid H3 indexes for the selected filter.
         </div>
       )}
 
@@ -405,7 +471,8 @@ export default function MapPage() {
         {/* ── Map render ── */}
         {deckReady && layer ? (
           <DeckGL
-            initialViewState={INITIAL_VIEW_STATE}
+            viewState={viewState}
+            onViewStateChange={(params: { viewState: MapViewState }) => setViewState(params.viewState)}
             controller={{
               scrollZoom: false, dragPan: true, dragRotate: false,
               doubleClickZoom: false, touchZoom: true, touchRotate: false,
@@ -416,7 +483,7 @@ export default function MapPage() {
               setDeckError('Map rendering failed while initializing GPU resources.')
             }}
           >
-            <MapLibre mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-style/style.json" />
+            <MapLibre mapStyle="https://demotiles.maplibre.org/style.json" />
           </DeckGL>
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
@@ -430,7 +497,7 @@ export default function MapPage() {
           </div>
         )}
 
-        {loading && (
+        {zonesLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-[500]">
             <div className="w-10 h-10 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"
                  style={{ boxShadow: '0 0 16px rgba(249,115,22,0.3)' }} />

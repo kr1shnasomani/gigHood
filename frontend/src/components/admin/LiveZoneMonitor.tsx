@@ -1,14 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { fetchLiveZones, HexZone } from '@/lib/admin/adminClient';
 
 export default function LiveZoneMonitor() {
-  const [zones, setZones] = useState<HexZone[]>([]);
-
-  useEffect(() => {
-    fetchLiveZones().then(setZones).catch(console.error);
-  }, []);
+  const { data: zones = [] } = useQuery<HexZone[]>({
+    queryKey: ['admin', 'zones'],
+    queryFn: fetchLiveZones,
+    staleTime: 30_000,
+    gcTime: 10 * 60_000,
+    refetchInterval: 45_000,
+  });
 
   return (
     <div

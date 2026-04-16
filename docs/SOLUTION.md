@@ -139,6 +139,12 @@
 
 **What makes it different:** Zero-touch claims · H3 hex-grid fraud prevention · Weekly pricing aligned to gig earnings cycles · No paperwork ever.
 
+### 🔬 ML Integrity Notes (Runtime)
+
+1. DCI coefficients ($\alpha,\beta,\gamma,\delta$) are no longer static runtime constants; active values are loaded from `dci_weights` and refreshed through weekly retraining.
+2. Fraud decisions use a hybrid of explainable rules and model probability (XGBoost), so outputs remain auditable while incorporating learned patterns.
+3. Weekly scheduler pipeline now retrains risk tiering, fraud scoring, and DCI weight optimization as one closed-loop cycle.
+
 <img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png" width="100%">
 
 ## 📊 The Reality in Numbers

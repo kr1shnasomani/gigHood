@@ -177,6 +177,7 @@ html {
     sans-serif;
   line-height: 1.5;
   height: 100%;
+  position: relative;
   background: #f3f4f6;
   color: #0f172a;
   scroll-behavior: smooth;
@@ -504,12 +505,14 @@ textarea {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
+  margin: 0 auto;
   z-index: 1;
 }
 
 .risk-score {
   text-align: center;
   margin-top: -4px;
+  width: 100%;
 }
 
 .risk-caption {
@@ -856,6 +859,8 @@ textarea {
 }
 
 .gauge-svg {
+  display: block;
+  margin: 0 auto;
   overflow: visible;
   filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3));
 }

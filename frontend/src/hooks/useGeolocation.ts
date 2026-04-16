@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 
 export default function useGeolocation(watch = false) {
+  const browserHasGeo = typeof window !== "undefined" && Boolean(navigator.geolocation);
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(browserHasGeo ? null : "Geolocation not supported");
 
   useEffect(() => {
     if (typeof window === "undefined" || !navigator.geolocation) {
-      setError("Geolocation not supported");
       return;
     }
 

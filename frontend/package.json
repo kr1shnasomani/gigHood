@@ -6,8 +6,9 @@
     "node": ">=20.x"
   },
   "scripts": {
-    "dev": "next dev --webpack",
-    "dev:stable": "next dev --webpack",
+    "dev": "next dev",
+    "dev:stable": "next dev",
+    "dev:webpack": "next dev --webpack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

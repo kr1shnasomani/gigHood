@@ -173,6 +173,18 @@ Migration references:
 1. `018_backfill_claim_scores_and_event_dci_defaults.sql`
 2. `019_drop_redundant_pk_indexes.sql`
 
+### ML runtime legitimacy wiring
+
+1. DCI engine now loads active signal weights from `dci_weights` with TTL cache and cold-start fallback.
+2. Weekly Sunday retraining now includes:
+   - risk profiler retrain
+   - fraud model retrain (`backend/ml/train_fraud_model.py`)
+   - DCI weight optimization and persistence (`backend/services/dci_weight_trainer.py`)
+3. Fraud scorer now runs hybrid inference:
+   - rules-based layer stack
+   - model probability layer from `fraud_model.pkl`
+4. Network ring detection now uses recent claims/event evidence and shared worker fingerprints, not deterministic hash scoring.
+
 ### Frontend session routing
 
 1. admin sign-out redirects to `/`
@@ -183,6 +195,15 @@ Migration references:
 
 1. route-level loading boundaries added for worker and admin app shells
 2. nav prefetching added for smoother tab/page switching
+3. worker geolocation lookup now uses multi-attempt fallback (high accuracy -> balanced retry -> cached fix) to reduce claim-time timeout failures on weak devices/networks.
+
+### DCI/claim consistency hardening
+
+1. worker DCI API now derives `dci_status` directly from the returned numeric DCI to prevent stale status labels.
+2. demo claim processing refreshes stale zone snapshots before disruption eligibility checks.
+3. demo claim processing falls back to latest `dci_history` score when zone snapshot DCI is temporarily missing.
+4. DCI cycle now uses a bounded weather+AQI composite to prevent inflated default scores in fresh/mock-heavy zones.
+5. new worker zones return a normal bootstrap DCI baseline until enough live signals are available for stable computation.
 
 ## 6) Theming and Shell Contract
 

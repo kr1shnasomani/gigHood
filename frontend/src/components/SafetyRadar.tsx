@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useEffect, useState, useRef, useMemo } from "react";
+import React, { useEffect, useRef } from "react";
 import Map, { Marker, Source, Layer, MapRef } from "react-map-gl/maplibre";
+import type { LayerProps } from "react-map-gl/maplibre";
+import type { FeatureCollection, Polygon } from "geojson";
 
 import "maplibre-gl/dist/maplibre-gl.css";
-import Link from "next/link";
 import { Navigation } from "lucide-react";
 
 const MAP_STYLE = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
@@ -34,7 +35,7 @@ function generateHexagon(lat: number, lng: number, size: number = 0.01) {
   return [coords];
 }
 
-const mockZoneGeojson: any = {
+const mockZoneGeojson: FeatureCollection<Polygon, { risk: string; color: string }> = {
   type: "FeatureCollection",
   features: ZONES.map((zone) => ({
     type: "Feature",
@@ -46,11 +47,11 @@ const mockZoneGeojson: any = {
   }))
 };
 
-const zoneLayer: any = {
+const zoneLayer: LayerProps = {
   id: "zone-data",
   type: "fill",
   paint: {
-    "fill-color": ["get", "color"],
+    "fill-color": ["get", "color"] as ["get", string],
     "fill-opacity": 0.3,
   },
 };
@@ -62,12 +63,7 @@ export default function SafetyRadar({
   compact?: boolean;
   userCoords?: { latitude: number; longitude: number } | null;
 }) {
-  const [mounted, setMounted] = useState(false);
   const mapRef = useRef<MapRef>(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // Dynamically fly to the user's location when coords update
   useEffect(() => {
@@ -80,19 +76,6 @@ export default function SafetyRadar({
       });
     }
   }, [userCoords]);
-
-  if (!mounted) {
-    return (
-      <div
-        className="skeleton"
-        style={{
-          width: "100%",
-          height: compact ? "280px" : "100vh",
-          borderRadius: compact ? "16px" : "0px",
-        }}
-      />
-    );
-  }
 
   // Find nearest zone for auto-zoom if no user coords are provided yet
   const effectiveLat = userCoords?.latitude || defaultLat;
@@ -193,12 +176,10 @@ export default function SafetyRadar({
             <span style={{ fontSize: "10px", padding: "2px 8px", background: "rgba(239,68,68,0.2)", color: "#EF4444", borderRadius: "99px", fontWeight: 600 }}>High Risk</span>
             <span style={{ fontSize: "10px", padding: "2px 8px", background: "rgba(59,130,246,0.2)", color: "#3B82F6", borderRadius: "99px", fontWeight: 600 }}>Demand</span>
           </div>
-          <Link href="/worker-app/radar" style={{ textDecoration: "none" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", padding: "8px 12px", borderRadius: "10px", width: "max-content", transition: "all 0.2s" }}>
-              <Navigation size={14} color="#818CF8" />
-              <span style={{ fontSize: "12px", color: "#818CF8", fontWeight: 600 }}>View full map →</span>
-            </div>
-          </Link>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", padding: "8px 12px", borderRadius: "10px", width: "max-content" }}>
+            <Navigation size={14} color="#818CF8" />
+            <span style={{ fontSize: "12px", color: "#818CF8", fontWeight: 600 }}>Live zone overlay</span>
+          </div>
         </div>
       )}
     </div>

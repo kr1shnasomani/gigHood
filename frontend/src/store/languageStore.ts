@@ -19,8 +19,10 @@ const CITY_LANGUAGE_MAP: Record<string, AppLanguage> = {
 interface LanguageState {
   language: AppLanguage;
   hasManualChoice: boolean;
+  isHydrated: boolean;
   setLanguage: (language: AppLanguage) => void;
   inferLanguageFromCity: (city?: string | null) => void;
+  setHydrated: (value: boolean) => void;
 }
 
 function mapCityToLanguage(city?: string | null): AppLanguage {
@@ -33,6 +35,9 @@ export const useLanguageStore = create<LanguageState>()(
     (set, get) => ({
       language: 'en',
       hasManualChoice: false,
+      isHydrated: false,
+
+      setHydrated: (value) => set({ isHydrated: value }),
 
       setLanguage: (language) => {
         set({ language, hasManualChoice: true });
@@ -47,6 +52,9 @@ export const useLanguageStore = create<LanguageState>()(
     }),
     {
       name: 'gighood-language-store',
+      onRehydrateStorage: () => (state) => {
+        state?.setHydrated(true);
+      },
       partialize: (state) => ({
         language: state.language,
         hasManualChoice: state.hasManualChoice,

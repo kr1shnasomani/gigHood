@@ -168,7 +168,7 @@ async def _upsert_signal(result: SignalFetchResult) -> dict:
     Uses supabase_admin RPC — not a raw table upsert — so all DB-side logic fires.
     """
     try:
-        response = supabase_admin.raw().rpc(
+        response = supabase_admin.rpc(
             "fn_upsert_signal",
             {
                 "p_hex_id":                 result.hex_id,

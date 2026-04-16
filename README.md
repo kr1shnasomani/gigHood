@@ -37,6 +37,17 @@
 3. Supabase migration-backed schema and data contracts.
 4. Neo4j-backed fraud relationship graph for admin fraud monitor visualizations.
 
+## ML Runtime Notes
+
+1. DCI runtime weights are loaded from `dci_weights` (active row) with cold-start fallback.
+2. Weekly ML job retrains three assets on Sundays:
+   - risk tier model (`backend/services/risk_profiler.py`)
+   - fraud model (`backend/ml/fraud_model.pkl`)
+   - DCI signal weights (`backend/services/dci_weight_trainer.py` -> `dci_weights`)
+3. Fraud scoring uses a hybrid model:
+   - rule-layer score from telemetry + behavior checks
+   - XGBoost probability score from `claim_frequency`, `zone_risk`, `location_anomaly`, `time_of_day`
+
 ## Documentation Index
 
 1. `README.md`: setup, environment, runbook.

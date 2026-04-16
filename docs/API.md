@@ -114,6 +114,12 @@ Purpose:
 
 Returns current DCI snapshot for worker zone.
 
+Behavior notes:
+
+1. response `dci_status` is derived from the returned numeric `current_dci` threshold mapping (`normal`, `elevated`, `disrupted`) to avoid stale-status mismatches.
+2. when zone snapshots are stale or missing, backend attempts a lightweight recompute from cached signals before returning degraded state.
+3. for newly created accounts/zones with no usable signal history yet, API returns a normal bootstrap DCI baseline (city-aware) and then transitions to live computed values as signals arrive.
+
 ### `GET /workers/me/claims`
 
 Returns claim history list for authenticated worker.
@@ -148,6 +154,11 @@ Purpose:
 
 1. run demo claim pipeline end to end
 2. return route/payout-style result
+
+Behavior notes:
+
+1. claim gating now refreshes stale zone DCI snapshots before disruption checks.
+2. if `hex_zones.current_dci` is missing, latest `dci_history` value is used as fallback for disruption eligibility.
 
 ## 7) Policies
 
@@ -220,6 +231,11 @@ Admin endpoints are mounted under `/admin/*` and power analytics + operations UI
 4. `GET /admin/dashboard/payout-trends`
 5. `GET /admin/dashboard/fraud-queue`
 
+Scheduler-backed behavior notes:
+
+1. Sunday forecast notifications are now trend-based from recent `dci_history` by worker zone (not blind broadcast).
+2. Sunday retrain pipeline refreshes risk tier model, fraud model, and DCI signal weights.
+
 #### `GET /admin/dashboard/fraud-queue` contract notes
 
 1. joins claim, worker, disruption, and fraud data
@@ -236,6 +252,10 @@ Weighted expression:
 $$
 \sigma(0.45W + 0.25T + 0.20P + 0.10S)
 $$
+
+Runtime note:
+
+1. live DCI computation uses active weights from `dci_weights` when available (normalized to sum to 1), else configured cold-start defaults.
 
 Example queue item:
 

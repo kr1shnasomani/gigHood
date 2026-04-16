@@ -3,6 +3,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'recharts'],
+  },
   async redirects() {
     return [
       { source: '/worker-app', destination: '/worker-app/home', permanent: false },

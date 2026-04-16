@@ -7,10 +7,18 @@ const DEFAULT_PREVIEW_API_URL = "https://gighood-backend-admin.onrender.com";
 function resolveApiBaseUrl(): string {
   const configuredProd = process.env.NEXT_PUBLIC_API_URL;
   const configuredPreview = process.env.NEXT_PUBLIC_API_URL_PREVIEW;
+  const configuredAdmin = process.env.NEXT_PUBLIC_API_URL_ADMIN;
   const vercelEnv = process.env.NEXT_PUBLIC_VERCEL_ENV;
 
   if (typeof window !== "undefined") {
     const host = window.location.hostname;
+    const pathname = window.location.pathname || "";
+    const isAdminRoute = pathname.startsWith("/admin-dashboard");
+
+    if (isAdminRoute && configuredAdmin) {
+      return configuredAdmin;
+    }
+
     if (host === "localhost" || host === "127.0.0.1") {
       return DEFAULT_LOCAL_API_URL;
     }
@@ -56,6 +64,13 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+function clearAuthClientState() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("gighood_jwt");
+  localStorage.removeItem("gighood-auth-store");
+  localStorage.removeItem("auth-storage");
+}
+
 // Attach JWT from localStorage
 api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
@@ -87,9 +102,28 @@ api.interceptors.response.use(
     }
 
     const msg =
-      maybeError.response.data?.detail || maybeError.message || "Unknown error";
+      maybeError.response?.data?.detail || maybeError.message || "Unknown error";
+
+    if (msg.toLowerCase().includes('nodename nor servname provided') || msg.toLowerCase().includes('[errno 8]')) {
+      const hostErr = new Error(
+        'Backend dependency hostname resolution failed. Check backend host env vars (for example Neo4j/Supabase URLs).'
+      );
+      return Promise.reject(withStatus(hostErr, maybeError.response?.status ?? 500));
+    }
+
+    if (
+      maybeError.response?.status === 401 ||
+      msg.toLowerCase().includes("token expired") ||
+      msg.toLowerCase().includes("could not validate credentials")
+    ) {
+      if (typeof window !== "undefined") {
+        clearAuthClientState();
+        window.location.href = "/worker-app/login";
+      }
+    }
+
     const err = new Error(msg);
-    return Promise.reject(withStatus(err, maybeError.response.status ?? 0));
+    return Promise.reject(withStatus(err, maybeError.response?.status ?? 0));
   },
 );
 

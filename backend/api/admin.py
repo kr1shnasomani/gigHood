@@ -306,23 +306,28 @@ def get_kpis():
         # 1. Active policies count
         pol_res = supabase.table('policies').select('id', count='exact').eq('status', 'active').execute()
         active_policies = pol_res.count if pol_res.count is not None else len(pol_res.data)
-        
-        # 2. Total premium collected
-        prem_res = supabase.table('premium_payments').select('amount').execute()
-        total_premium = sum(float(p['amount']) for p in prem_res.data) if prem_res.data else 0.0
-        
-        # 3. Total claims paid
-        claims_res = supabase.table('claims').select('payout_amount').eq('status', 'paid').execute()
-        total_claims_paid = sum(float(c['payout_amount'] or 0.0) for c in claims_res.data) if claims_res.data else 0.0
-        
-        # 4. System Loss Ratio
-        loss_ratio = (total_claims_paid / total_premium * 100) if total_premium > 0 else 0.0
+
+        # 2. Premiums collected from active policies pool
+        prem_res = supabase.table('policies').select('weekly_premium').eq('status', 'active').execute()
+        total_premium = sum(float(p.get('weekly_premium') or 0.0) for p in (prem_res.data or []))
+
+        # 3. Total disbursed = approved + paid claims
+        claims_res = (
+            supabase.table('claims')
+            .select('payout_amount,status')
+            .in_('status', ['approved', 'paid'])
+            .execute()
+        )
+        total_claims_paid = sum(float(c.get('payout_amount') or 0.0) for c in (claims_res.data or []))
+
+        # 4. System loss ratio (same as BCR) as ratio, not percent
+        loss_ratio = (total_claims_paid / total_premium) if total_premium > 0 else 0.0
         
         return {
             "active_policies": active_policies,
             "total_premium": total_premium,
             "total_claims_paid": total_claims_paid,
-            "system_loss_ratio": round(loss_ratio, 2)
+            "system_loss_ratio": round(loss_ratio, 4)
         }
     except Exception as e:
         traceback.print_exc()
@@ -347,13 +352,39 @@ def get_zones():
 
 @router.get("/dashboard/risk-forecast")
 def get_risk_forecast():
-    # Mock data for 7-day predictive risk forecast
-    return [
-        {"city": "Bengaluru", "risk": 85},
-        {"city": "Chennai", "risk": 40},
-        {"city": "Mumbai", "risk": 15},
-        {"city": "Delhi", "risk": 20},
-    ]
+    try:
+        res = supabase.table('hex_zones').select('city,current_dci').execute()
+        rows = res.data or []
+
+        city_agg: dict[str, dict[str, float]] = {}
+        for row in rows:
+            city = str(row.get('city') or '').strip()
+            if not city:
+                continue
+
+            try:
+                dci = float(row.get('current_dci') or 0.0)
+            except (TypeError, ValueError):
+                dci = 0.0
+
+            bucket = city_agg.setdefault(city, {'sum': 0.0, 'count': 0.0})
+            bucket['sum'] += dci
+            bucket['count'] += 1.0
+
+        forecast = []
+        for city, agg in city_agg.items():
+            avg_dci = (agg['sum'] / agg['count']) if agg['count'] > 0 else 0.0
+            risk_pct = max(0.0, min(100.0, avg_dci * 100.0))
+            forecast.append({
+                'city': city,
+                'risk': round(risk_pct, 1),
+            })
+
+        forecast.sort(key=lambda x: x['risk'], reverse=True)
+        return forecast[:6]
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/dashboard/payout-trends")
 def get_payout_trends():
@@ -545,12 +576,17 @@ def get_policy_stats():
         # Reuse KPI logic for policy stats
         pol_res = supabase.table('policies').select('id', count='exact').eq('status', 'active').execute()
         active_nodes = pol_res.count if pol_res.count is not None else len(pol_res.data)
-        
-        prem_res = supabase.table('premium_payments').select('amount').execute()
-        total_value_locked = sum(float(p['amount']) for p in prem_res.data) if prem_res.data else 0.0
-        
-        claims_res = supabase.table('claims').select('payout_amount').eq('status', 'paid').execute()
-        total_claims_paid = sum(float(c['payout_amount'] or 0.0) for c in claims_res.data) if claims_res.data else 0.0
+
+        prem_res = supabase.table('policies').select('weekly_premium').eq('status', 'active').execute()
+        total_value_locked = sum(float(p.get('weekly_premium') or 0.0) for p in (prem_res.data or []))
+
+        claims_res = (
+            supabase.table('claims')
+            .select('payout_amount,status')
+            .in_('status', ['approved', 'paid'])
+            .execute()
+        )
+        total_claims_paid = sum(float(c.get('payout_amount') or 0.0) for c in (claims_res.data or []))
         
         loss_ratio = (total_claims_paid / total_value_locked) if total_value_locked > 0 else 0.0
         

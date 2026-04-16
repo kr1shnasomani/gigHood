@@ -26,7 +26,7 @@ export default function DashboardLayout({
 
   useEffect(() => {
     if (!isAuthenticated()) {
-      router.replace("/");
+      router.replace("/worker-app/login");
     }
   }, [pathname, router]);
 
@@ -88,13 +88,12 @@ export default function DashboardLayout({
           paddingBottom: "90px", // space for floating nav
         }}
       >
-        <AnimatePresence mode="wait">
+        <AnimatePresence initial={false}>
           <motion.div
             key={pathname}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.35, ease: 'easeOut' }}
+            transition={{ duration: 0.16, ease: 'easeOut' }}
           >
             {children}
           </motion.div>

@@ -231,6 +231,8 @@ export default function ChatPage() {
     isListening,
     isSpeaking,
     isAudioLoading,
+    isVoiceSupported,
+    listenError,
     toggleListening,
     speak,
     interruptSpeech,
@@ -377,15 +379,20 @@ export default function ChatPage() {
           {/* Mode toggle pill */}
           <button
             onClick={() => {
+              if (!isVoiceSupported && mode !== "voice") {
+                return;
+              }
               setMode(mode === "voice" ? "text" : "voice");
               if (isListening) toggleListening();
             }}
+            disabled={!isVoiceSupported && mode !== "voice"}
             style={{
               padding: "6px 14px",
               borderRadius: "99px",
               fontSize: "11px",
               fontWeight: 700,
-              cursor: "pointer",
+              cursor: !isVoiceSupported && mode !== "voice" ? "not-allowed" : "pointer",
+              opacity: !isVoiceSupported && mode !== "voice" ? 0.55 : 1,
               background:
                 mode === "voice"
                   ? "rgba(99,102,241,0.2)"
@@ -737,6 +744,7 @@ export default function ChatPage() {
                   navigator.vibrate?.(10);
                   toggleListening();
                 }}
+                disabled={!isVoiceSupported}
                 style={{
                   width: 52,
                   height: 52,
@@ -756,7 +764,8 @@ export default function ChatPage() {
                     ? "0 0 20px rgba(52,211,153,0.35)"
                     : "none",
                   position: "relative",
-                  cursor: "pointer",
+                  cursor: isVoiceSupported ? "pointer" : "not-allowed",
+                  opacity: isVoiceSupported ? 1 : 0.5,
                   transition: "all 0.2s",
                 }}
               >
@@ -874,6 +883,30 @@ export default function ChatPage() {
         )}
 
         {/* Disclaimer */}
+        {mode === "voice" && !isVoiceSupported && (
+          <p
+            style={{
+              fontSize: "10px",
+              color: "#FCA5A5",
+              textAlign: "center",
+              marginTop: "10px",
+            }}
+          >
+            Voice input is unavailable in this browser. Use Chrome/Safari with microphone permission.
+          </p>
+        )}
+        {mode === "voice" && listenError && (
+          <p
+            style={{
+              fontSize: "10px",
+              color: "#FCA5A5",
+              textAlign: "center",
+              marginTop: "8px",
+            }}
+          >
+            {listenError}
+          </p>
+        )}
         <p
           style={{
             fontSize: "10px",

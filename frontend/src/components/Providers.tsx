@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { initNotifications } from '@/lib/notifications';
-import { startLocationTracking, requestLocationPermission } from '@/lib/location';
+import { startLocationTracking, stopLocationTracking, requestLocationPermission } from '@/lib/location';
 import { useAuthStore } from '@/store/authStore';
 import { useLanguageStore } from '@/store/languageStore';
 import i18n from '@/i18n';
@@ -16,6 +16,8 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         staleTime: 5 * 60 * 1000,
         gcTime: 10 * 60 * 1000,
         retry: 1,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
       },
     },
   }));
@@ -26,7 +28,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 
   const locationTrackingEnabled = process.env.NEXT_PUBLIC_ENABLE_LOCATION_TRACKING !== 'false';
   const isAuthRoute = pathname?.includes('/login') || pathname?.includes('/register');
-  const hasToken = typeof window !== 'undefined' && Boolean(localStorage.getItem('gighood_jwt'));
+  const isWorkerRoute = pathname?.startsWith('/worker-app') || false;
 
   // Sync i18next with language store
   useEffect(() => {
@@ -37,7 +39,16 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 
   // Initialize notifications and location tracking when user is authenticated
   useEffect(() => {
-    if (isAuthRoute || !hasToken) return;
+    if (!isWorkerRoute || isAuthRoute || !isAuthenticated) {
+      stopLocationTracking();
+      return;
+    }
+
+    const hasToken = typeof window !== 'undefined' && Boolean(localStorage.getItem('gighood_jwt'));
+    if (!hasToken) {
+      stopLocationTracking();
+      return;
+    }
 
     const runDeferredSetup = () => {
       // Init push notifications
@@ -60,7 +71,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 
     const timeoutId = setTimeout(runDeferredSetup, 0);
     return () => clearTimeout(timeoutId);
-  }, [hasToken, isAuthenticated, isAuthRoute, locationTrackingEnabled]);
+  }, [isAuthenticated, isAuthRoute, isWorkerRoute, locationTrackingEnabled]);
 
   return (
     <QueryClientProvider client={queryClient}>

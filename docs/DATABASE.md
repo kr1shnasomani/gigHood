@@ -103,6 +103,19 @@ Contract highlights:
 1. time-series record of DCI and component contributions
 2. used for trend charts and historical diagnostics
 
+### `dci_weights`
+
+Migration:
+
+1. `025_create_dci_weights.sql`
+
+Contract highlights:
+
+1. stores versioned α/β/γ/δ coefficients for DCI runtime
+2. `is_active=true` row is the live weight vector consumed by `backend/services/dci_engine.py`
+3. includes model metadata (`model_accuracy`, `training_sample_count`, `feature_importances`) for auditability
+4. retains historical rows across weekly retrains
+
 ### `location_pings`
 
 Migration:

@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { fetchFraudQueue, FraudQueueItem } from '@/lib/admin/adminClient';
 import { Zap, Clock, Eye, ChevronRight } from 'lucide-react';
 
@@ -42,23 +43,16 @@ const STATUS_DOT: Record<string, string> = {
 };
 
 export default function FraudQueue() {
-  const [queue,      setQueue]      = useState<FraudQueueItem[]>([]);
   const [activeTab,  setActiveTab]  = useState<FilterTab>('All');
 
-  useEffect(() => {
-    fetchFraudQueue().then(setQueue).catch(console.error);
-  }, []);
+  const { data } = useQuery<FraudQueueItem[]>({
+    queryKey: ['admin', 'fraud-queue'],
+    queryFn: fetchFraudQueue,
+    staleTime: 30_000,
+    gcTime: 10 * 60_000,
+  });
 
-  const demoRows: FraudQueueItem[] = [
-    { claim_id: 'CL-9902', created_at: '2026-04-05T10:12:00Z', worker_name: 'Rajesh Kumar',  city: 'MH-E12', status: 'paid',         resolution_path: 'fast_track',    fraud_score: 4,  dci_score: 0.72, payout: 450.00, flags: [] },
-    { claim_id: 'CL-9903', created_at: '2026-04-05T10:18:00Z', worker_name: 'Ananya S.',      city: 'KA-B08', status: 'pending',      resolution_path: 'soft_queue',    fraud_score: 18, dci_score: 0.58, payout: 0.00,   flags: ['soft_queue'] },
-    { claim_id: 'CL-9904', created_at: '2026-04-05T10:22:00Z', worker_name: 'Vikram Singh',   city: 'DL-S14', status: 'verifying',    resolution_path: 'active_verify', fraud_score: 62, dci_score: 0.81, payout: 0.00,   flags: ['active_verify'] },
-    { claim_id: 'CL-9905', created_at: '2026-04-05T10:28:00Z', worker_name: 'Priya Dash',     city: 'TS-W21', status: 'denied',       resolution_path: 'soft_queue',    fraud_score: 88, dci_score: 0.92, payout: 0.00,   flags: ['soft_queue'] },
-    { claim_id: 'CL-9906', created_at: '2026-04-05T10:30:00Z', worker_name: 'Arjun Mehra',    city: 'MH-E12', status: 'paid',         resolution_path: 'fast_track',    fraud_score: 2,  dci_score: 0.34, payout: 320.50, flags: [] },
-    { claim_id: 'CL-9907', created_at: '2026-04-05T10:35:00Z', worker_name: 'Sonal Patel',    city: 'GJ-A01', status: 'under_review', resolution_path: 'active_verify', fraud_score: 74, dci_score: 0.88, payout: 0.00,   flags: ['location_spoofing'] },
-  ];
-
-  const allRows = queue.length > 0 ? queue.slice(0, 6) : demoRows;
+  const allRows = (data ?? []).slice(0, 6);
 
   const filtered = allRows.filter(item => {
     if (activeTab === 'All')         return true;

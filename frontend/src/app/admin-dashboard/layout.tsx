@@ -45,7 +45,7 @@ const Sidebar = () => {
 
   useEffect(() => {
     SIDEBAR_NAV_ITEMS.forEach(item => {
-      if (item.href !== '/admin-dashboard/map') router.prefetch(item.href)
+      router.prefetch(item.href)
     })
     router.prefetch('/admin-dashboard/settings')
   }, [router])
@@ -122,7 +122,7 @@ const Sidebar = () => {
                   <Link
                     key={item.href}
                     href={item.href}
-                    prefetch={item.href !== '/admin-dashboard/map'}
+                    prefetch
                     className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 group ${
                       active
                         ? 'text-orange-300'

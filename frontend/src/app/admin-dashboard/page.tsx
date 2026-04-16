@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import FinancialKPIs from '@/components/admin/FinancialKPIs';
 import FraudQueue from '@/components/admin/FraudQueue';
 import LiveZoneMonitor from '@/components/admin/LiveZoneMonitor';
@@ -23,15 +24,6 @@ import {
 } from 'recharts';
 import { Home, ChevronRight, Shield, AlertTriangle, TrendingUp } from 'lucide-react';
 
-const defaultChartData: MonthlyTrend[] = [
-  { month: 'Jan', payouts: 950000 },
-  { month: 'Feb', payouts: 1010000 },
-  { month: 'Mar', payouts: 1180000 },
-  { month: 'Apr', payouts: 1320000 },
-  { month: 'May', payouts: 1260000 },
-  { month: 'Jun', payouts: 1410000 },
-];
-
 // Custom tooltip for the chart
 const ChartTooltip = ({ active, payload, label }: {
   active?: boolean;
@@ -42,7 +34,7 @@ const ChartTooltip = ({ active, payload, label }: {
     return (
       <div className="bg-white border border-stone-100 rounded-xl px-3 py-2.5 shadow-lg text-sm">
         <p className="text-stone-400 text-[10px] uppercase tracking-wider mb-1">{label}</p>
-        <p className="font-bold text-stone-900">₹{(payload[0].value / 100000).toFixed(1)}L</p>
+        <p className="font-bold text-stone-900">₹{Math.round(payload[0].value).toLocaleString('en-US')}</p>
       </div>
     );
   }
@@ -50,16 +42,23 @@ const ChartTooltip = ({ active, payload, label }: {
 };
 
 export default function AdminOverviewPage() {
-  const [chartData, setChartData] = useState<MonthlyTrend[]>([]);
-  const [queue,     setQueue]     = useState<FraudQueueItem[]>([]);
   const [activeBar, setActiveBar] = useState<number | null>(null);
 
-  useEffect(() => {
-    fetchPayoutTrends().then(setChartData).catch(console.error);
-    fetchFraudQueue().then(setQueue).catch(console.error);
-  }, []);
+  const { data: chartData = [] } = useQuery<MonthlyTrend[]>({
+    queryKey: ['admin', 'payout-trends'],
+    queryFn: fetchPayoutTrends,
+    staleTime: 60_000,
+    gcTime: 10 * 60_000,
+  });
 
-  const data          = chartData.length > 0 ? chartData : defaultChartData;
+  const { data: queue = [] } = useQuery<FraudQueueItem[]>({
+    queryKey: ['admin', 'fraud-queue'],
+    queryFn: fetchFraudQueue,
+    staleTime: 30_000,
+    gcTime: 10 * 60_000,
+  });
+
+  const data          = chartData;
   const highRisk      = queue.filter(i => i.fraud_score > 70).length;
   const medRisk       = queue.filter(i => i.fraud_score > 30 && i.fraud_score <= 70).length;
   const lowRisk       = queue.filter(i => i.fraud_score <= 30).length;
@@ -157,7 +156,7 @@ export default function AdminOverviewPage() {
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-orange-500" />
-              <span className="text-[11px] text-stone-500">Payouts (₹L)</span>
+              <span className="text-[11px] text-stone-500">Payouts (₹)</span>
             </div>
           </div>
 
@@ -174,7 +173,7 @@ export default function AdminOverviewPage() {
                 axisLine={false}
                 tickLine={false}
                 tick={{ fill: '#A8A29E', fontSize: 11 }}
-                tickFormatter={v => `₹${(v / 100000).toFixed(0)}L`}
+                tickFormatter={v => `₹${Math.round(v).toLocaleString('en-US')}`}
                 width={52}
               />
               <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(249,115,22,0.05)', radius: 8 }} />
@@ -193,6 +192,10 @@ export default function AdminOverviewPage() {
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+
+          {data.length === 0 && (
+            <div className="mt-4 text-center text-xs text-stone-400">No payout trend data available yet.</div>
+          )}
         </div>
 
         {/* Risk forecast */}

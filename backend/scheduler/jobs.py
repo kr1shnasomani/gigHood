@@ -121,7 +121,7 @@ def forecast_alert_stub():
     run_sunday_forecast_cycle()
 
 def xgboost_retrain_stub():
-    logger.info("Running XGBoost weekly retraining pipeline...")
+    logger.info("Running weekly ML retraining pipeline...")
     run_sunday_xgboost_retrain()
 
 # Create the global scheduler instance

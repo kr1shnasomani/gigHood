@@ -379,16 +379,18 @@ def _run_process_claim(worker: dict[str, Any]) -> dict[str, Any]:
     worker_id, hex_id = _require_worker_fields(worker)
     _ensure_hex_zone_exists(hex_id, worker.get("city"))
 
+    def _read_zone_snapshot() -> dict[str, Any] | None:
+        for where_col in ("h3_index", "hex_id"):
+            try:
+                zone_res = supabase.table("hex_zones").select("current_dci,dci_status,last_computed_at").eq(where_col, hex_id).limit(1).execute()
+                if zone_res.data:
+                    return zone_res.data[0]
+            except Exception:
+                continue
+        return None
+
     # Process-claim must run only after a real disruption simulation / elevated live state.
-    zone_snapshot = None
-    for where_col in ("h3_index", "hex_id"):
-        try:
-            zone_res = supabase.table("hex_zones").select("current_dci,dci_status,last_computed_at").eq(where_col, hex_id).limit(1).execute()
-            if zone_res.data:
-                zone_snapshot = zone_res.data[0]
-                break
-        except Exception:
-            continue
+    zone_snapshot = _read_zone_snapshot()
 
     current_dci = None
     current_status = None
@@ -400,6 +402,39 @@ def _run_process_claim(worker: dict[str, Any]) -> dict[str, Any]:
                 current_dci = float(raw_dci)
         except Exception:
             current_dci = None
+
+    snapshot_time = _parse_iso_timestamp((zone_snapshot or {}).get("last_computed_at"))
+    stale_cutoff = datetime.now(timezone.utc) - timedelta(minutes=20)
+    needs_refresh = (current_dci is None) or (snapshot_time is None) or (snapshot_time < stale_cutoff)
+
+    if needs_refresh:
+        try:
+            # Keep claim gate consistent with the latest cached signal-derived DCI.
+            run_dci_cycle([hex_id])
+            zone_snapshot = _read_zone_snapshot() or zone_snapshot
+            current_status = (zone_snapshot or {}).get("dci_status")
+            raw_dci = (zone_snapshot or {}).get("current_dci")
+            current_dci = float(raw_dci) if raw_dci is not None else current_dci
+        except Exception:
+            pass
+
+    if current_dci is None:
+        try:
+            hist = (
+                supabase.table("dci_history")
+                .select("dci_score")
+                .eq("hex_id", hex_id)
+                .order("computed_at", desc=True)
+                .limit(1)
+                .execute()
+            )
+            if hist.data and hist.data[0].get("dci_score") is not None:
+                current_dci = float(hist.data[0].get("dci_score"))
+        except Exception:
+            pass
+
+    derived_status = get_dci_status(current_dci) if current_dci is not None else (current_status or "normal")
+    current_status = derived_status
 
     is_disrupted = current_status == "disrupted" or (current_dci is not None and current_dci > 0.85)
     if not is_disrupted:

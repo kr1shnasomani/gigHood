@@ -24,3 +24,4 @@ pytest==8.3.4
 pytest-asyncio==0.25.0
 setuptools<81
 httpx
+Faker==37.1.0

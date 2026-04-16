@@ -1,6 +1,29 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useLanguageStore } from "@/store/languageStore";
-import { API_BASE_URL } from "@/lib/api";
+
+type SpeechRecognitionErrorType =
+  | "no-speech"
+  | "aborted"
+  | "audio-capture"
+  | "network"
+  | "not-allowed"
+  | "service-not-allowed"
+  | string;
+
+type SpeechRecognitionLike = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  maxAlternatives: number;
+  onresult: ((event: unknown) => void) | null;
+  onerror: ((event: unknown) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+};
+
+type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
 
 const audioCache = new Map<string, string>();
 
@@ -20,9 +43,13 @@ export function useVoiceCopilot(onTranscript: (text: string) => void) {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isAudioLoading, setIsAudioLoading] = useState(false);
+  const [isVoiceSupported, setIsVoiceSupported] = useState(false);
+  const [listenError, setListenError] = useState<string | null>(null);
 
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const shouldKeepListeningRef = useRef(false);
+  const restartTimerRef = useRef<number | null>(null);
 
   // Store onTranscript in a ref so it never appears in the useEffect dep array.
   // Without this, every render of the parent creates a new inline callback,
@@ -38,9 +65,15 @@ export function useVoiceCopilot(onTranscript: (text: string) => void) {
     if (typeof window === "undefined") return;
 
     const SpeechRecognition =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
+      ((window as unknown as { SpeechRecognition?: SpeechRecognitionCtor }).SpeechRecognition) ||
+      ((window as unknown as { webkitSpeechRecognition?: SpeechRecognitionCtor }).webkitSpeechRecognition);
+    if (!SpeechRecognition) {
+      setIsVoiceSupported(false);
+      return;
+    }
+
+    setIsVoiceSupported(true);
+    setListenError(null);
 
     // Tear down any previous instance cleanly before creating a new one.
     if (recognitionRef.current) {
@@ -52,33 +85,77 @@ export function useVoiceCopilot(onTranscript: (text: string) => void) {
       recognitionRef.current = null;
     }
     setIsListening(false);
+    shouldKeepListeningRef.current = false;
 
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
-    recognition.interimResults = false;
+    recognition.interimResults = true;
     recognition.lang = LANG_MAP[language] || "en-US";
+    recognition.maxAlternatives = 1;
 
-    recognition.onresult = (event: any) => {
-      const last = event.results.length - 1;
-      const text = event.results[last][0].transcript;
-      if (text.trim()) {
-        onTranscriptRef.current(text.trim());
+    recognition.onresult = (event: unknown) => {
+      const evt = event as {
+        resultIndex: number;
+        results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }>;
+      };
+      let finalText = "";
+      for (let i = evt.resultIndex; i < evt.results.length; i += 1) {
+        const result = evt.results[i];
+        if (result.isFinal) {
+          finalText += `${result[0].transcript} `;
+        }
+      }
+      const cleaned = finalText.trim();
+      if (cleaned) {
+        onTranscriptRef.current(cleaned);
+        shouldKeepListeningRef.current = false;
+        try {
+          recognition.stop();
+        } catch {
+          /* noop */
+        }
       }
     };
 
-    recognition.onerror = (e: any) => {
-      const errorType: string = e?.error ?? "unknown";
+    recognition.onerror = (e: unknown) => {
+      const errorType =
+        (e as { error?: SpeechRecognitionErrorType } | undefined)?.error ?? "unknown";
 
       // 'no-speech' is non-fatal — the browser fires it when it hears silence.
       // Do not reset isListening; let it keep going (continuous mode).
-      if (errorType === "no-speech") return;
+      if (errorType === "no-speech" || errorType === "aborted") return;
 
       // These are fatal — mic permission denied, hardware lost, etc.
       console.warn(`[VoiceCopilot] Speech recognition error: ${errorType}`);
+      if (errorType === "not-allowed" || errorType === "service-not-allowed") {
+        setListenError("Microphone permission is blocked. Enable mic access in browser settings.");
+      } else if (errorType === "audio-capture") {
+        setListenError("No microphone detected. Please check your audio input device.");
+      } else if (errorType === "network") {
+        setListenError("Speech network error. Please try again with a stable connection.");
+      } else {
+        setListenError("Voice input failed. Please try again.");
+      }
+      shouldKeepListeningRef.current = false;
       setIsListening(false);
     };
 
     recognition.onend = () => {
+      if (shouldKeepListeningRef.current) {
+        if (restartTimerRef.current !== null) {
+          window.clearTimeout(restartTimerRef.current);
+        }
+        restartTimerRef.current = window.setTimeout(() => {
+          try {
+            recognition.start();
+            setIsListening(true);
+          } catch {
+            setIsListening(false);
+            shouldKeepListeningRef.current = false;
+          }
+        }, 220);
+        return;
+      }
       setIsListening(false);
     };
 
@@ -91,6 +168,11 @@ export function useVoiceCopilot(onTranscript: (text: string) => void) {
       } catch {
         /* ignore */
       }
+      if (restartTimerRef.current !== null) {
+        window.clearTimeout(restartTimerRef.current);
+        restartTimerRef.current = null;
+      }
+      shouldKeepListeningRef.current = false;
       setIsListening(false);
     };
   }, [language]); // ← onTranscript intentionally omitted; accessed via ref above
@@ -98,18 +180,23 @@ export function useVoiceCopilot(onTranscript: (text: string) => void) {
   const toggleListening = useCallback(() => {
     const recognition = recognitionRef.current;
     if (!recognition) {
-      alert("Voice recognition is not supported in this browser.");
+      setListenError("Voice recognition is not supported in this browser.");
       return;
     }
     if (isListening) {
+      shouldKeepListeningRef.current = false;
       recognition.stop();
       setIsListening(false);
     } else {
       try {
+        setListenError(null);
+        shouldKeepListeningRef.current = true;
         recognition.start();
         setIsListening(true);
       } catch (e) {
+        shouldKeepListeningRef.current = false;
         console.warn("[VoiceCopilot] Could not start recognition:", e);
+        setListenError("Unable to start microphone. Please try again.");
       }
     }
   }, [isListening]);
@@ -238,6 +325,8 @@ export function useVoiceCopilot(onTranscript: (text: string) => void) {
     isListening,
     isSpeaking,
     isAudioLoading,
+    isVoiceSupported,
+    listenError,
     toggleListening,
     speak,
     interruptSpeech,

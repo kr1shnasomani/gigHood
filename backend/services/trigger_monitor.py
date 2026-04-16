@@ -581,7 +581,7 @@ async def _process_worker_claim(
                 "p_payout_channel":                  policy.get("payout_channel", "UPI"),
             }
             response = await asyncio.to_thread(
-                lambda: supabase_admin.raw().rpc("fn_create_claim", rpc_params).execute()
+                lambda: supabase_admin.rpc("fn_create_claim", rpc_params).execute()
             )
 
             claim_data = (response.data or [{}])[0]
@@ -620,7 +620,7 @@ async def _process_worker_claim(
                     "p_trust_score":  policy.get("trust_score", 50),
                 }
                 await asyncio.to_thread(
-                    lambda: supabase_admin.raw().rpc("fn_assign_claim_path", path_params).execute()
+                    lambda: supabase_admin.rpc("fn_assign_claim_path", path_params).execute()
                 )
 
                 # Write fraud flags (non-blocking)
@@ -689,7 +689,7 @@ async def _write_fraud_flags(
                 "p_details":             None,
             }
             await asyncio.to_thread(
-                lambda p=flag_params: supabase_admin.raw().rpc("fn_raise_fraud_flag", p).execute()
+                lambda p=flag_params: supabase_admin.rpc("fn_raise_fraud_flag", p).execute()
             )
         except Exception as exc:
             logger.warning(

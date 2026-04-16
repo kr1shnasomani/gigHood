@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { fetchKPIs, AdminKPIs } from '@/lib/admin/adminClient';
 import { TrendingUp, Wallet, Activity, ShieldAlert } from 'lucide-react';
 
@@ -30,11 +30,12 @@ function SkeletonCard() {
 }
 
 export default function FinancialKPIs() {
-  const [kpis, setKpis] = useState<AdminKPIs | null>(null);
-
-  useEffect(() => {
-    fetchKPIs().then(setKpis).catch(console.error);
-  }, []);
+  const { data: kpis } = useQuery<AdminKPIs>({
+    queryKey: ['admin', 'kpis'],
+    queryFn: fetchKPIs,
+    staleTime: 60_000,
+    gcTime: 10 * 60_000,
+  });
 
   if (!kpis) {
     return (
@@ -45,33 +46,36 @@ export default function FinancialKPIs() {
   }
 
   const bcr = kpis.total_premium > 0 ? (kpis.total_claims_paid / kpis.total_premium) : 0;
-  const lossRatioPercent = kpis.system_loss_ratio;
+  const lossRatio = kpis.system_loss_ratio;
+  const lossRatioPercent = lossRatio * 100;
   const enrollmentsSuspended = lossRatioPercent > 85;
+  const maxAmount = Math.max(1, Math.round(kpis.total_premium), Math.round(kpis.total_claims_paid));
+  const formatINR = (value: number) => `₹${Math.round(value).toLocaleString('en-US')}`;
 
   const kpiData = [
     {
-      label:   'Total Disbursed This Week',
-      value:   `₹${(kpis.total_claims_paid / 100000).toFixed(1)}L`,
+      label:   'Total Disbursed',
+      value:   formatINR(kpis.total_claims_paid),
       raw:     kpis.total_claims_paid,
-      caption: 'Across active disruption zones',
-      trend:   '+8.4%',
+      caption: 'Approved + paid claims',
+      trend:   'Live',
       trendUp: true,
-      pct:     Math.min((kpis.total_claims_paid / 2000000) * 100, 100),
+      pct:     Math.min((kpis.total_claims_paid / maxAmount) * 100, 100),
     },
     {
       label:   'Premiums Collected',
-      value:   `₹${(kpis.total_premium / 100000).toFixed(1)}L`,
+      value:   formatINR(kpis.total_premium),
       raw:     kpis.total_premium,
-      caption: 'Current underwriting pool',
-      trend:   '+3.2%',
+      caption: 'Sum of active policy premiums',
+      trend:   'Live',
       trendUp: true,
-      pct:     Math.min((kpis.total_premium / 6000000) * 100, 100),
+      pct:     Math.min((kpis.total_premium / maxAmount) * 100, 100),
     },
     {
       label:   'BCR (Burning Cost Rate)',
-      value:   bcr.toFixed(3),
+      value:   bcr.toFixed(2),
       raw:     bcr,
-      caption: 'Total claims paid ÷ total premiums',
+      caption: 'Total disbursed ÷ premiums collected',
       trend:   bcr > 0.6 ? '⚠ High' : 'Normal',
       trendUp: false,
       pct:     Math.min(bcr * 100, 100),
@@ -79,7 +83,7 @@ export default function FinancialKPIs() {
     {
       label:   'Loss Ratio',
       value:   `${lossRatioPercent.toFixed(1)}%`,
-      raw:     lossRatioPercent,
+      raw:     lossRatio,
       caption: 'Guardrail threshold: 85%',
       trend:   lossRatioPercent > 85 ? '⚠ Over limit' : 'Within limit',
       trendUp: lossRatioPercent <= 85,
@@ -154,7 +158,7 @@ export default function FinancialKPIs() {
           <div>
             <p className="text-sm font-bold text-red-700">New Enrollments Suspended</p>
             <p className="text-xs text-red-500 mt-0.5">
-              Loss Ratio has exceeded 85%. Temporarily pause onboarding until underwriting balance is restored.
+              Loss ratio has exceeded 85%. Temporarily pause onboarding until underwriting balance is restored.
             </p>
           </div>
         </div>

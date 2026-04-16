@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Download, AlertTriangle, Shield, Zap, ChevronRight, Home } from 'lucide-react';
+import { Download, Shield, Zap, ChevronRight, Home } from 'lucide-react';
 import {
   fetchFraudMetrics,
   fetchFraudSignals,
@@ -12,7 +12,6 @@ import {
   overrideSandboxSignals,
   overrideSandboxSignalsBatch,
   FraudNetworkGraphResponse,
-  getAdminFallbackEvents,
   FraudMetrics,
   FraudSignal,
   FraudWorker,
@@ -36,7 +35,7 @@ export default function FraudMonitor() {
   const [sandboxBusy, setSandboxBusy] = useState(false);
   const [batchBusy, setBatchBusy] = useState(false);
   const [sandboxMessage, setSandboxMessage] = useState<string | null>(null);
-  const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
+  const [graphError, setGraphError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -83,17 +82,17 @@ export default function FraudMonitor() {
         }
         setGraphMeta(graphData.meta);
 
-        const fallbackEvents = getAdminFallbackEvents();
-        const fraudOrZoneFallback = fallbackEvents.some((event) =>
-          event.url.includes('/admin/fraud/network-graph') || event.url.includes('/admin/dashboard/zones')
-        );
-        setFallbackNotice(
-          fraudOrZoneFallback
-            ? 'Preview fallback data active for graph/map endpoints. Validate against live backend.'
-            : null
-        );
+        if (graphData.meta?.source !== 'live') {
+          const reason = graphData.meta?.reason ? ` (${graphData.meta.reason})` : '';
+          const msg = `Neo4j fraud graph degraded: live query unavailable${reason}`;
+          console.warn(msg, graphData.meta);
+          setGraphError(msg);
+        } else {
+          setGraphError(null);
+        }
       } catch (err) {
         console.error('Failed to load fraud data:', err);
+        setGraphError('Failed to load live fraud graph data from Neo4j.');
       } finally {
         setLoading(false);
       }
@@ -161,13 +160,6 @@ export default function FraudMonitor() {
         </div>
       </div>
 
-      {fallbackNotice && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-800 flex items-center gap-2 shadow-sm">
-          <AlertTriangle size={13} className="text-amber-500 shrink-0" />
-          {fallbackNotice}
-        </div>
-      )}
-
       {/* METRICS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
         <div className="bg-gradient-to-br from-[#1c1917] to-[#292524] text-white p-5 rounded-2xl relative overflow-hidden"
@@ -185,13 +177,13 @@ export default function FraudMonitor() {
         <div style={cardStyle} className="p-5">
           <div className="text-[10px] font-bold text-stone-400 uppercase tracking-[0.15em] mb-2">Mock Locations (24H)</div>
           <div className="text-3xl font-black text-red-600 font-mono">{metrics?.mock_locations_24h ?? 0}</div>
-          <div className="text-[11px] font-semibold text-red-500 mt-2 bg-red-50 w-fit px-2 py-0.5 rounded border border-red-100">+8% increase</div>
+          <div className="text-[11px] font-semibold text-red-500 mt-2 bg-red-50 w-fit px-2 py-0.5 rounded border border-red-100">Live signal feed</div>
         </div>
 
         <div style={cardStyle} className="p-5">
           <div className="text-[10px] font-bold text-stone-400 uppercase tracking-[0.15em] mb-2">Velocity Violations</div>
           <div className="text-3xl font-black text-amber-600 font-mono">{metrics?.velocity_violations ?? 0}</div>
-          <div className="text-[11px] font-semibold text-stone-500 mt-2 bg-stone-50 w-fit px-2 py-0.5 rounded border border-stone-100">Stable baseline</div>
+          <div className="text-[11px] font-semibold text-stone-500 mt-2 bg-stone-50 w-fit px-2 py-0.5 rounded border border-stone-100">Live anomaly counter</div>
         </div>
 
         <div style={cardStyle} className="p-5">
@@ -251,6 +243,11 @@ export default function FraudMonitor() {
 
       {/* NETWORK GRAPH */}
       <div className="p-1 pb-2" style={cardStyle}>
+        {graphError && (
+          <div className="mx-3 mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+            {graphError}
+          </div>
+        )}
         <div className="mx-3 mt-3 mb-2 flex flex-wrap items-center gap-3">
           <label htmlFor="graph-city-filter" className="text-[10px] font-black uppercase tracking-[0.15em] text-stone-400">
             Node Filter
@@ -267,7 +264,7 @@ export default function FraudMonitor() {
             ))}
           </select>
         </div>
-        <div className="rounded-xl overflow-hidden border border-stone-100 mx-3 mb-2 h-[400px]">
+        <div className="rounded-xl overflow-hidden border border-stone-100 mx-3 mb-2 min-h-[620px]">
           <FraudNetworkGraph data={networkGraph} meta={graphMeta ?? undefined} />
         </div>
       </div>

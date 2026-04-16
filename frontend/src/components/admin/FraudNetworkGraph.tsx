@@ -38,7 +38,7 @@ export interface FraudNetworkMeta {
   zones_in_graph?: number;
   devices_in_graph?: number;
   reason?: string;
-  source?: 'live' | 'fallback';
+  source?: 'live' | 'degraded';
 }
 
 export default function FraudNetworkGraph({ data, meta }: { data: NetworkGraph; meta?: FraudNetworkMeta }) {
@@ -331,9 +331,9 @@ export default function FraudNetworkGraph({ data, meta }: { data: NetworkGraph; 
                 </div>
               </div>
 
-              {(meta?.reason || meta?.source === 'fallback') && (
+              {(meta?.reason || meta?.source === 'degraded') && (
                 <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
-                  Data mode: {meta?.source === 'fallback' ? 'Fallback' : 'Live degraded'}
+                  Data mode: Live degraded
                   {meta?.reason ? ` (${meta.reason})` : ''}
                 </div>
               )}
