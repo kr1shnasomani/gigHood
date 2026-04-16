@@ -1,6 +1,7 @@
 import os
 import logging
 import json
+import time
 from collections import deque
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
@@ -54,36 +55,66 @@ class NotificationService:
                     "Set FIREBASE_CREDENTIALS_PATH or FIREBASE_CREDENTIALS_JSON."
                 )
     
-    def send_push(self, device_token: str, title: str, body: str, data: Optional[Dict[str, str]] = None) -> bool:
+    def send_push(self, device_token: str, title: str, body: str, data: Optional[Dict[str, str]] = None, priority: str = "normal") -> bool:
         """
         Pushes an FCM notification strictly targeting a single worker device.
         """
-        if not device_token:
-            logger.info(f"Skipping push: No device_token provided for '{title}'")
+        if not device_token or len(device_token) < 20:
+            logger.info(f"Skipping push: No valid device_token provided for '{title}'")
             return False
             
         data = data or {}
         
         if self.enabled:
-            try:
-                message = messaging.Message(
-                    notification=messaging.Notification(
-                        title=title,
-                        body=body
-                    ),
-                    data=data,
-                    token=device_token
-                )
-                response = messaging.send(message)
-                logger.info(f"FCM Push successful: {response}")
-                return True
-            except Exception as e:
-                logger.error(f"FCM Push failed: {e}")
-                return False
+            for attempt, delay in enumerate([0, 0.5, 1.0, 2.0]):
+                if delay > 0:
+                    time.sleep(delay)
+                try:
+                    kwargs = {
+                        "notification": messaging.Notification(
+                            title=title,
+                            body=body
+                        ),
+                        "data": data,
+                        "token": device_token
+                    }
+                    if priority == "high":
+                        kwargs["android"] = messaging.AndroidConfig(priority="high")
+                        kwargs["apns"] = messaging.APNSConfig(payload=messaging.APNSPayload(aps=messaging.Aps(content_available=True)))
+                        
+                    message = messaging.Message(**kwargs)
+                    response = messaging.send(message)
+                    logger.info(f"FCM Push successful: {response}")
+                    return True
+                except Exception as e:
+                    logger.error(f"FCM Push failed (attempt {attempt+1}): {e}")
+            return False
         else:
             # Mock mode tracing
             logger.info(f"[MOCK FCM] To {device_token[:8]}... | Title: {title} | Body: {body}")
             return True
+
+    def send_bulk_push(self, tokens: list[str], title: str, body: str) -> dict:
+        valid_tokens = [t for t in tokens if t and len(t) >= 20]
+        if not valid_tokens:
+            return {"sent": 0, "failed": 0, "total": 0}
+        
+        sent = 0
+        failed = 0
+        for t in valid_tokens:
+            if self.send_push(t, title, body):
+                sent += 1
+            else:
+                failed += 1
+        return {"sent": sent, "failed": failed, "total": len(valid_tokens)}
+
+    async def async_send_push(self, device_token: str, title: str, body: str) -> bool:
+        import asyncio
+        return await asyncio.to_thread(self.send_push, device_token, title, body)
+        
+    async def async_send_bulk_push(self, tokens: list[str], title: str, body: str) -> dict:
+        import asyncio
+        return await asyncio.to_thread(self.send_bulk_push, tokens, title, body)
 
     # ---------- 5 BOUNDED NOTIFICATION TEMPLATES ----------
     
@@ -136,3 +167,17 @@ class NotificationService:
 
 # Global singleton
 notification_service = NotificationService()
+
+async def send_claim_notification(device_token: str, claim_id: str, tier: str, amount: float):
+    return await notification_service.async_send_push(
+        device_token, 
+        "Claim Fast-Tracked", 
+        f"Your {tier} claim {claim_id} for ₹{amount} has been approved."
+    )
+
+async def send_elevated_watch_alert(tokens: list[str], hex_id: str, risk_score: float):
+    return await notification_service.async_send_bulk_push(
+        tokens, 
+        "Elevated Watch", 
+        f"Zone {hex_id} is at {risk_score} risk."
+    )

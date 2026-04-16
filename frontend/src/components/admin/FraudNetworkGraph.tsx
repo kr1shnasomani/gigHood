@@ -47,6 +47,21 @@ export default function FraudNetworkGraph({ data, meta }: { data: NetworkGraph; 
   const [selectedNode, setSelectedNode] = useState<FraudNode | null>(null);
   const graphRef = useRef<ForceGraphMethods | undefined>(undefined);
 
+  const [dimensions, setDimensions] = useState({ width: 800, height: 560 });
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const ro = new ResizeObserver((entries) => {
+      const { width, height } = entries[0].contentRect;
+      if (width > 0 && height > 0) {
+        setDimensions({ width, height });
+      }
+    });
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, []);
+
   const zoomToFitGraph = (ms = 650) => {
     graphRef.current?.zoomToFit(ms, 220);
   };
@@ -198,7 +213,7 @@ export default function FraudNetworkGraph({ data, meta }: { data: NetworkGraph; 
           </div>
         ) : (
           <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-4">
-            <div className="relative w-full h-[560px] rounded-xl bg-[#F2F4F8] overflow-hidden border border-slate-200">
+            <div ref={containerRef} className="relative w-full h-[560px] rounded-xl bg-[#F2F4F8] overflow-hidden border border-slate-200">
               <div className="absolute top-3 left-3 z-10 rounded-lg bg-white/90 border border-slate-200 px-3 py-2 text-[11px] text-slate-600 shadow-sm space-y-1">
                 <div className="flex items-center gap-2">
                   <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#3B82F6]" />
@@ -213,6 +228,8 @@ export default function FraudNetworkGraph({ data, meta }: { data: NetworkGraph; 
 
               <ForceGraph2D
                 ref={graphRef}
+                width={dimensions.width}
+                height={dimensions.height}
                 graphData={{
                   nodes: visibleNodes,
                   links: visibleEdges.map((e) => ({ ...e, source: e.source, target: e.target })),
@@ -251,9 +268,20 @@ export default function FraudNetworkGraph({ data, meta }: { data: NetworkGraph; 
                     const label = cleanLabel(node.label);
                     const fontSize = Math.max(8, 11 / globalScale);
                     ctx.font = `600 ${fontSize}px ui-sans-serif, system-ui, -apple-system`;
+                    const textWidth = ctx.measureText(label).width;
+                    const bckgDimensions = [textWidth, fontSize].map(n => n + fontSize * 0.4); 
+
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                    ctx.fillRect(
+                      (nodeObj.x ?? 0) - bckgDimensions[0] / 2,
+                      (nodeObj.y ?? 0) + radius + 5 - bckgDimensions[1] / 2,
+                      bckgDimensions[0],
+                      bckgDimensions[1]
+                    );
+
                     ctx.fillStyle = '#1F2937';
                     ctx.textAlign = 'center';
-                    ctx.textBaseline = 'top';
+                    ctx.textBaseline = 'middle';
                     ctx.fillText(label, nodeObj.x ?? 0, (nodeObj.y ?? 0) + radius + 5);
                   }
                 }}

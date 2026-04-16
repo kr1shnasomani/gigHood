@@ -22,7 +22,7 @@ def test_gate2_micro_delivery_exclusions():
     # Generic worker uses default mock array in _evaluate_gate2_orders:
     # 1 valid (>100m) and 1 invalid (<100m).
     # Since valid_orders >= 1 remains, returns STRONG.
-    assert evaluator._evaluate_gate2_orders('worker-honest-123') == 'STRONG'
+    assert evaluator._evaluate_gate2_orders('worker-strong-123') == 'STRONG'
     
     assert evaluator._evaluate_gate2_orders('weak-signal-worker') == 'WEAK'
 

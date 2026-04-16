@@ -102,6 +102,9 @@ def train_and_save_model():
     dci_cols = [f"dci_w{i}" for i in range(1, 13)]
     df["dci_avg"] = df[dci_cols].mean(axis=1)
 
+    if "claim_frequency" in df.columns:
+        df.drop(columns=["claim_frequency"], inplace=True)
+
     df.rename(columns={
         "is_high_risk_season": "seasonal_flag",
         "historical_claim_freq": "claim_frequency"

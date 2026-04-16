@@ -9,8 +9,6 @@ import {
   fetchFraudEvents,
   fetchFraudNetworkGraph,
   fetchLiveZones,
-  overrideSandboxSignals,
-  overrideSandboxSignalsBatch,
   FraudNetworkGraphResponse,
   FraudMetrics,
   FraudSignal,
@@ -28,13 +26,6 @@ export default function FraudMonitor() {
   const [graphMeta, setGraphMeta] = useState<FraudNetworkGraphResponse['meta'] | null>(null);
   const [graphCityFilter, setGraphCityFilter] = useState('ALL');
   const [zones, setZones] = useState<HexZone[]>([]);
-  const [selectedHex, setSelectedHex] = useState('');
-  const [rainfall, setRainfall] = useState(85);
-  const [aqi, setAqi] = useState(320);
-  const [traffic, setTraffic] = useState(72);
-  const [sandboxBusy, setSandboxBusy] = useState(false);
-  const [batchBusy, setBatchBusy] = useState(false);
-  const [sandboxMessage, setSandboxMessage] = useState<string | null>(null);
   const [graphError, setGraphError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -73,7 +64,6 @@ export default function FraudMonitor() {
         setWorkers(workersData);
         setEvents(eventsData);
         setZones(zonesData);
-        if (zonesData.length > 0) setSelectedHex((prev) => prev || zonesData[0].h3_index);
 
         if (graphData.nodes.length > 0 && graphData.links.length > 0) {
           setNetworkGraph(mapGraphForView(graphData));
@@ -105,9 +95,6 @@ export default function FraudMonitor() {
     }, 60000);
     return () => clearInterval(interval);
   }, [graphCityFilter]);
-
-  const applySandboxOverride = async () => { /* noop for UI retheme */ };
-  const applyBatchOverride = async () => { /* noop for UI retheme */ };
 
   const exportReport = () => { /* noop for UI retheme */ };
 

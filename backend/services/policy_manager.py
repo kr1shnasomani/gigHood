@@ -197,32 +197,58 @@ def _get_coverage_cap_for_tier(tier: str) -> float:
     if tier == 'C': return 800.0
     return 700.0 # B
 
+def _validate_policy_params(tier: str, premium: float, cap: float):
+    if tier not in ["A", "B", "C"]:
+        raise ValueError("Invalid tier")
+    if premium <= 0:
+        raise ValueError("Premium must be > 0")
+    if cap <= 0:
+        raise ValueError("Coverage cap must be > 0")
+
+def _check_idempotency(worker_id: str, week_start: date) -> Optional[dict]:
+    res = supabase.table('policies').select('*').eq('worker_id', worker_id).eq('week_start', week_start.isoformat()).limit(1).execute()
+    if res.data:
+        return res.data[0]
+    return None
+
+def _validate_worker_exists(worker_id: str):
+    res = supabase.table('workers').select('id').eq('id', worker_id).limit(1).execute()
+    if not res.data:
+        raise ValueError(f"Worker {worker_id} does not exist")
+
 def create_policy(worker_id: str):
     """
     Creates a brand new policy for a completely new worker. 
     Implements the documented 7-day waiting period policy.
     """
-    history, season_flag, claim_freq, city = fetch_worker_risk_metrics(worker_id)
+    _validate_worker_exists(worker_id)
+    
+    curr_date = date.today()
+    start_date, end_date = get_next_monday_sunday_bounds(curr_date)
+    
+    existing = _check_idempotency(worker_id, start_date)
+    if existing:
+        return existing
 
+    history, season_flag, claim_freq, city = fetch_worker_risk_metrics(worker_id)
     tier = predict_tier(history, season_flag, city, claim_freq)
 
     active_days_30d = _get_active_delivery_days_last_30d(worker_id)
     if active_days_30d is not None and active_days_30d < 5:
         tier = _downgrade_tier_once(tier)
     
-    # Quick DCI proxy average
     dci_avg = sum(history) / len(history) if history else 0.0
-    curr_date = date.today()
     premium = calculate_premium(tier, dci_avg, curr_date.month)
+    cap = _get_coverage_cap_for_tier(tier)
     
-    start_date, end_date = get_next_monday_sunday_bounds(curr_date)
+    _validate_policy_params(tier, premium, cap)
     
     try:
         res = supabase.table('policies').insert({
             "worker_id": worker_id,
             "tier": tier,
             "weekly_premium": premium,
-            "coverage_cap_daily": _get_coverage_cap_for_tier(tier),
+            "coverage_cap_daily": cap,
             "week_start": start_date.isoformat(),
             "week_end": end_date.isoformat(),
             "status": "active",
@@ -246,26 +272,34 @@ def renew_policy(worker_id: str):
     Automatically creates a rollover continuous policy.
     No waiting period cleanly applied (False) since they are renewing active members.
     """
-    history, season_flag, claim_freq, city = fetch_worker_risk_metrics(worker_id)
+    _validate_worker_exists(worker_id)
+    
+    curr_date = date.today()
+    start_date, end_date = get_next_monday_sunday_bounds(curr_date)
+    
+    existing = _check_idempotency(worker_id, start_date)
+    if existing:
+        return existing
 
+    history, season_flag, claim_freq, city = fetch_worker_risk_metrics(worker_id)
     tier = predict_tier(history, season_flag, city, claim_freq)
 
     active_days_30d = _get_active_delivery_days_last_30d(worker_id)
     if active_days_30d is not None and active_days_30d < 5:
         tier = _downgrade_tier_once(tier)
+        
     dci_avg = sum(history) / len(history) if history else 0.0
-    curr_date = date.today()
     premium = calculate_premium(tier, dci_avg, curr_date.month)
+    cap = _get_coverage_cap_for_tier(tier)
     
-    # We want the next week's policy (renewing for future)
-    start_date, end_date = get_next_monday_sunday_bounds(curr_date)
+    _validate_policy_params(tier, premium, cap)
     
     try:
         res = supabase.table('policies').insert({
             "worker_id": worker_id,
             "tier": tier,
             "weekly_premium": premium,
-            "coverage_cap_daily": _get_coverage_cap_for_tier(tier),
+            "coverage_cap_daily": cap,
             "week_start": start_date.isoformat(),
             "week_end": end_date.isoformat(),
             "status": "active",
@@ -277,4 +311,4 @@ def renew_policy(worker_id: str):
             return res.data[0]
     except Exception as e:
         logger.error(f"Failed to renew policy for worker {worker_id}: {e}")
-        pass
+        raise e

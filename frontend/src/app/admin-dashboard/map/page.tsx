@@ -142,7 +142,7 @@ export default function MapPage() {
       zoom: 11.2,
       transitionDuration: 1500,
     }))
-  }, [selectedCity, zones.length])
+  }, [selectedCity, zones])
 
   useEffect(() => {
     setHasMounted(true)

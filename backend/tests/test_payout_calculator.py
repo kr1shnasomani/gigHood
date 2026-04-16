@@ -56,8 +56,8 @@ def test_get_4w_avg_payout_cold_start(mock_supabase):
     mock_execute = MagicMock()
     mock_execute.execute.return_value.data = []
 
-    # 4 layers of chain: select().eq().eq().gte().execute()
-    mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.gte = mock_execute
+    # 5 layers of chain: select().eq().eq().gte().limit().execute()
+    mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.gte.return_value.limit.return_value = mock_execute
 
     assert get_4w_avg_payout("worker-123") == 500.0
 

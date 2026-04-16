@@ -27,7 +27,7 @@ def _get_razorpay_client():
         return None
 
 
-def _mock_payout_response(amount_rupees: float, reference_id: str) -> dict:
+def _mock_payout_response(amount_paise: int, reference_id: str) -> dict:
     mock_rzp_id = f"pout_{uuid.uuid4().hex[:14]}"
     return {
         "id": mock_rzp_id,
@@ -35,25 +35,40 @@ def _mock_payout_response(amount_rupees: float, reference_id: str) -> dict:
         "channel": "UPI",
         "entity": "payout",
         "fund_account_id": "fa_mocked123",
-        "amount": int(amount_rupees * 100),
+        "amount": amount_paise,
         "currency": "INR",
         "status": "processing",
         "reference_id": reference_id,
         "mode": "mock_fallback",
     }
 
-def initiate_upi_payout(upi_id: str, amount_rupees: float, reference_id: str) -> dict:
+def _validate_payout_params(amount_paise: int, reference_id: str) -> tuple[bool, str]:
+    if amount_paise <= 0:
+        return False, "Invalid amount"
+    if not reference_id:
+        return False, "Missing reference_id"
+    return True, "ok"
+
+def initiate_upi_payout(upi_id: str, amount_rupees: float, reference_id: str, fraud_score: int = 0, cap_paise: int = 1000000) -> dict:
     """
     Initiates payout flow via Razorpay test-mode SDK when keys are configured.
     Falls back to deterministic mock response if credentials are missing or API fails.
     """
-    logger.info(f"Initiating payout intent: ₹{amount_rupees} -> {upi_id} (ref={reference_id})")
+    if fraud_score >= 30:
+        raise ValueError("Fraud score too high")
+    
     amount_paise = int(max(0.0, amount_rupees) * 100)
+    if amount_paise <= 0:
+        raise ValueError("Invalid amount")
+    if amount_paise > cap_paise:
+        raise ValueError("Amount exceeds cap")
+
+    logger.info(f"Initiating payout intent: ₹{amount_rupees} -> {upi_id} (ref={reference_id})")
     client = _get_razorpay_client()
 
     if not client:
         logger.info("Razorpay keys missing. Using mock payout fallback.")
-        return _mock_payout_response(amount_rupees, reference_id)
+        return _mock_payout_response(amount_paise, reference_id)
 
     try:
         # Sandbox-compatible order intent representing payout disbursal preparation.
@@ -107,22 +122,20 @@ def debit_premium_mock(upi_id: str, amount_rupees: float, worker_id: str) -> boo
     logger.info(f"---------------------------")
     return True
 
-def handle_payout_webhook(payload: dict, signature: str, secret: str = "gigHoodTestSecret") -> bool:
+def handle_payout_webhook(payload: dict, signature: str, secret: str = None) -> bool:
     """
     Parses and authenticates incoming Razorpay webhooks securely.
     """
+    if not secret:
+        secret = os.getenv("RAZORPAY_WEBHOOK_SECRET")
+    if not secret:
+        return False
     if not payload or not signature:
         return False
         
-    # Standard Razorpay HMAC signature validation
-    # For testing, if payload contains testing bypass we allow it
-    if payload.get("event") == "payout.processed" and payload.get("testing_bypass") is True:
-        return True
-        
     try:
-        # Reconstruct the raw JSON string (in a real app you pass raw bytes directly to this fn)
         import json
-        payload_body = json.dumps(payload, separators=(',', ':'))
+        payload_body = json.dumps(payload, separators=(',', ':'), sort_keys=True)
         
         expected_sig = hmac.new(
             secret.encode('utf-8'),
