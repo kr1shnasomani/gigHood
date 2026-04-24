@@ -15,6 +15,9 @@ import {
   SiTypescript,
 } from '@icons-pack/react-simple-icons';
 import { PipelineVisual } from '@/components/landing/PipelineVisual';
+import { PolicyAssignmentVisual } from '@/components/landing/PolicyAssignmentVisual';
+import { DCIEngineVisual } from '@/components/landing/DCIEngineVisual';
+import { AdminOperationsVisual } from '@/components/landing/AdminOperationsVisual';
 import { TechStackMarquee } from '@/components/landing/TechStackMarquee';
 
 const architectureCards = [
@@ -85,8 +88,10 @@ export default function RootPage() {
         </div>
         <nav className="project-links project-nav-center">
           <a href="#architecture">Architecture</a>
-          <a href="#features">Features</a>
-          <a href="#pipeline">How it works</a>
+          <a href="#pipeline">Pipeline</a>
+          <a href="#policy-assignment">Policy</a>
+          <a href="#dci-engine">DCI Engine</a>
+          <a href="#admin-operations">Operations</a>
         </nav>
         <div className="project-actions">
           <Link href="/worker-app/login" className="project-link-ghost">
@@ -161,6 +166,12 @@ export default function RootPage() {
       </section>
 
       <PipelineVisual />
+
+      <PolicyAssignmentVisual />
+
+      <DCIEngineVisual />
+
+      <AdminOperationsVisual />
 
       <section className="project-section project-dual" id="portals">
         <svg className="project-dual-rays" viewBox="0 0 1000 500" preserveAspectRatio="xMidYMin slice" aria-hidden="true">

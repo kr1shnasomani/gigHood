@@ -3,9 +3,26 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
+
+  // Transpile deck.gl and maplibre ESM packages so Turbopack can bundle them
+  transpilePackages: [
+    'deck.gl',
+    '@deck.gl/core',
+    '@deck.gl/layers',
+    '@deck.gl/geo-layers',
+    '@deck.gl/react',
+    '@deck.gl/aggregation-layers',
+    '@deck.gl/extensions',
+    '@deck.gl/mesh-layers',
+    '@luma.gl/core',
+    '@luma.gl/webgl',
+    'maplibre-gl',
+  ],
+
   experimental: {
     optimizePackageImports: ['lucide-react', 'recharts'],
   },
+
   async redirects() {
     return [
       { source: '/worker-app', destination: '/worker-app/home', permanent: false },

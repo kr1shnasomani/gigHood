@@ -2,6 +2,14 @@
 
 This file defines how coding agents should work in the `gigHood` main branch.
 
+## 0) Universal Entry Point (All LLMs)
+
+`AGENTS.md` is the single source of truth for agent behavior in this repository.
+
+Platform files like `GEMINI.md`, `CLAUDE.md`, or other tool-specific instruction files must stay minimal and point back to this file.
+
+If a platform-specific file conflicts with this file, follow `AGENTS.md` unless the platform has a hard runtime limitation.
+
 ## 1) Mission
 
 `gigHood` is a parametric income-protection platform for gig workers.
