@@ -101,7 +101,7 @@ export function AdminOperationsVisual() {
               </div>
             </div>
             <div className="project-arch-copy">
-              <h3>Visualizing "Sybil Scatter" Syndicates</h3>
+              <h3>Visualizing &quot;Sybil Scatter&quot; Syndicates</h3>
               <p>
                 A 7-layer defense architecture maps relationships across Worker → Device → H3 Zone. Automatically traps coordinated GPS spoofer attacks.
               </p>

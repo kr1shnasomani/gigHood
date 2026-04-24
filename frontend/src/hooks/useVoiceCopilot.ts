@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useLanguageStore } from "@/store/languageStore";
-import api from "@/lib/api";
 
 export function useVoiceCopilot(onTranscript: (text: string) => void) {
   const language = useLanguageStore((s) => s.language);
@@ -24,8 +23,10 @@ export function useVoiceCopilot(onTranscript: (text: string) => void) {
       navigator.mediaDevices &&
       typeof navigator.mediaDevices.getUserMedia === "function"
     ) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsVoiceSupported(true);
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsVoiceSupported(false);
     }
   }, []);

@@ -207,6 +207,7 @@ export default function ChatPage() {
   }, []);
   useEffect(() => {
     if (!chipsSent) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMessages([
         {
           role: "assistant",

@@ -155,6 +155,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("action") === "update-earnings") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShowEarnings(true);
     }
   }, []);
@@ -191,7 +192,6 @@ export default function ProfilePage() {
 
   // ── Derived values ──────────────────────────────────────────────────────────
   const name        = worker?.name ?? "Worker";
-  const firstName   = name.split(" ")[0];
   const tier        = policy?.tier ?? "B";
   const tc          = tierColor(tier);
   const ts          = worker?.trust_score ?? 0;

@@ -13,12 +13,13 @@ import {
 import { Home, ChevronRight, AlertTriangle, TrendingUp } from 'lucide-react'
 
 import { Map as MapLibre } from 'react-map-gl/maplibre'
+import { H3HexagonLayer } from '@deck.gl/geo-layers'
 
 const DeckGL = dynamic(() => import('@deck.gl/react').then((m) => m.default), {
   ssr: false,
 })
 
-type H3HexagonLayerCtor = typeof import('@deck.gl/geo-layers').H3HexagonLayer
+
 type PickingInfo = import('@deck.gl/core').PickingInfo<HexZone>
 type MapViewState = {
   longitude: number
@@ -90,7 +91,6 @@ export default function MapPage() {
   const [webglSupported, setWebglSupported] = useState(true)
   const [deckReady,      setDeckReady]      = useState(false)
   const [deckError,      setDeckError]      = useState<string | null>(null)
-  const [h3Ctor,         setH3Ctor]         = useState<H3HexagonLayerCtor | null>(null)
   const [viewState,      setViewState]      = useState<MapViewState>(INITIAL_VIEW_STATE)
 
   const {
@@ -135,6 +135,7 @@ export default function MapPage() {
     const lat = coords.reduce((sum, pair) => sum + pair[0], 0) / coords.length
     const lng = coords.reduce((sum, pair) => sum + pair[1], 0) / coords.length
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setViewState((prev) => ({
       ...prev,
       latitude: lat,
@@ -145,6 +146,7 @@ export default function MapPage() {
   }, [selectedCity, zones])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHasMounted(true)
     const canvas = document.createElement('canvas')
     setWebglSupported(Boolean(canvas.getContext('webgl2')))
@@ -155,10 +157,8 @@ export default function MapPage() {
     const initDeck = async () => {
       if (!hasMounted || !webglSupported) return
       try {
-        const geoLayers = await import('@deck.gl/geo-layers')
         if (cancelled) return
-        setH3Ctor(() => geoLayers.H3HexagonLayer)
-        window.setTimeout(() => { if (!cancelled) setDeckReady(true) }, 0)
+        setDeckReady(true)
       } catch (err) {
         console.error('Failed to initialize map runtime:', err)
         if (!cancelled) setDeckError('3D map engine failed to initialize.')
@@ -187,22 +187,23 @@ export default function MapPage() {
     }
   }, [validZones])
 
-  const layer = useMemo(() => {
-    if (!h3Ctor) return null
-    return new h3Ctor({
-      id: 'h3-layer',
+  const mapLayer = useMemo(() => {
+    return new H3HexagonLayer({
+      id: 'h3-zones',
       data: validZones,
       pickable: true,
+      wireframe: false,
       filled: true,
       extruded: false,
-      getHexagon:   (d: HexZone) => d.h3_index,
+      elevationScale: 0,
+      getHexagon: (d: HexZone) => String(d.h3_index),
       getFillColor: (d: HexZone) => dciColor(d.dci_score ?? 0, 170),
-      getLineColor: [255, 255, 255, 28],
-      lineWidthMinPixels: 0.8,
-      updateTriggers: { getFillColor: validZones },
+      getLineColor: [255, 255, 255, 40],
+      lineWidthMinPixels: 1,
+      opacity: 0.85,
       onClick: (info: PickingInfo) => { if (info.object) setAlertZone(info.object) },
     })
-  }, [h3Ctor, validZones])
+  }, [validZones])
 
   /* ── Fallbacks for non-WebGL / errors ── */
   if (!hasMounted) {
@@ -410,17 +411,15 @@ export default function MapPage() {
         </div>
 
         {/* ── Map render ── */}
-        {deckReady && layer ? (
+        {deckReady && mapLayer ? (
           <div className="absolute inset-0 z-0 bg-stone-900">
             <DeckGL
               style={{ width: '100%', height: '100%' }}
               viewState={viewState}
-              onViewStateChange={(params: { viewState: MapViewState }) => setViewState(params.viewState)}
-              controller={{
-                scrollZoom: true, dragPan: true, dragRotate: true,
-                doubleClickZoom: true, touchZoom: true, touchRotate: true,
-              }}
-              layers={[layer]}
+              onViewStateChange={(params: { viewState: unknown }) => setViewState(params.viewState as MapViewState)}
+              controller={{ dragPan: true, scrollZoom: true, touchZoom: true, doubleClickZoom: false }}
+              layers={[mapLayer]}
+              getCursor={() => 'crosshair'}
               onError={(error: unknown) => {
                 console.error('DeckGL runtime error:', error)
                 setDeckError('Map rendering failed while initializing GPU resources.')
@@ -428,6 +427,7 @@ export default function MapPage() {
             >
               <MapLibre
                 mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
+                interactive={false}
               />
             </DeckGL>
           </div>

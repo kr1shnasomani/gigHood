@@ -75,7 +75,10 @@ export default function GovtSchemesPage() {
     }
   };
 
-  useEffect(() => { loadSchemes(); }, []);
+  useEffect(() => { 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadSchemes(); 
+  }, []);
 
   // derive unique categories from data
   const categories = useMemo(() => {

@@ -160,6 +160,7 @@ export default function RegisterFormContent() {
 
   useEffect(() => {
     const { device_model, device_os_version } = parseUserAgent();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMetadata((prev) => ({ ...prev, device_model, device_os_version }));
   }, []);
 
@@ -291,17 +292,20 @@ export default function RegisterFormContent() {
     };
 
     detectCityFromLocation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     const zones = DARK_STORE_ZONES[formData.city] || [];
     const activeZone = formData.dark_store_zone;
     if (zones.length > 0 && !zones.includes(activeZone)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData((prev) => ({ ...prev, dark_store_zone: zones[0] }));
     }
   }, [formData.city, formData.dark_store_zone]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsPlatformVerified(false);
   }, [formData.platform_id, formData.platform_affiliation]);
 

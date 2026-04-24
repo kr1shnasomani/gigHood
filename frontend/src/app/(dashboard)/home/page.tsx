@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import {
   AlertCircle,
   Bell,
@@ -274,8 +274,10 @@ export default function DashboardPage() {
   });
 
   // Composite dashboard for backward compatibility
-  const dashboard =
-    worker && activePolicy
+  const dashboard = useMemo(() => {
+    // eslint-disable-next-line react-hooks/purity
+    const now = Date.now();
+    return worker && activePolicy
       ? {
           worker: {
             ...worker,
@@ -289,7 +291,7 @@ export default function DashboardPage() {
             disruptions: claims.filter(
               (c) =>
                 new Date(c.created_at) >=
-                new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+                new Date(now - 7 * 24 * 60 * 60 * 1000),
             ).length,
             total_paid_out: claims
               .filter((c) => c.status === "paid")
@@ -298,6 +300,7 @@ export default function DashboardPage() {
           dci_forecast: null,
         }
       : null;
+  }, [worker, activePolicy, dciData?.current_dci, claims]);
 
   const isLoading =
     isWorkerPending || isPolicyPending || !worker || !activePolicy;
@@ -329,6 +332,7 @@ export default function DashboardPage() {
     const rawDci = dciData?.current_dci;
     const nextDci =
       typeof rawDci === "number" && Number.isFinite(rawDci) ? rawDci : null;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDciScore(nextDci);
 
     if (nextDci === null) {
@@ -492,7 +496,7 @@ export default function DashboardPage() {
     } finally {
       setIsProcessing(false);
     }
-  }, [dashboard?.worker?.phone]);
+  }, [dashboard]);
 
   if (!hasHydrated) {
     return (

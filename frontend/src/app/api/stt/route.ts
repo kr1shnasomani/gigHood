@@ -45,8 +45,9 @@ export async function POST(req: NextRequest) {
     const result = await response.json();
     return NextResponse.json({ transcript: result.text || "" });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("STT Route Error:", error);
-    return NextResponse.json({ detail: error.message || "Internal server error" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Internal server error";
+    return NextResponse.json({ detail: message }, { status: 500 });
   }
 }

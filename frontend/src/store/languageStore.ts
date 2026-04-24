@@ -26,10 +26,7 @@ interface LanguageState {
   setHydrated: (value: boolean) => void;
 }
 
-function mapCityToLanguage(city?: string | null): AppLanguage {
-  const normalized = (city || '').trim().toLowerCase();
-  return CITY_LANGUAGE_MAP[normalized] || 'en';
-}
+
 
 export const useLanguageStore = create<LanguageState>()(
   persist(
@@ -51,7 +48,7 @@ export const useLanguageStore = create<LanguageState>()(
         i18n.changeLanguage(language);
       },
 
-      inferLanguageFromCity: (city) => {
+      inferLanguageFromCity: (_city) => {
         // Automatically inferring language from city is disabled
         // to keep ENG as the default language.
       },
