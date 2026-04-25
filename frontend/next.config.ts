@@ -20,7 +20,13 @@ const nextConfig: NextConfig = {
   ],
 
   experimental: {
-    optimizePackageImports: ['lucide-react', 'recharts'],
+    optimizePackageImports: [
+      'lucide-react',
+      'recharts',
+      '@tanstack/react-query',
+      'framer-motion',
+      'react-markdown',
+    ],
   },
 
   async redirects() {

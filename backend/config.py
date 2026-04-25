@@ -87,16 +87,17 @@ class Settings(BaseSettings):
     POP_WINDOW_MINUTES: int = 30
 
     # Premium banding configuration
-    PREMIUM_A_LOW: float = 20.0
-    PREMIUM_A_HIGH: float = 24.0
-    PREMIUM_B_LOW: float = 28.0
-    PREMIUM_B_HIGH: float = 34.0
-    PREMIUM_C_LOW: float = 36.0
-    PREMIUM_C_HIGH: float = 42.0
+    # True pricing: A=₹20 base (₹28 monsoon), B=₹30 base (₹42 monsoon), C=₹42 flat
+    PREMIUM_A_LOW: float = 20.0   # Tier A non-monsoon
+    PREMIUM_A_HIGH: float = 20.0  # Tier A — single base (monsoon multiplier brings to ₹28)
+    PREMIUM_B_LOW: float = 30.0   # Tier B non-monsoon
+    PREMIUM_B_HIGH: float = 30.0  # Tier B — single base (monsoon multiplier brings to ₹42)
+    PREMIUM_C_LOW: float = 42.0   # Tier C — flat ₹42 regardless of season
+    PREMIUM_C_HIGH: float = 42.0  # Tier C — flat ₹42
     MONSOON_MONTHS: tuple[int, ...] = (6, 7, 8, 9)
     MONSOON_MULTIPLIER: float = 1.4
     MIN_PREMIUM: float = 20.0
-    MAX_PREMIUM: float = 50.0
+    MAX_PREMIUM: float = 42.0     # C flat is the ceiling; monsoon on B also hits ₹42
 
     # Scheduler
     ENABLE_SCHEDULER: bool = True

@@ -52,9 +52,9 @@ def calculate_premium(tier: str, avg_dci_4w: float, month: int) -> float:
         )
 
         # =========================================================
-        # SEASONAL MULTIPLIER
+        # SEASONAL MULTIPLIER (A and B only — C is already flat ₹42)
         # =========================================================
-        if month in settings.MONSOON_MONTHS:
+        if month in settings.MONSOON_MONTHS and tier != "C":
             base_premium *= settings.MONSOON_MULTIPLIER
 
         # =========================================================

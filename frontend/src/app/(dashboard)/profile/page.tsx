@@ -162,6 +162,7 @@ export default function ProfilePage() {
 
   const { data: worker, isLoading: wL } = useQuery({ queryKey: ["me"],     queryFn: workerApi.getMe,       staleTime: 60000 });
   const { data: policy, isLoading: pL } = useQuery({ queryKey: ["policy"], queryFn: workerApi.getMyPolicy,  staleTime: 60000 });
+  const { data: dciData } = useQuery({ queryKey: ["dci"], queryFn: workerApi.getDci, staleTime: 30000 });
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
 
@@ -233,6 +234,28 @@ export default function ProfilePage() {
       </span>
     );
   };
+
+  // ── Plain-language explanation helpers ──────────────────────────────────────
+  const ex = policy?.tier_explanation;
+  const liveDci = dciData?.current_dci ?? ex?.avg_dci_4w ?? null;
+  const liveDciStatus = dciData?.dci_status ?? "unknown";
+
+  function dciPlainText(dci: number | null, status: string): string {
+    if (dci === null) return "Live zone risk is still being calculated. Check back in a few minutes.";
+    const score = Math.round(dci * 100);
+    if (dci >= 0.70) return `Your zone has a high disruption index of ${score}/100 — marked as ${status.toUpperCase()}. This means platform order flows, weather, or traffic in your area are significantly impacted.`;
+    if (dci >= 0.50) return `Your zone DCI is ${score}/100 — moderately elevated. There are some disruption signals in your area but conditions are manageable.`;
+    return `Your zone DCI is ${score}/100 — low disruption. Your area is currently stable with no significant demand or supply shocks detected.`;
+  }
+
+  function tierPlainText(): string {
+    if (!ex) return "Your tier was assigned based on your zone risk and delivery activity.";
+    const dciPart = ex.avg_dci_band === "high" ? "your zone has high disruption" : ex.avg_dci_band === "moderate" ? "moderate zone activity" : "low zone disruption";
+    const claimPart = ex.claim_frequency_band === "high" ? "a high claim frequency" : ex.claim_frequency_band === "moderate" ? "some past claims" : "a clean claim record";
+    const seasonPart = ex.seasonal_flag ? "monsoon season multiplier applied" : "regular season pricing";
+    const actPart = ex.activity_downgrade_applied ? ` You were placed one tier lower because your active delivery days were below the 5-day threshold.` : "";
+    return `Tier ${policy?.tier ?? "B"} was assigned because of ${dciPart}, ${claimPart}, and ${seasonPart}.${actPart}`;
+  }
 
   return (
     <>
@@ -451,6 +474,71 @@ export default function ProfilePage() {
                   </div>
                 </div>
               )}
+            </SectionCard>
+          </div>
+
+          {/* ── WHY THIS TIER & DCI ─────────────────────────────────────────── */}
+          <div>
+            <p style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.8px", color: "var(--text-secondary)", marginBottom: "10px", paddingLeft: "4px" }}>
+              Why my policy & zone score?
+            </p>
+            <SectionCard>
+              {/* Tier reason */}
+              <div style={{ padding: "16px 16px 12px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
+                  <div style={{ width: 34, height: 34, borderRadius: "10px", background: `${tc}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <ShieldCheck size={17} color={tc} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-primary)" }}>Why Tier {tier}?</div>
+                    <div style={{ fontSize: "11px", color: "var(--text-secondary)" }}>Based on your zone, claims & season</div>
+                  </div>
+                </div>
+                <p style={{ fontSize: "13px", color: "rgba(226,232,240,0.85)", lineHeight: 1.65, margin: 0 }}>
+                  {tierPlainText()}
+                </p>
+                {ex?.avg_dci_4w !== undefined && (
+                  <div style={{ display: "flex", gap: "8px", marginTop: "12px", flexWrap: "wrap" }}>
+                    <span style={{ padding: "3px 10px", borderRadius: "99px", fontSize: "11px", fontWeight: 600, background: "rgba(255,255,255,0.06)", color: "var(--text-secondary)" }}>
+                      Zone avg: {(ex.avg_dci_4w * 100).toFixed(0)}/100
+                    </span>
+                    <span style={{ padding: "3px 10px", borderRadius: "99px", fontSize: "11px", fontWeight: 600, background: "rgba(255,255,255,0.06)", color: "var(--text-secondary)" }}>
+                      Claims: {ex.claim_frequency_band}
+                    </span>
+                    <span style={{ padding: "3px 10px", borderRadius: "99px", fontSize: "11px", fontWeight: 600, background: ex.seasonal_flag ? "rgba(245,158,11,0.12)" : "rgba(255,255,255,0.06)", color: ex.seasonal_flag ? "#FCD34D" : "var(--text-secondary)" }}>
+                      {ex.seasonal_flag ? "🌧 Monsoon" : "Regular season"}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Divider */}
+              <div style={{ height: "1px", background: "rgba(255,255,255,0.05)", margin: "0 16px" }} />
+
+              {/* DCI reason */}
+              <div style={{ padding: "12px 16px 16px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
+                  <div style={{ width: 34, height: 34, borderRadius: "10px",
+                    background: (liveDci ?? 0) >= 0.70 ? "rgba(245,158,11,0.15)" : (liveDci ?? 0) >= 0.50 ? "rgba(96,165,250,0.12)" : "rgba(52,211,153,0.12)",
+                    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                  }}>
+                    <TrendingUp size={17} color={(liveDci ?? 0) >= 0.70 ? "#FCD34D" : (liveDci ?? 0) >= 0.50 ? "#93C5FD" : "#6EE7B7"} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-primary)" }}>
+                      Why DCI {liveDci !== null ? `${Math.round((liveDci ?? 0) * 100)}/100` : "—"}?
+                    </div>
+                    <div style={{ fontSize: "11px", color: "var(--text-secondary)" }}>Demand Collapse Index · live zone score</div>
+                  </div>
+                </div>
+                <p style={{ fontSize: "13px", color: "rgba(226,232,240,0.85)", lineHeight: 1.65, margin: 0 }}>
+                  {dciPlainText(liveDci, liveDciStatus)}
+                </p>
+                <p style={{ fontSize: "11px", color: "var(--text-secondary)", marginTop: "10px", lineHeight: 1.5 }}>
+                  DCI combines weather signals, platform order volume, and area traffic.
+                  It updates every 10 minutes via the scheduler.
+                </p>
+              </div>
             </SectionCard>
           </div>
 

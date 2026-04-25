@@ -111,3 +111,18 @@ skills-lock.json
 !frontend/src/lib/**
 .vercel
 .env*.local
+
+# Local npm config (per-developer, not committed)
+frontend/.npmrc
+
+# ESLint scratch output files
+frontend/eslint_output.txt
+eslint_output.txt
+
+# ML model artifacts (trained binaries)
+backend/ml/*.pkl
+backend/ml/*.json
+!backend/ml/.gitkeep
+
+# Render/CI local cache
+.render-buildpacks.json

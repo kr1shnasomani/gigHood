@@ -66,6 +66,8 @@ const tierCards = [
     tier: 'A',
     label: 'Standard Cover',
     cap: '₹600/day',
+    premium: '₹20/week',
+    monsoon: '₹28 in monsoon',
     desc: 'Low DCI zones, no monsoon flag, healthy claim history.',
     color: '#16a34a',
     bg: '#ffffff',
@@ -74,6 +76,8 @@ const tierCards = [
     tier: 'B',
     label: 'Enhanced Cover',
     cap: '₹700/day',
+    premium: '₹30/week',
+    monsoon: 'flat — no multiplier',
     desc: 'Moderate disruption or elevated flood proximity score.',
     color: '#d97706',
     bg: '#ffffff',
@@ -81,7 +85,9 @@ const tierCards = [
   {
     tier: 'C',
     label: 'High-Risk Cover',
-    cap: '₹900/day',
+    cap: '₹800/day',
+    premium: '₹42/week',
+    monsoon: 'flat — no multiplier',
     desc: 'DCI ≥ 0.65 AND flood score ≥ 0.70 — severe disruption zone.',
     color: '#dc2626',
     bg: '#ffffff',
@@ -192,6 +198,10 @@ export function PolicyAssignmentVisual() {
                     {t.cap}
                   </p>
                   <p className="gh-policy-tier-label">{t.label}</p>
+                  <p style={{ fontSize: '12px', fontWeight: 700, color: t.color, margin: '4px 0 2px' }}>
+                    {t.premium}
+                    <span style={{ fontWeight: 400, color: '#6b7280', fontSize: '11px', marginLeft: 4 }}>({t.monsoon})</span>
+                  </p>
                   <p className="gh-policy-tier-desc">{t.desc}</p>
                 </div>
               ))}
@@ -231,8 +241,8 @@ export function PolicyAssignmentVisual() {
                       className="gh-policy-trace-val"
                       data-highlight={
                         row.key === 'Final Tier' ||
-                        row.key === 'Coverage Cap' ||
-                        row.key === 'Waiting Period'
+                          row.key === 'Coverage Cap' ||
+                          row.key === 'Waiting Period'
                           ? 'true'
                           : undefined
                       }
