@@ -20,7 +20,7 @@ razorpay==1.4.1
 firebase-admin==6.6.0
 neo4j==5.28.1
 rich>=13.7.0
-pytest==9.0.3
+pytest==8.3.4
 pytest-asyncio==0.25.0
 setuptools<81
 Faker==37.1.0
